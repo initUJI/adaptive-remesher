@@ -80,37 +80,54 @@ en un `.json` reutilizable entre sesiones o entre mallas similares.
 ## Estructura del proyecto
 
 ```
-app.py            Interfaz Qt (viewport, panel de controles, undo/redo,
-                   presets, procesamiento por lotes).
-remesh_core.py     Logica de dominio pura, independiente de Qt: limpieza,
-                   ambos motores de decimacion, proteccion de costuras UV
-                   y el pipeline de decimacion+validacion por error
-                   compartido entre el flujo interactivo y el batch.
-tests/             Tests de remesh_core.py con pytest (mallas sinteticas,
-                   sin necesidad de un QApplication).
+app.py             Ventana principal Qt: estado de la malla/proteccion,
+                    undo/redo, presets, procesamiento por lotes. La
+                    construccion de cada seccion del panel vive en ui/.
+remesh_core.py      Logica de dominio pura, independiente de Qt: limpieza,
+                    ambos motores de decimacion, proteccion de costuras UV
+                    y el pipeline de decimacion+validacion por error
+                    compartido entre el flujo interactivo y el batch.
+ui/
+  common.py         Estilos, dialogos y widgets reutilizables (tooltip,
+                    cursor de espera, panel plegable, comparacion lado a
+                    lado).
+  panels/           Una funcion build_xxx_panel(window, layout) por cada
+                    seccion del panel de control (limpieza, proteccion,
+                    decimacion, validacion por error, batch...).
+tests/              Tests de remesh_core.py con pytest (mallas sinteticas,
+                    sin necesidad de un QApplication).
 ```
 
 ## Desarrollo
 
 ```bash
 pip install -r requirements-dev.txt
-pytest          # tests unitarios de remesh_core.py
-ruff check .    # lint
+pytest              # tests unitarios de remesh_core.py
+ruff check .        # lint
+mypy remesh_core.py app.py ui tests   # tipos
 ```
 
 Los tests cubren `remesh_core.py` (limpieza, ambos motores de decimacion,
 proteccion por mascara, costuras UV y el pipeline completo) con mallas
 sinteticas generadas con PyVista; no requieren interfaz grafica.
 
+Para que ruff/mypy/pytest se ejecuten solos en cada commit:
+
+```bash
+pre-commit install
+```
+
+Ver [BUILD.md](BUILD.md) para generar un ejecutable de escritorio con
+PyInstaller, y [CHANGELOG.md](CHANGELOG.md) para el historial de cambios.
+
 ## Limitaciones conocidas
 
-- Prototipo de un solo archivo de interfaz; sin empaquetado para
-  distribuir un ejecutable de escritorio.
 - La seleccion por rectangulo no hace test de profundidad: tambien
   marca puntos ocultos detras de la malla.
 - El pincel de proteccion se desactiva automaticamente tras decimar,
   porque trabaja contra el KDTree de la malla original y el motor QEM
   puede mover vertices.
+- El build de PyInstaller (ver BUILD.md) solo se ha probado en Windows.
 
 ## Licencia
 

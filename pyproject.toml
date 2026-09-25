@@ -7,3 +7,10 @@ select = ["E", "F", "W"]
 # Los docstrings y tooltips en espanol suelen superar el limite de linea;
 # no vale la pena forzar el wrap solo por estilo.
 ignore = ["E501"]
+
+[tool.mypy]
+# Sin `python_version` fijo a proposito: que mypy infiera el objetivo del
+# interprete que lo ejecuta. Fijarlo aqui (p.ej. a 3.11) rompe en cuanto
+# una dependencia sin tope de version (ver requirements.txt) publica stubs
+# que ya asumen sintaxis mas moderna (type statements de PEP 695, etc.).
+ignore_missing_imports = true

@@ -22,5 +22,8 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      - name: Tipos (mypy)
+        run: mypy remesh_core.py app.py ui tests
+
       - name: Tests (pytest)
         run: pytest

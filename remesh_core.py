@@ -253,9 +253,11 @@ class PipelineResult:
     reduction_real_pct: float
     manual_protected_points: int
     uv_seam_protected_points: int
-    error_max: Optional[float]
-    error_mean: Optional[float]
-    error_p95: Optional[float]
+    # Siempre poblados por run_decimation_pipeline (con o sin refinamiento
+    # iterativo, el error se mide al menos una vez), nunca None.
+    error_max: float
+    error_mean: float
+    error_p95: float
     error_refine_iterations: int
     error_refine_added_points: int
 

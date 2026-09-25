@@ -8,13 +8,15 @@ sueltos, vertices/aristas no-manifold, relleno opcional de agujeros) via
 PyMeshLab; pintado/borrado manual de zonas protegidas; proteccion
 automatica de costuras UV; y validacion por error geometrico que
 auto-protege zonas donde la decimacion se desvia demasiado del original.
+
+La construccion de la UI esta dividida por seccion en `ui/panels/` (una
+funcion `build_xxx_panel(window, panel_layout)` por cada grupo del panel de
+control); este modulo conserva el estado y toda la logica de la ventana.
 """
 
 import json
 import os
 import sys
-import time
-from contextlib import contextmanager
 from datetime import datetime
 
 import numpy as np
@@ -24,11 +26,8 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
-    QDialog,
-    QFileDialog,
     QDoubleSpinBox,
-    QGridLayout,
-    QGroupBox,
+    QFileDialog,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -45,7 +44,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from PySide6.QtCore import QEvent, QRect, Qt, QTimer
-from PySide6.QtGui import QKeySequence, QShortcut
 from pyvistaqt import QtInteractor
 from scipy.spatial import cKDTree
 
@@ -61,223 +59,68 @@ from remesh_core import (
     run_decimation_pipeline,
     uv_seam_point_mask,
 )
-
-DEBUG = False
+from ui.common import STYLESHEET, CollapsibleGroupBox, ComparisonDialog, busy_cursor, debug
+from ui.panels import (
+    build_action_buttons,
+    build_batch_panel,
+    build_clean_panel,
+    build_decimation_panel,
+    build_header,
+    build_presets_panel,
+    build_protection_panel,
+    build_validation_panel,
+    build_view_panel,
+)
 
 PANEL_STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".panel_layout.json")
 
 BATCH_INPUT_EXTENSIONS = (".obj", ".stl", ".ply", ".vtp", ".glb", ".gltf")
-
-STYLESHEET = """
-QMainWindow, QWidget {
-    background-color: #1c1d22;
-    color: #e4e6eb;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    font-size: 13px;
-}
-QLabel#headerLabel {
-    color: #ffffff;
-    font-size: 17px;
-    font-weight: 600;
-    padding: 2px 0 10px 0;
-}
-QGroupBox {
-    border: 1px solid #33353d;
-    border-radius: 8px;
-    margin-top: 14px;
-    padding: 12px 10px 10px 10px;
-    font-weight: 600;
-    color: #8fb2ff;
-}
-QGroupBox::title {
-    subcontrol-origin: margin;
-    left: 12px;
-    padding: 0 6px;
-}
-QGroupBox::indicator { width: 0px; height: 0px; }
-QPushButton {
-    background-color: #2a2c33;
-    border: 1px solid #3d3f48;
-    border-radius: 6px;
-    padding: 7px 12px;
-    color: #e4e6eb;
-}
-QPushButton:hover { border-color: #5b7cfa; }
-QPushButton:pressed { background-color: #23252b; }
-QPushButton:checked {
-    background-color: #3355cc;
-    border-color: #5b7cfa;
-    color: white;
-}
-QPushButton#eraseButton:checked {
-    background-color: #b23a3a;
-    border-color: #ff6b6b;
-}
-QPushButton#primaryButton {
-    background-color: #2f8f5b;
-    border-color: #3fb875;
-    font-weight: 600;
-}
-QPushButton#primaryButton:hover { background-color: #37a568; }
-QCheckBox { spacing: 8px; padding: 2px 0; }
-QSlider::groove:horizontal {
-    height: 4px;
-    background: #33353d;
-    border-radius: 2px;
-}
-QSlider::handle:horizontal {
-    background: #5b7cfa;
-    width: 14px;
-    height: 14px;
-    margin: -5px 0;
-    border-radius: 7px;
-}
-QSlider::sub-page:horizontal { background: #4a63c9; border-radius: 2px; }
-QSpinBox {
-    background-color: #2a2c33;
-    border: 1px solid #3d3f48;
-    border-radius: 4px;
-    padding: 2px 4px;
-    min-width: 46px;
-}
-QToolTip {
-    background-color: #2a2c33;
-    color: #e4e6eb;
-    border: 1px solid #5b7cfa;
-    border-radius: 4px;
-    padding: 6px 8px;
-}
-QComboBox {
-    background-color: #2a2c33;
-    border: 1px solid #3d3f48;
-    border-radius: 4px;
-    padding: 4px 8px;
-}
-QComboBox:hover { border-color: #5b7cfa; }
-QComboBox::drop-down { border: none; width: 20px; }
-QComboBox QAbstractItemView {
-    background-color: #2a2c33;
-    color: #e4e6eb;
-    selection-background-color: #3355cc;
-    border: 1px solid #3d3f48;
-    outline: none;
-}
-QSplitter::handle {
-    background-color: #33353d;
-}
-QSplitter::handle:hover { background-color: #5b7cfa; }
-QScrollArea { border: none; }
-QScrollBar:vertical {
-    background: #1c1d22;
-    width: 12px;
-    margin: 0;
-}
-QScrollBar::handle:vertical {
-    background: #3d3f48;
-    border-radius: 6px;
-    min-height: 24px;
-}
-QScrollBar::handle:vertical:hover { background: #5b7cfa; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
-"""
-
-
-@contextmanager
-def busy_cursor():
-    """Muestra el cursor de espera durante una operacion potencialmente
-    larga (limpieza o decimacion), para que la interfaz no parezca colgada."""
-    QApplication.setOverrideCursor(Qt.WaitCursor)
-    QApplication.processEvents()
-    try:
-        yield
-    finally:
-        QApplication.restoreOverrideCursor()
-
-
-def tip(text: str) -> str:
-    """Envuelve un texto de tooltip en HTML simple para que Qt lo ajuste a varias lineas con un ancho maximo legible."""
-    return f"<div style='max-width:280px'>{text}</div>"
-
-
-def debug(msg):
-    """Imprime un mensaje con hora si DEBUG esta activo (diagnostico de eventos de raton/camara)."""
-    if DEBUG:
-        print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
-
-
-class ComparisonDialog(QDialog):
-    """Ventana de comparacion lado a lado: malla original a la izquierda,
-    resultado decimado a la derecha, con las camaras de ambos viewports
-    sincronizadas (orbitar/hacer zoom en uno mueve el otro igual)."""
-
-    def __init__(self, original: pv.PolyData, decimated: pv.PolyData, parent=None):
-        """Construye el dialogo con dos sub-vistas de un mismo QtInteractor y encuadra la camara sobre el original."""
-        super().__init__(parent)
-        self.setWindowTitle("Comparar original vs. decimado")
-        self.resize(1100, 650)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self.plotter = QtInteractor(self, shape=(1, 2))
-        self.plotter.set_background("#24262c")
-        layout.addWidget(self.plotter.interactor)
-
-        self.plotter.subplot(0, 0)
-        self.plotter.add_mesh(original, show_edges=True, color="#d8dadd", edge_color="#101114")
-        self.plotter.add_text(
-            f"Original: {original.n_points} vert / {original.n_cells} tris",
-            color="white",
-            font_size=10,
-        )
-
-        self.plotter.subplot(0, 1)
-        self.plotter.add_mesh(decimated, show_edges=True, color="#d8dadd", edge_color="#101114")
-        self.plotter.add_text(
-            f"Decimado: {decimated.n_points} vert / {decimated.n_cells} tris",
-            color="white",
-            font_size=10,
-        )
-
-        self.plotter.link_views()
-        self.plotter.subplot(0, 0)
-        self.plotter.reset_camera()
-
-
-class CollapsibleGroupBox(QGroupBox):
-    """QGroupBox cuyo titulo actua de interruptor: un click lo pliega o
-    despliega. Al plegarlo solo se ocultan sus widgets hijos (siguen
-    existiendo y conservan su valor); se usa para que quepan muchas
-    secciones en el panel sin obligar a hacer scroll todo el rato con
-    grupos que en ese momento no interesan."""
-
-    def __init__(self, title: str, parent=None, expanded: bool = True):
-        super().__init__(parent)
-        self._base_title = title
-        self.setCheckable(True)
-        self.setChecked(expanded)
-        self._apply_expanded(expanded)
-        self.toggled.connect(self._apply_expanded)
-
-    def _apply_expanded(self, expanded: bool):
-        """Antepone una flecha (desplegado/plegado) al titulo y muestra u
-        oculta los widgets hijos directos del layout del grupo."""
-        arrow = "▾" if expanded else "▸"
-        self.setTitle(f"{arrow} {self._base_title}")
-        layout = self.layout()
-        if layout is not None:
-            for i in range(layout.count()):
-                widget = layout.itemAt(i).widget()
-                if widget is not None:
-                    widget.setVisible(expanded)
 
 
 class AdaptiveRemesherWindow(QMainWindow):
     """Ventana principal: viewport 3D + panel de controles para limpiar,
     proteger manualmente y decimar de forma adaptativa una malla."""
 
-    def __init__(self):
+    # Widgets creados y asignados por las funciones build_xxx_panel de
+    # ui.panels (llamadas desde __init__): anotados aqui sin asignar, solo
+    # para que mypy conozca su tipo -la asignacion real ocurre dentro de
+    # cada build_xxx_panel, no aqui.
+    undo_btn: QPushButton
+    redo_btn: QPushButton
+    auto_clean_cb: QCheckBox
+    min_fragment_slider: QSlider
+    min_fragment_spin: QSpinBox
+    close_holes_cb: QCheckBox
+    max_hole_size_spin: QSpinBox
+    fix_orientation_cb: QCheckBox
+    curvature_cb: QCheckBox
+    live_preview_cb: QCheckBox
+    paint_btn: QPushButton
+    erase_btn: QPushButton
+    rect_btn: QPushButton
+    brush_slider: QSlider
+    brush_spin: QSpinBox
+    protected_count_label: QLabel
+    protect_uv_seams_cb: QCheckBox
+    engine_combo: QComboBox
+    reduction_slider: QSlider
+    reduction_value_label: QLabel
+    angle_slider: QSlider
+    angle_value_label: QLabel
+    preserve_topology_cb: QCheckBox
+    boundary_vertex_deletion_cb: QCheckBox
+    splitting_cb: QCheckBox
+    qem_group: CollapsibleGroupBox
+    volume_preservation_cb: QCheckBox
+    uv_attribute_metric_cb: QCheckBox
+    uv_weight_spin: QDoubleSpinBox
+    normals_weight_cb: QCheckBox
+    normals_weight_spin: QDoubleSpinBox
+    auto_error_cb: QCheckBox
+    error_threshold_spin: QDoubleSpinBox
+    export_report_cb: QCheckBox
+
+    def __init__(self) -> None:
         """Construye el viewport 3D y el panel de controles, e inicializa el estado de la malla/proteccion."""
         super().__init__()
         self.setWindowTitle("Adaptive Remesher — prototipo")
@@ -319,7 +162,9 @@ class AdaptiveRemesherWindow(QMainWindow):
         layout.setSpacing(0)
 
         self.plotter = QtInteractor(self)
-        self.plotter.set_background("#24262c")
+        # pyvista envuelve set_background con un decorador que los stubs de
+        # tipos no reflejan bien (ver el mismo patron en ui/common.py).
+        self.plotter.set_background("#24262c")  # type: ignore[arg-type]
         # Intercepta el raton a nivel de Qt, antes de que llegue a VTK: es la
         # unica forma fiable de evitar que el estilo de camara consuma el
         # arrastre mientras se pinta/borra (los observadores de VTK no
@@ -341,13 +186,13 @@ class AdaptiveRemesherWindow(QMainWindow):
         scroll.setWidgetResizable(True)
         scroll.setMinimumWidth(260)
         scroll.setMaximumWidth(700)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         # Splitter en vez de un ancho fijo: el borde entre el viewport y el
         # panel se puede arrastrar con el raton para hacer el panel mas
         # ancho o mas estrecho (dentro de 260-700px), en vez de quedar
         # bloqueado a 336px.
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.setHandleWidth(6)
         splitter.addWidget(self.plotter.interactor)
@@ -357,591 +202,21 @@ class AdaptiveRemesherWindow(QMainWindow):
         splitter.setSizes([self.width() - 336, 336])
         layout.addWidget(splitter)
 
-        header = QLabel("Adaptive Remesher")
-        header.setObjectName("headerLabel")
-        panel_layout.addWidget(header)
-
-        load_btn = QPushButton("Cargar malla...")
-        load_btn.setToolTip(tip(
-            "Abre un archivo (OBJ, STL, PLY, VTP, GLB o GLTF), lo convierte "
-            "a una malla de triangulos y lo muestra en el viewport. Si "
-            "\"Limpiar automaticamente al cargar\" esta activo, tambien la "
-            "limpia antes de mostrarla."
-        ))
-        load_btn.clicked.connect(self.load_mesh)
-        panel_layout.addWidget(load_btn)
-
-        undo_redo_row = QHBoxLayout()
-        self.undo_btn = QPushButton("Deshacer")
-        self.undo_btn.setToolTip(tip(
-            "Deshace la ultima accion (limpieza, trazo de pincel, borrado "
-            "de marcas, decimacion o restaurar original). Atajo: Ctrl+Z."
-        ))
-        self.undo_btn.setEnabled(False)
-        self.undo_btn.clicked.connect(self.undo)
-        self.redo_btn = QPushButton("Rehacer")
-        self.redo_btn.setToolTip(tip(
-            "Rehace la ultima accion deshecha. Atajo: Ctrl+Y."
-        ))
-        self.redo_btn.setEnabled(False)
-        self.redo_btn.clicked.connect(self.redo)
-        undo_redo_row.addWidget(self.undo_btn)
-        undo_redo_row.addWidget(self.redo_btn)
-        panel_layout.addLayout(undo_redo_row)
-
-        QShortcut(QKeySequence.Undo, self, activated=self.undo)
-        QShortcut(QKeySequence.Redo, self, activated=self.redo)
-        QShortcut(QKeySequence("Ctrl+Y"), self, activated=self.redo)
-
-        # --- Perfiles de configuracion ---
-        preset_group = self._add_collapsible_group("presets", "Perfiles de configuracion")
-        preset_grid = QGridLayout(preset_group)
-
-        save_preset_btn = QPushButton("Guardar preset...")
-        save_preset_btn.setToolTip(tip(
-            "Guarda todos los parametros actuales del panel (limpieza, "
-            "proteccion automatica de costuras, motor de decimacion y sus "
-            "opciones, validacion por error...) en un .json reutilizable, "
-            "para aplicar rapidamente el mismo ajuste a otras mallas "
-            "parecidas (personajes, props, terreno...). No incluye la "
-            "malla en si ni las marcas de proteccion manual."
-        ))
-        save_preset_btn.clicked.connect(self.save_preset)
-        load_preset_btn = QPushButton("Cargar preset...")
-        load_preset_btn.setToolTip(tip(
-            "Carga un preset guardado previamente y aplica sus valores a "
-            "todos los controles del panel. No toca la malla cargada ni "
-            "las marcas de proteccion manual existentes."
-        ))
-        load_preset_btn.clicked.connect(self.load_preset)
-        preset_grid.addWidget(save_preset_btn, 0, 0)
-        preset_grid.addWidget(load_preset_btn, 0, 1)
-        panel_layout.addWidget(preset_group)
+        build_header(self, panel_layout)
+        build_presets_panel(self, panel_layout)
 
         self.stats_label = QLabel("Sin malla cargada")
         self.stats_label.setWordWrap(True)
         panel_layout.addWidget(self.stats_label)
 
-        # --- Limpieza previa ---
-        clean_group = self._add_collapsible_group("clean", "Limpieza previa (PyMeshLab)")
-        clean_grid = QGridLayout(clean_group)
+        build_clean_panel(self, panel_layout)
+        build_view_panel(self, panel_layout)
 
-        self.auto_clean_cb = QCheckBox("Limpiar automaticamente al cargar")
-        self.auto_clean_cb.setChecked(True)
-        self.auto_clean_cb.setToolTip(tip(
-            "Si esta marcado, cada vez que cargues una malla se le aplica "
-            "automaticamente la limpieza de PyMeshLab (vertices duplicados, "
-            "no-manifold basico y fragmentos flotantes) antes de mostrarla."
-        ))
-        clean_grid.addWidget(self.auto_clean_cb, 0, 0, 1, 2)
-
-        fragment_label = QLabel("Fragmento minimo (% diagonal)")
-        fragment_tip = tip(
-            "Cualquier trozo de malla desconectado del resto (tipico "
-            "residuo de generacion por IA: motas, restos flotantes) cuyo "
-            "tamano sea menor que este porcentaje de la diagonal del "
-            "bounding box se elimina por completo. Subelo si quedan restos "
-            "sueltos; bajalo si desaparecen piezas pequenas que si quieres "
-            "conservar. En 0% este filtro se desactiva por completo."
-        )
-        fragment_label.setToolTip(fragment_tip)
-        clean_grid.addWidget(fragment_label, 1, 0, 1, 2)
-        self.min_fragment_slider = QSlider(Qt.Horizontal)
-        self.min_fragment_slider.setRange(0, 20)
-        self.min_fragment_slider.setValue(2)
-        self.min_fragment_slider.setToolTip(fragment_tip)
-        self.min_fragment_spin = QSpinBox()
-        self.min_fragment_spin.setRange(0, 20)
-        self.min_fragment_spin.setValue(2)
-        self.min_fragment_spin.setSuffix("%")
-        self.min_fragment_spin.setToolTip(fragment_tip)
-        self.min_fragment_slider.valueChanged.connect(self.min_fragment_spin.setValue)
-        self.min_fragment_spin.valueChanged.connect(self.min_fragment_slider.setValue)
-        clean_grid.addWidget(self.min_fragment_slider, 2, 0)
-        clean_grid.addWidget(self.min_fragment_spin, 2, 1)
-
-        self.close_holes_cb = QCheckBox("Rellenar agujeros pequenos")
-        self.close_holes_cb.setChecked(False)
-        self.close_holes_cb.setToolTip(tip(
-            "Cierra con caras nuevas los agujeros de hasta el tamano "
-            "indicado (utiles tras quitar fragmentos). Cuidado: con un "
-            "tamano demasiado alto puede cerrar huecos que si son "
-            "intencionados (ojos, boca, aberturas)."
-        ))
-        clean_grid.addWidget(self.close_holes_cb, 3, 0, 1, 2)
-
-        hole_size_label = QLabel("Tamano max. de agujero (aristas)")
-        hole_size_tip = tip(
-            "Solo se rellenan agujeros delimitados por hasta este numero "
-            "de aristas. Subelo para cerrar huecos mas grandes; bajalo "
-            "para no tocar aberturas grandes que pueden ser intencionadas."
-        )
-        hole_size_label.setToolTip(hole_size_tip)
-        clean_grid.addWidget(hole_size_label, 4, 0, 1, 2)
-        self.max_hole_size_spin = QSpinBox()
-        self.max_hole_size_spin.setRange(3, 500)
-        self.max_hole_size_spin.setValue(30)
-        self.max_hole_size_spin.setToolTip(hole_size_tip)
-        clean_grid.addWidget(self.max_hole_size_spin, 5, 0, 1, 2)
-
-        self.fix_orientation_cb = QCheckBox("Reorientar caras de forma coherente")
-        self.fix_orientation_cb.setChecked(False)
-        self.fix_orientation_cb.setToolTip(tip(
-            "Corrige caras con la normal invertida (defecto tipico de "
-            "generacion por IA: algunas caras miran hacia dentro y otras "
-            "hacia fuera en la misma superficie) reorientandolas todas de "
-            "forma coherente entre si. Arregla sombreado invertido o "
-            "\"agujeros\" que en realidad son caras del reves. No garantiza "
-            "que el resultado final mire hacia fuera (solo que todas las "
-            "caras conectadas miran igual)."
-        ))
-        clean_grid.addWidget(self.fix_orientation_cb, 6, 0, 1, 2)
-
-        clean_now_btn = QPushButton("Limpiar ahora")
-        clean_now_btn.setToolTip(tip(
-            "Vuelve a aplicar la limpieza (con el umbral de fragmento "
-            "actual) sobre la malla ya cargada. Como cambia el numero de "
-            "vertices, borra las marcas de proteccion existentes."
-        ))
-        clean_now_btn.clicked.connect(self.clean_now)
-        clean_grid.addWidget(clean_now_btn, 7, 0, 1, 2)
-
-        panel_layout.addWidget(clean_group)
-
-        # --- Visualizacion ---
-        view_group = self._add_collapsible_group("view", "Visualizacion")
-        view_grid = QGridLayout(view_group)
-
-        self.curvature_cb = QCheckBox("Mapa de curvatura (malla original)")
-        self.curvature_cb.setChecked(False)
-        self.curvature_cb.setToolTip(tip(
-            "Colorea la malla original segun su curvatura media (azul/rojo "
-            "= zonas planas/curvas), para ver de un vistazo donde conviene "
-            "pintar zonas protegidas antes de decimar. Solo se aplica "
-            "mientras se ve la malla original, no el resultado decimado."
-        ))
-        self.curvature_cb.toggled.connect(self._on_curvature_toggled)
-        view_grid.addWidget(self.curvature_cb, 0, 0)
-
-        self.live_preview_cb = QCheckBox("Vista previa en tiempo real")
-        self.live_preview_cb.setChecked(False)
-        self.live_preview_cb.setToolTip(tip(
-            "Mientras mueves la agresividad, el angulo de detalle o "
-            "cambias de motor, muestra al momento una previsualizacion "
-            "del resultado (sin las hasta 3 pasadas de auto-ajuste por "
-            "error, para que sea rapida). No sustituye a 'Aplicar "
-            "decimacion': pulsalo para confirmar el resultado y poder "
-            "exportarlo o compararlo."
-        ))
-        self.live_preview_cb.toggled.connect(self._on_live_preview_toggled)
-        view_grid.addWidget(self.live_preview_cb, 1, 0)
-
-        panel_layout.addWidget(view_group)
-
-        # --- Proteccion manual ---
-        protect_group = self._add_collapsible_group("protect", "Proteccion manual")
-        protect_grid = QGridLayout(protect_group)
-
-        self.paint_btn = QPushButton("Pintar")
-        self.paint_btn.setCheckable(True)
-        self.paint_btn.setToolTip(tip(
-            "Activa el pincel de proteccion: haz click y arrastra sobre la "
-            "malla en el viewport para marcar en rojo los puntos que NUNCA "
-            "se deben simplificar (caras, logos, dedos, detalles finos). "
-            "Se desactiva volviendo a pulsar este boton."
-        ))
-        self.erase_btn = QPushButton("Borrar")
-        self.erase_btn.setObjectName("eraseButton")
-        self.erase_btn.setCheckable(True)
-        self.erase_btn.setToolTip(tip(
-            "Activa el pincel de borrado: click y arrastra sobre puntos ya "
-            "marcados en rojo para quitarles la proteccion, con el mismo "
-            "radio de pincel que el modo Pintar."
-        ))
-        self.paint_btn.toggled.connect(
-            lambda checked: self._on_brush_toggled(self.paint_btn, checked)
-        )
-        self.erase_btn.toggled.connect(
-            lambda checked: self._on_brush_toggled(self.erase_btn, checked)
-        )
-        protect_grid.addWidget(self.paint_btn, 0, 0)
-        protect_grid.addWidget(self.erase_btn, 0, 1)
-
-        self.rect_btn = QPushButton("Rectangulo")
-        self.rect_btn.setCheckable(True)
-        self.rect_btn.setToolTip(tip(
-            "Activa la seleccion por rectangulo: arrastra sobre el "
-            "viewport para proteger de golpe todos los vertices dentro "
-            "del rectangulo (sin test de profundidad: tambien marca "
-            "puntos ocultos detras de la malla). Manten pulsado Mayus "
-            "mientras arrastras para desproteger en vez de proteger. "
-            "Util para zonas grandes de forma irregular donde el pincel "
-            "circular es lento."
-        ))
-        self.rect_btn.toggled.connect(
-            lambda checked: self._on_brush_toggled(self.rect_btn, checked)
-        )
-        protect_grid.addWidget(self.rect_btn, 6, 0, 1, 2)
-
-        mask_export_btn = QPushButton("Guardar mascara...")
-        mask_export_btn.setToolTip(tip(
-            "Guarda en un .json los indices de los vertices protegidos "
-            "actualmente, para reutilizar la misma proteccion en otra "
-            "sesion o en otra malla con identica topologia (mismo numero "
-            "y orden de vertices)."
-        ))
-        mask_export_btn.clicked.connect(self.export_protection_mask)
-        mask_import_btn = QPushButton("Cargar mascara...")
-        mask_import_btn.setToolTip(tip(
-            "Carga una mascara de proteccion guardada y sustituye las "
-            "marcas actuales. Solo se aplica si el numero de vertices "
-            "coincide exactamente con el de la malla actual."
-        ))
-        mask_import_btn.clicked.connect(self.import_protection_mask)
-        protect_grid.addWidget(mask_export_btn, 7, 0)
-        protect_grid.addWidget(mask_import_btn, 7, 1)
-
-        brush_label = QLabel("Radio de pincel (% diagonal)")
-        brush_tip = tip(
-            "Tamano del pincel, como porcentaje de la diagonal del bounding "
-            "box de la malla. Cada click/arrastre marca (o borra) todos los "
-            "puntos dentro de este radio alrededor del cursor. Subelo para "
-            "cubrir zonas grandes rapido; bajalo para marcar detalles finos "
-            "con precision."
-        )
-        brush_label.setToolTip(brush_tip)
-        protect_grid.addWidget(brush_label, 1, 0, 1, 2)
-        self.brush_slider = QSlider(Qt.Horizontal)
-        self.brush_slider.setRange(1, 20)
-        self.brush_slider.setValue(5)
-        self.brush_slider.setToolTip(brush_tip)
-        self.brush_spin = QSpinBox()
-        self.brush_spin.setRange(1, 20)
-        self.brush_spin.setValue(5)
-        self.brush_spin.setSuffix("%")
-        self.brush_spin.setToolTip(brush_tip)
-        self.brush_slider.valueChanged.connect(self.brush_spin.setValue)
-        self.brush_spin.valueChanged.connect(self.brush_slider.setValue)
-        protect_grid.addWidget(self.brush_slider, 2, 0)
-        protect_grid.addWidget(self.brush_spin, 2, 1)
-
-        clear_marks_btn = QPushButton("Borrar todas las marcas")
-        clear_marks_btn.setToolTip(tip(
-            "Quita de golpe todas las marcas de proteccion de la malla "
-            "actual (equivale a borrar todo con el pincel de borrado, pero "
-            "en un solo click)."
-        ))
-        clear_marks_btn.clicked.connect(self.clear_protection)
-        protect_grid.addWidget(clear_marks_btn, 3, 0, 1, 2)
-
-        self.protected_count_label = QLabel("Puntos protegidos: 0")
-        self.protected_count_label.setToolTip(tip(
-            "Numero de vertices actualmente marcados como protegidos. Esos "
-            "vertices y las caras que tocan quedan excluidos del colapso al "
-            "aplicar la decimacion."
-        ))
-        protect_grid.addWidget(self.protected_count_label, 4, 0, 1, 2)
-
-        self.protect_uv_seams_cb = QCheckBox("Proteger costuras UV automaticamente")
-        self.protect_uv_seams_cb.setChecked(True)
-        self.protect_uv_seams_cb.setToolTip(tip(
-            "Si la malla tiene textura, detecta los vertices duplicados que "
-            "forman una costura UV (donde la textura se corta al "
-            "desenvolver) y los protege automaticamente, ademas de tus "
-            "marcas manuales. Sin esto, decimar puede romper la textura "
-            "justo en la costura. No hace nada si la malla no tiene UVs."
-        ))
-        protect_grid.addWidget(self.protect_uv_seams_cb, 5, 0, 1, 2)
-
-        panel_layout.addWidget(protect_group)
-
-        # --- Decimacion ---
-        params_group = self._add_collapsible_group("decimate", "Decimacion adaptativa")
-        grid = QGridLayout(params_group)
-
-        engine_label = QLabel("Motor de decimacion")
-        engine_tip = tip(
-            "vtkDecimatePro clasifica cada vertice segun un angulo fijo "
-            "(caracteristica o no) y colapsa los que no lo superan. Quadric "
-            "Error Metric (QEM) en cambio pondera cada colapso por un error "
-            "geometrico continuo derivado de la curvatura local: sin "
-            "umbral fijo, las zonas planas se colapsan antes que las "
-            "curvas de forma gradual. QEM tambien permite penalizar la "
-            "distorsion de textura UV en el propio coste."
-        )
-        engine_label.setToolTip(engine_tip)
-        grid.addWidget(engine_label, 0, 0, 1, 2)
-        self.engine_combo = QComboBox()
-        self.engine_combo.addItem("vtkDecimatePro (angulo fijo)")
-        self.engine_combo.addItem("Quadric Error Metric (curvatura)")
-        self.engine_combo.setToolTip(engine_tip)
-        self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
-        self.engine_combo.currentIndexChanged.connect(self._schedule_preview)
-        grid.addWidget(self.engine_combo, 1, 0, 1, 2)
-
-        reduction_label = QLabel("Agresividad (target reduction)")
-        reduction_tip = tip(
-            "Porcentaje de triangulos que vtkDecimatePro intentara "
-            "eliminar en las zonas no protegidas (0% = no cambia nada, "
-            "99% = intenta quitar casi todos). Es un objetivo, no una "
-            "garantia: el angulo de detalle y las zonas protegidas pueden "
-            "hacer que la reduccion real sea menor."
-        )
-        reduction_label.setToolTip(reduction_tip)
-        grid.addWidget(reduction_label, 2, 0, 1, 2)
-        self.reduction_slider = QSlider(Qt.Horizontal)
-        self.reduction_slider.setRange(0, 99)
-        self.reduction_slider.setValue(50)
-        self.reduction_slider.setToolTip(reduction_tip)
-        self.reduction_slider.valueChanged.connect(
-            lambda v: self.reduction_value_label.setText(f"{v}%")
-        )
-        self.reduction_slider.valueChanged.connect(self._schedule_preview)
-        grid.addWidget(self.reduction_slider, 3, 0)
-        self.reduction_value_label = QLabel("50%")
-        grid.addWidget(self.reduction_value_label, 3, 1)
-
-        angle_label = QLabel("Angulo de preservacion de detalle")
-        angle_tip = tip(
-            "Angulo (en grados) entre caras vecinas por encima del cual un "
-            "borde se considera \"caracteristica\" (arista dura, esquina) y "
-            "se conserva intacto. Valores bajos preservan mas detalle "
-            "(menos reduccion real); valores altos permiten alisar mas "
-            "zonas, a costa de perder aristas finas."
-        )
-        angle_label.setToolTip(angle_tip)
-        grid.addWidget(angle_label, 4, 0, 1, 2)
-        self.angle_slider = QSlider(Qt.Horizontal)
-        self.angle_slider.setRange(1, 90)
-        self.angle_slider.setValue(15)
-        self.angle_slider.setToolTip(angle_tip)
-        self.angle_slider.valueChanged.connect(
-            lambda v: self.angle_value_label.setText(f"{v}°")
-        )
-        self.angle_slider.valueChanged.connect(self._schedule_preview)
-        grid.addWidget(self.angle_slider, 5, 0)
-        self.angle_value_label = QLabel("15°")
-        grid.addWidget(self.angle_value_label, 5, 1)
-
-        self.preserve_topology_cb = QCheckBox("Preservar topologia")
-        self.preserve_topology_cb.setChecked(True)
-        self.preserve_topology_cb.setToolTip(tip(
-            "Impide que la decimacion parta la superficie en piezas "
-            "separadas o cree agujeros no deseados. Recomendado activado "
-            "salvo que necesites la maxima reduccion posible y no te "
-            "importe cambiar la topologia."
-        ))
-        grid.addWidget(self.preserve_topology_cb, 6, 0, 1, 2)
-
-        self.boundary_vertex_deletion_cb = QCheckBox("Permitir simplificar bordes")
-        self.boundary_vertex_deletion_cb.setChecked(False)
-        self.boundary_vertex_deletion_cb.setToolTip(tip(
-            "Si esta desactivado (por defecto), los vertices en bordes "
-            "abiertos de la malla (huecos, superficies no cerradas) apenas "
-            "se tocan. Activalo si tu malla tiene bordes abiertos que "
-            "tambien quieres simplificar; puede deformar el contorno. "
-            "Afecta a ambos motores (en QEM, sube el peso de los bordes)."
-        ))
-        grid.addWidget(self.boundary_vertex_deletion_cb, 7, 0, 1, 2)
-
-        self.splitting_cb = QCheckBox("Permitir dividir superficie (splitting)")
-        self.splitting_cb.setChecked(True)
-        self.splitting_cb.setToolTip(tip(
-            "Deja que vtkDecimatePro divida la superficie a lo largo de "
-            "aristas no preservadas cuando eso ayuda a reducir mas sin "
-            "perder forma. Desactivarlo suele dar menos reduccion pero una "
-            "malla mas \"limpia\" en una sola pieza continua. Solo aplica "
-            "al motor vtkDecimatePro."
-        ))
-        grid.addWidget(self.splitting_cb, 8, 0, 1, 2)
-
-        panel_layout.addWidget(params_group)
-
-        # --- Opciones especificas de Quadric Error Metric ---
-        self.qem_group = self._add_collapsible_group("qem", "Opciones Quadric Error Metric")
-        qem_grid = QGridLayout(self.qem_group)
-
-        self.volume_preservation_cb = QCheckBox("Preservar volumen")
-        self.volume_preservation_cb.setChecked(True)
-        self.volume_preservation_cb.setToolTip(tip(
-            "Ajusta el colapso para que el volumen total de la malla "
-            "cambie lo menos posible. Recomendado activado; desactivarlo "
-            "es un poco mas rapido pero puede \"encoger\" la forma en "
-            "reducciones agresivas."
-        ))
-        qem_grid.addWidget(self.volume_preservation_cb, 0, 0, 1, 2)
-
-        self.uv_attribute_metric_cb = QCheckBox("Penalizar distorsion UV en el coste")
-        self.uv_attribute_metric_cb.setChecked(True)
-        self.uv_attribute_metric_cb.setToolTip(tip(
-            "Ademas de la geometria, tiene en cuenta cuanto estiraria cada "
-            "colapso las coordenadas de textura, evitando deformar la "
-            "textura incluso lejos de las costuras protegidas. Solo tiene "
-            "efecto si la malla tiene UVs."
-        ))
-        qem_grid.addWidget(self.uv_attribute_metric_cb, 1, 0, 1, 2)
-
-        uv_weight_label = QLabel("Peso de la distorsion UV")
-        uv_weight_tip = tip(
-            "Cuanto pesa la distorsion de textura frente al error "
-            "geometrico puro al decidir cada colapso. Subelo si la "
-            "textura sale mas deformada de lo que te gustaria; bajalo si "
-            "prefieres priorizar la forma sobre la textura."
-        )
-        uv_weight_label.setToolTip(uv_weight_tip)
-        qem_grid.addWidget(uv_weight_label, 2, 0, 1, 2)
-        self.uv_weight_spin = QDoubleSpinBox()
-        self.uv_weight_spin.setRange(0.1, 10.0)
-        self.uv_weight_spin.setSingleStep(0.1)
-        self.uv_weight_spin.setValue(1.0)
-        self.uv_weight_spin.setToolTip(uv_weight_tip)
-        qem_grid.addWidget(self.uv_weight_spin, 3, 0, 1, 2)
-
-        self.normals_weight_cb = QCheckBox("Preservar normales (evita facetado)")
-        self.normals_weight_cb.setChecked(False)
-        self.normals_weight_cb.setToolTip(tip(
-            "Ademas de la posicion (y la UV, si esta activo), penaliza en "
-            "el coste de cada colapso cuanto cambiaria la normal de la "
-            "superficie. Sin esto, QEM solo mide error de posicion y puede "
-            "aplanar zonas suavemente curvas en facetas visibles a simple "
-            "vista aunque la forma general apenas se mueva. Calcula las "
-            "normales de vertice automaticamente si la malla no las trae."
-        ))
-        qem_grid.addWidget(self.normals_weight_cb, 4, 0, 1, 2)
-
-        normals_weight_label = QLabel("Peso de la normal")
-        normals_weight_tip = tip(
-            "Cuanto pesa el cambio de normal frente al error geometrico "
-            "puro al decidir cada colapso. Subelo si sigues viendo "
-            "facetado en zonas curvas; bajalo si prefieres priorizar la "
-            "reduccion sobre el sombreado."
-        )
-        normals_weight_label.setToolTip(normals_weight_tip)
-        qem_grid.addWidget(normals_weight_label, 5, 0, 1, 2)
-        self.normals_weight_spin = QDoubleSpinBox()
-        self.normals_weight_spin.setRange(0.1, 10.0)
-        self.normals_weight_spin.setSingleStep(0.1)
-        self.normals_weight_spin.setValue(1.0)
-        self.normals_weight_spin.setToolTip(normals_weight_tip)
-        qem_grid.addWidget(self.normals_weight_spin, 6, 0, 1, 2)
-
-        panel_layout.addWidget(self.qem_group)
-        self._on_engine_changed(self.engine_combo.currentIndex())
-
-        # --- Validacion por error ---
-        error_group = self._add_collapsible_group("error", "Validacion por error de superficie")
-        error_grid = QGridLayout(error_group)
-
-        self.auto_error_cb = QCheckBox("Auto-proteger zonas con error alto")
-        self.auto_error_cb.setChecked(True)
-        self.auto_error_cb.setToolTip(tip(
-            "Tras decimar, mide cuanto se aleja cada punto del resultado de "
-            "la superficie original (aproxima la distancia de Hausdorff). "
-            "Donde el error supera el umbral, protege esos vertices en la "
-            "malla original y vuelve a decimar (hasta 3 pasadas), en vez de "
-            "fiarlo todo al angulo de deteccion fijo."
-        ))
-        error_grid.addWidget(self.auto_error_cb, 0, 0, 1, 2)
-
-        error_threshold_label = QLabel("Error maximo permitido (% diagonal)")
-        error_threshold_tip = tip(
-            "Umbral de error, como porcentaje de la diagonal del bounding "
-            "box, a partir del cual una zona decimada se considera "
-            "demasiado deformada y se protege automaticamente. Bajalo para "
-            "exigir mas fidelidad (mas zonas se auto-protegen, menos "
-            "reduccion real); subelo para permitir mas deformacion."
-        )
-        error_threshold_label.setToolTip(error_threshold_tip)
-        error_grid.addWidget(error_threshold_label, 1, 0, 1, 2)
-        self.error_threshold_spin = QDoubleSpinBox()
-        self.error_threshold_spin.setRange(0.1, 10.0)
-        self.error_threshold_spin.setSingleStep(0.1)
-        self.error_threshold_spin.setValue(1.0)
-        self.error_threshold_spin.setSuffix("%")
-        self.error_threshold_spin.setToolTip(error_threshold_tip)
-        error_grid.addWidget(self.error_threshold_spin, 2, 0, 1, 2)
-
-        panel_layout.addWidget(error_group)
-
-        apply_btn = QPushButton("Aplicar decimacion")
-        apply_btn.setObjectName("primaryButton")
-        apply_btn.setToolTip(tip(
-            "Ejecuta el motor de decimacion elegido sobre la malla "
-            "original con los parametros actuales. Si hay zonas "
-            "protegidas (pintadas, costuras UV o auto-detectadas por "
-            "error), solo se decima el resto y luego se recompone el "
-            "resultado."
-        ))
-        apply_btn.clicked.connect(self.apply_decimation)
-        panel_layout.addWidget(apply_btn)
-
-        reset_btn = QPushButton("Restaurar original")
-        reset_btn.setToolTip(tip(
-            "Descarta el resultado decimado y vuelve a mostrar la malla "
-            "original tal como se cargo (o se limpio), conservando las "
-            "marcas de proteccion."
-        ))
-        reset_btn.clicked.connect(self.reset_mesh)
-        panel_layout.addWidget(reset_btn)
-
-        compare_btn = QPushButton("Comparar original/decimado")
-        compare_btn.setToolTip(tip(
-            "Abre una ventana con dos vistas lado a lado -original y "
-            "decimado- con las camaras sincronizadas, para juzgar la "
-            "perdida de detalle. Necesita haber aplicado una decimacion "
-            "primero."
-        ))
-        compare_btn.clicked.connect(self.open_comparison)
-        panel_layout.addWidget(compare_btn)
-
-        self.export_report_cb = QCheckBox("Exportar informe .json junto a la malla")
-        self.export_report_cb.setChecked(True)
-        self.export_report_cb.setToolTip(tip(
-            "Al exportar, ademas del archivo de malla, guarda un .json con "
-            "el mismo nombre (sufijo _report) con las estadisticas de la "
-            "ultima decimacion: motor, reduccion, puntos protegidos y "
-            "error medido."
-        ))
-        panel_layout.addWidget(self.export_report_cb)
-
-        export_btn = QPushButton("Exportar malla...")
-        export_btn.setToolTip(tip(
-            "Guarda en disco la malla decimada; si todavia no has aplicado "
-            "ninguna decimacion, guarda la malla original (ya limpiada, si "
-            "aplica). OBJ y PLY conservan las coordenadas UV si la malla "
-            "tiene textura; STL no soporta UV/textura (limitacion del "
-            "propio formato)."
-        ))
-        export_btn.clicked.connect(self.export_mesh)
-        panel_layout.addWidget(export_btn)
-
-        # --- Procesamiento por lotes ---
-        batch_group = self._add_collapsible_group("batch", "Procesamiento por lotes")
-        batch_layout = QVBoxLayout(batch_group)
-
-        batch_info = QLabel(
-            "Aplica los ajustes actuales del panel (limpieza, motor, "
-            "decimacion y proteccion automatica) a todos los archivos de "
-            "una carpeta, sin pasar por el visor. No incluye proteccion "
-            "manual (pincel ni rectangulo): solo costuras UV y el "
-            "auto-ajuste por error, si estan activados arriba."
-        )
-        batch_info.setWordWrap(True)
-        batch_layout.addWidget(batch_info)
-
-        batch_btn = QPushButton("Procesar carpeta...")
-        batch_btn.setToolTip(tip(
-            "Elige una carpeta de entrada (OBJ/STL/PLY/VTP/GLB/GLTF) y una "
-            "de salida: decima cada archivo con los ajustes actuales del "
-            "panel y guarda el resultado (mas el informe .json, si esta "
-            "marcado arriba) en la carpeta de salida con el mismo nombre. "
-            "Si un archivo falla, se salta y se sigue con el resto; al "
-            "final se muestra un resumen."
-        ))
-        batch_btn.clicked.connect(self.run_batch)
-        batch_layout.addWidget(batch_btn)
-
-        panel_layout.addWidget(batch_group)
+        build_protection_panel(self, panel_layout)
+        build_decimation_panel(self, panel_layout)
+        build_validation_panel(self, panel_layout)
+        build_action_buttons(self, panel_layout)
+        build_batch_panel(self, panel_layout)
 
         panel_layout.addStretch(1)
 
@@ -1122,6 +397,9 @@ class AdaptiveRemesherWindow(QMainWindow):
             if self.decimated_mesh is not None:
                 self.reset_mesh()
             elif self.live_preview_cb.isChecked():
+                # Invariante garantizado por el "return" de arriba: si
+                # llegamos aqui con checked=True, original_mesh no es None.
+                assert self.original_mesh is not None
                 self.show_mesh(self.original_mesh, is_original=True)
                 self._refresh_protection_overlay()
         if checked:
@@ -1243,6 +521,10 @@ class AdaptiveRemesherWindow(QMainWindow):
         picking por frustum completo."""
         if rect.width() < 3 or rect.height() < 3:
             return
+        # Solo se llama desde eventFilter cuando rect_btn esta activo, lo
+        # que _on_brush_toggled ya garantiza que exige una malla cargada.
+        assert self.original_mesh is not None
+        assert self.protected_mask is not None
         xy, in_front = self._project_points_to_qt(self.original_mesh.points)
         inside = (
             in_front
@@ -1403,9 +685,11 @@ class AdaptiveRemesherWindow(QMainWindow):
         else:
             self.plotter.add_mesh(mesh, show_edges=True, color="#d8dadd", edge_color="#101114")
         if preserve_camera is not None:
-            self.plotter.camera_position = preserve_camera
+            # camera_position, como set_background/reset_camera, es un
+            # descriptor de pyvista que los stubs no reflejan bien.
+            self.plotter.camera_position = preserve_camera  # type: ignore[call-arg]
         else:
-            self.plotter.reset_camera()
+            self.plotter.reset_camera()  # type: ignore[call-arg]
         self.protected_actor = None
 
     def _on_curvature_toggled(self, _checked: bool):
