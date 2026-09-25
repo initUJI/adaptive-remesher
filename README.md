@@ -1,5 +1,7 @@
 # Adaptive Remesher
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Prototipo de escritorio para **simplificar (decimar) mallas 3D generadas por
 IA de forma selectiva**, reduciendo poligonos solo donde no hacen falta y
 preservando detalle, texturas y zonas marcadas manualmente como
@@ -109,3 +111,8 @@ sinteticas generadas con PyVista; no requieren interfaz grafica.
 - El pincel de proteccion se desactiva automaticamente tras decimar,
   porque trabaja contra el KDTree de la malla original y el motor QEM
   puede mover vertices.
+
+## Licencia
+
+[MIT](LICENSE) © 2026 CEVI. Libre para usar, modificar y redistribuir
+(incluso comercialmente), manteniendo el aviso de copyright.
