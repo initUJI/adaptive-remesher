@@ -80,36 +80,40 @@ en un `.json` reutilizable entre sesiones o entre mallas similares.
 ## Estructura del proyecto
 
 ```
-app.py             Ventana principal Qt: estado de la malla/proteccion,
-                    undo/redo, presets, procesamiento por lotes. La
-                    construccion de cada seccion del panel vive en ui/.
-remesh_core.py      Logica de dominio pura, independiente de Qt: limpieza,
-                    ambos motores de decimacion, proteccion de costuras UV
-                    y el pipeline de decimacion+validacion por error
-                    compartido entre el flujo interactivo y el batch.
+app.py               Ventana principal Qt: estado de la malla/proteccion,
+                     undo/redo, presets, procesamiento por lotes. La
+                     construccion de cada seccion del panel vive en ui/.
+remesh_core.py       Logica de dominio pura, independiente de Qt: limpieza,
+                     ambos motores de decimacion, proteccion de costuras UV
+                     y el pipeline de decimacion+validacion por error
+                     compartido entre el flujo interactivo y el batch.
+logging_config.py    Logging a consola + archivo rotativo (ver mas abajo).
 ui/
-  common.py         Estilos, dialogos y widgets reutilizables (tooltip,
-                    cursor de espera, panel plegable, comparacion lado a
-                    lado).
-  panels/           Una funcion build_xxx_panel(window, layout) por cada
-                    seccion del panel de control (limpieza, proteccion,
-                    decimacion, validacion por error, batch...).
-tests/              Tests de remesh_core.py con pytest (mallas sinteticas,
-                    sin necesidad de un QApplication).
+  common.py          Estilos, dialogos y widgets reutilizables (tooltip,
+                     cursor de espera, panel plegable, comparacion lado a
+                     lado).
+  panels/            Una funcion build_xxx_panel(window, layout) por cada
+                     seccion del panel de control (limpieza, proteccion,
+                     decimacion, validacion por error, batch...).
+tests/               Tests de remesh_core.py (mallas sinteticas, sin Qt) y
+                     de la UI con pytest-qt (botones/sliders reales).
 ```
 
 ## Desarrollo
 
 ```bash
 pip install -r requirements-dev.txt
-pytest              # tests unitarios de remesh_core.py
+pytest              # tests unitarios + de integracion de UI (pytest-qt)
 ruff check .        # lint
-mypy remesh_core.py app.py ui tests   # tipos
+mypy remesh_core.py app.py logging_config.py ui tests   # tipos
 ```
 
-Los tests cubren `remesh_core.py` (limpieza, ambos motores de decimacion,
-proteccion por mascara, costuras UV y el pipeline completo) con mallas
-sinteticas generadas con PyVista; no requieren interfaz grafica.
+`tests/test_remesh_core.py` cubre `remesh_core.py` (limpieza, ambos
+motores de decimacion, proteccion por mascara, costuras UV y el pipeline
+completo) con mallas sinteticas; no requiere interfaz grafica.
+`tests/test_ui_integration.py` instancia la ventana real y pulsa botones/
+sliders de verdad con pytest-qt, en el backend Qt "offscreen" (sin
+necesitar pantalla, tambien en CI).
 
 Para que ruff/mypy/pytest se ejecuten solos en cada commit:
 
@@ -117,8 +121,20 @@ Para que ruff/mypy/pytest se ejecuten solos en cada commit:
 pre-commit install
 ```
 
+## Logging
+
+La consola muestra INFO y superior; `ADAPTIVE_REMESHER_DEBUG=1 python
+app.py` sube la consola a DEBUG. Un archivo rotativo junto al script
+(`adaptive_remesher.log`, hasta 3 de 1MB) siempre captura DEBUG, para
+poder diagnosticar un fallo reportado por alguien sin volver a
+reproducirlo (ver `logging_config.py`).
+
+## Build y releases
+
 Ver [BUILD.md](BUILD.md) para generar un ejecutable de escritorio con
-PyInstaller, y [CHANGELOG.md](CHANGELOG.md) para el historial de cambios.
+PyInstaller (manual, o automatico en Windows/macOS/Linux al empujar un
+tag `vX.Y.Z`), y [CHANGELOG.md](CHANGELOG.md) para el historial de
+cambios.
 
 ## Limitaciones conocidas
 

@@ -1,3 +1,11 @@
+import os
+
+# Debe fijarse antes de que cualquier fixture cree una QApplication (lo
+# hace pytest-qt en cuanto un test pide `qtbot`): sin esto, los tests de
+# UI fallarian en cualquier maquina/CI sin pantalla (no se sobreescribe si
+# el usuario ya establecio su propio backend Qt).
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 import numpy as np
 import pytest
 import pyvista as pv

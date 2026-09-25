@@ -19,7 +19,7 @@ repos:
         # paso "Tipos (mypy)" de CI (.github/workflows/ci.yml).
         additional_dependencies: [numpy, scipy]
         args: [--ignore-missing-imports]
-        files: ^(remesh_core|app)\.py$|^(ui|tests)/
+        files: ^(remesh_core|app|logging_config)\.py$|^(ui|tests)/
 
   - repo: local
     hooks:

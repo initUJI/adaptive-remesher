@@ -52,3 +52,18 @@ notarizacion o de librerias del sistema que aqui no se han verificado).
   generar el ejecutable por separado en cada uno (no hay cross-compilation).
 - `build/` y `dist/` estan en `.gitignore`: son artefactos generados, no
   se versionan.
+
+## Releases automaticas (multi-SO)
+
+`.github/workflows/release.yml` construye el ejecutable en Windows, macOS
+y Linux y los adjunta como assets a una GitHub Release, al empujar un tag
+`vX.Y.Z`:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Solo el build de Windows se ha verificado manualmente (ver mas arriba);
+los de macOS/Linux quedan por confirmar en el primer run real del
+workflow -- revisa los logs de esa Action tras el primer tag.

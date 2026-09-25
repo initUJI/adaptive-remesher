@@ -15,6 +15,7 @@ control); este modulo conserva el estado y toda la logica de la ventana.
 """
 
 import json
+import logging
 import os
 import sys
 from datetime import datetime
@@ -59,7 +60,8 @@ from remesh_core import (
     run_decimation_pipeline,
     uv_seam_point_mask,
 )
-from ui.common import STYLESHEET, CollapsibleGroupBox, ComparisonDialog, busy_cursor, debug
+from logging_config import configure_logging
+from ui.common import STYLESHEET, CollapsibleGroupBox, ComparisonDialog, busy_cursor
 from ui.panels import (
     build_action_buttons,
     build_batch_panel,
@@ -75,6 +77,8 @@ from ui.panels import (
 PANEL_STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".panel_layout.json")
 
 BATCH_INPUT_EXTENSIONS = (".obj", ".stl", ".ply", ".vtp", ".glb", ".gltf")
+
+logger = logging.getLogger(__name__)
 
 
 class AdaptiveRemesherWindow(QMainWindow):
@@ -406,7 +410,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             for other in (self.paint_btn, self.erase_btn, self.rect_btn):
                 if other is not button:
                     other.setChecked(False)
-        debug(f"BRUSH {button.text()} {'ON' if checked else 'OFF'}")
+        logger.debug("BRUSH %s %s", button.text(), "ON" if checked else "OFF")
         self._is_painting = False
         self._rubber_band.hide()
 
@@ -1164,7 +1168,11 @@ class AdaptiveRemesherWindow(QMainWindow):
 
 
 def main():
-    """Punto de entrada: crea la QApplication, aplica el tema y muestra la ventana principal."""
+    """Punto de entrada: configura logging, crea la QApplication, aplica el
+    tema y muestra la ventana principal. `ADAPTIVE_REMESHER_DEBUG=1` sube
+    el nivel de la consola a DEBUG (el archivo de log siempre lo captura,
+    ver logging_config.py)."""
+    configure_logging(verbose=bool(os.environ.get("ADAPTIVE_REMESHER_DEBUG")))
     app = QApplication(sys.argv)
     app.setStyleSheet(STYLESHEET)
     window = AdaptiveRemesherWindow()

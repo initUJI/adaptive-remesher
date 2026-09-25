@@ -1,0 +1,58 @@
+name: Release
+
+# Se dispara al empujar un tag "vX.Y.Z" (ver BUILD.md): construye el
+# ejecutable de escritorio con PyInstaller en Windows, macOS y Linux, y
+# adjunta cada uno como asset de una GitHub Release para ese tag.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset_name: adaptive-remesher-windows
+          - os: macos-latest
+            asset_name: adaptive-remesher-macos
+          - os: ubuntu-latest
+            asset_name: adaptive-remesher-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: Build (PyInstaller)
+        run: pyinstaller adaptive-remesher.spec
+
+      - name: Empaquetar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/adaptive-remesher/* -DestinationPath "${{ matrix.asset_name }}.zip"
+          echo "ARCHIVE=${{ matrix.asset_name }}.zip" >> $env:GITHUB_ENV
+
+      - name: Empaquetar (macOS/Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          tar -czf "${{ matrix.asset_name }}.tar.gz" -C dist adaptive-remesher
+          echo "ARCHIVE=${{ matrix.asset_name }}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Adjuntar a la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ARCHIVE }}

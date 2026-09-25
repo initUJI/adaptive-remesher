@@ -2,15 +2,12 @@
 estilos, el cursor de espera, el tooltip HTML, el panel plegable y el
 dialogo de comparacion lado a lado."""
 
-import time
 from contextlib import contextmanager
 
 import pyvista as pv
 from PySide6.QtWidgets import QApplication, QDialog, QGroupBox, QVBoxLayout
 from PySide6.QtCore import Qt
 from pyvistaqt import QtInteractor
-
-DEBUG = False
 
 STYLESHEET = """
 QMainWindow, QWidget {
@@ -142,12 +139,6 @@ def busy_cursor():
 def tip(text: str) -> str:
     """Envuelve un texto de tooltip en HTML simple para que Qt lo ajuste a varias lineas con un ancho maximo legible."""
     return f"<div style='max-width:280px'>{text}</div>"
-
-
-def debug(msg):
-    """Imprime un mensaje con hora si DEBUG esta activo (diagnostico de eventos de raton/camara)."""
-    if DEBUG:
-        print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
 class CollapsibleGroupBox(QGroupBox):

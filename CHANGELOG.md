@@ -23,6 +23,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - Ganchos de pre-commit (ruff, mypy, pytest) y Dependabot (pip y
   GitHub Actions) para mantener dependencias y calidad al dia.
 - Licencia MIT.
+- `logging_config.py`: logging a consola (INFO, o DEBUG con
+  `ADAPTIVE_REMESHER_DEBUG=1`) y archivo rotativo, sustituyendo al flag
+  global `DEBUG`/`print` de antes.
+- Tests de integracion de la UI con pytest-qt (`tests/test_ui_integration.py`):
+  instancian la ventana real y pulsan botones/sliders, cerrando el hueco
+  de cobertura que dejaba `ui/` fuera de los tests automatizados.
+- Workflow de releases (`.github/workflows/release.yml`): construye el
+  ejecutable en Windows, macOS y Linux con PyInstaller y lo adjunta a una
+  GitHub Release al empujar un tag `vX.Y.Z`.
 
 ### Changed
 - Dependencias fijadas a versiones concretas en `requirements.txt` en
