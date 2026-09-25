@@ -39,6 +39,32 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - `apply_decimation` y el procesamiento por lotes comparten ahora el
   mismo pipeline (`run_decimation_pipeline`), eliminando la logica
   duplicada que tenian antes.
+- **Validacion por error ahora bidireccional** (`remesh_core.measure_bidirectional_error`):
+  antes solo se media la distancia de cada cara del resultado a la
+  superficie original, lo que no detecta un detalle saliente del
+  original eliminado por completo (ninguna cara del resultado cae cerca
+  de la zona ausente, asi que el error medido seguia siendo ~0).
+  Confirmado con un caso sintetico: la direccion original reportaba error
+  0.0 con un "bulto" entero desaparecido, la nueva direccion inversa
+  (original -> resultado) lo detecta correctamente. `refine_by_error`
+  ahora protege vertices detectados por cualquiera de las dos
+  direcciones, y las estadisticas de error (max/medio/p95) mostradas y
+  exportadas combinan ambas.
+
+### Fixed
+- **Motor QEM: costura protegida no soldaba a partir de ~70% de
+  reduccion.** `vtkQuadricDecimation` solo *penalizaba* el coste de
+  tocar el borde compartido con una zona protegida (`SetBoundaryWeightFactor`),
+  a diferencia de vtkDecimatePro, que puede bloquearlo del todo; con
+  reducciones agresivas acababa colapsando vertices de esa costura,
+  dejando decenas de aristas no-manifold tras recomponer el resultado
+  (grietas invisibles en el viewport pero reales en la malla exportada).
+  Subido el peso de 1000 a 1e10 (`remesh_core.decimate_qem`): la costura
+  queda soldada de forma fiable hasta ~90% de reduccion, comprobado con
+  un barrido de resoluciones y mascaras de proteccion distintas. Persiste
+  un margen de fallo por encima de ese punto (~95-99%): es una limitacion
+  del propio `vtkQuadricDecimation`, que no expone un bloqueo topologico
+  absoluto como vtkDecimatePro.
 
 ## [0.1.0] - 2026-09-21
 

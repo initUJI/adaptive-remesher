@@ -159,7 +159,20 @@ def decimate_qem(
     mas fiel al original en mallas organicas muy decimadas (calcula las
     normales de vertice si la malla aun no las trae). `boundary_locked`
     penaliza fuertemente mover los bordes (reales o de union con una zona
-    protegida)."""
+    protegida): a diferencia de vtkDecimatePro (que si puede bloquearlos
+    del todo con SetBoundaryVertexDeletion), vtkQuadricDecimation solo
+    permite penalizar el coste, nunca prohibir el colapso, asi que si el
+    peso es insuficiente el borde puede perder vertices igual, dejando
+    aristas no-manifold donde se une con la zona protegida (el merge
+    posterior ya no encuentra un vertice identico con el que soldar).
+    Comprobado empiricamente barriendo agresividad/resolucion/mascara: con
+    el peso anterior (1000) la costura ya se abria a partir de ~70% de
+    reduccion; con 1e10 se mantiene perfectamente soldada hasta ~90%, y
+    solo se degrada (no a cero, pero mucho menos que antes) por encima de
+    eso. Un peso mayor no ayuda: en el limite (~99%) VTK prioriza cumplir
+    el target de reduccion sobre respetar el peso del borde, algo que
+    vtkQuadricDecimation no permite evitar del todo (no expone, a
+    diferencia de vtkDecimatePro, un bloqueo topologico absoluto)."""
     if mesh.n_cells == 0:
         return mesh
 
@@ -186,7 +199,7 @@ def decimate_qem(
         if use_normals_weight:
             decimate.SetNormalsAttribute(True)
             decimate.SetNormalsWeight(normals_weight)
-    decimate.SetBoundaryWeightFactor(1000.0 if boundary_locked else 1.0)
+    decimate.SetBoundaryWeightFactor(1e10 if boundary_locked else 1.0)
     decimate.Update()
     output = pv.wrap(decimate.GetOutput())
     if working is not mesh and "Normals" in output.point_data:
@@ -368,6 +381,44 @@ def error_summary(errors: np.ndarray):
     return float(errors.max()), float(errors.mean()), float(np.percentile(errors, 95))
 
 
+def measure_bidirectional_error(
+    source: pv.PolyData,
+    result: pv.PolyData,
+    distance_to_source: Optional["vtk.vtkImplicitPolyDataDistance"] = None,
+):
+    """Mide el error geometrico en las dos direcciones entre `source` y
+    `result`, no solo `result` -> `source`: esa unica direccion (la unica
+    que se media antes) no detecta que un detalle sobresaliente del
+    original haya desaparecido por completo en el resultado, porque solo
+    pregunta "¿que tan lejos esta cada centro de cara de RESULT de la
+    superficie original?" y si el resultado ya no tiene ninguna cara cerca
+    de la zona eliminada, esa pregunta nunca llega a hacerse alli. La
+    direccion inversa, `source` -> `result`, pregunta lo contrario: "¿que
+    tan lejos esta cada centro de cara ORIGINAL del resultado?", y si esa
+    zona se ha aplanado/eliminado, el centro original correspondiente
+    seguira estando lejos de la superficie decimada, delatandolo. El
+    maximo de Hausdorff real es el mayor de las dos direcciones; aqui se
+    devuelven ambas por separado (en vez de ya combinadas) porque cada una
+    localiza el problema en una malla distinta -`result` o `source`- y
+    `refine_by_error` necesita saber en cual para poder proteger los
+    vertices correctos. `distance_to_source` se puede pasar ya construido
+    (con SetInput aplicado) para reutilizarlo entre pasadas de
+    refinamiento, ya que `source` no cambia entre ellas; `result` si, asi
+    que su localizador (`distance_to_result`) se reconstruye siempre.
+    Devuelve (errores_result, centros_result, errores_source,
+    centros_source)."""
+    if distance_to_source is None:
+        distance_to_source = vtk.vtkImplicitPolyDataDistance()
+        distance_to_source.SetInput(source)
+    forward_errors, forward_centroids = measure_error(result, distance_to_source)
+
+    distance_to_result = vtk.vtkImplicitPolyDataDistance()
+    distance_to_result.SetInput(result)
+    reverse_errors, reverse_centroids = measure_error(source, distance_to_result)
+
+    return forward_errors, forward_centroids, reverse_errors, reverse_centroids
+
+
 def refine_by_error(
     source: pv.PolyData,
     result: pv.PolyData,
@@ -375,37 +426,51 @@ def refine_by_error(
     settings: DecimationSettings,
     error_threshold_pct: float,
 ):
-    """Mide el error geometrico de `result` frente a `source` y, donde
-    supera el umbral configurado, protege esos vertices en la malla
-    original y vuelve a decimar; repite hasta 3 pasadas o hasta que el
-    error quede dentro del umbral. Devuelve (resultado, mascara
+    """Mide el error geometrico bidireccional entre `source` y `result`
+    (ver `measure_bidirectional_error`) y, donde cualquiera de las dos
+    direcciones supera el umbral configurado, protege esos vertices en la
+    malla original y vuelve a decimar; repite hasta 3 pasadas o hasta que
+    el error quede dentro del umbral. Las zonas malas detectadas en
+    `result` (direccion original) se traducen a vertices de `source` por
+    vecino mas cercano (aproximado: los centros de `result` no coinciden
+    con ningun vertice de `source`); las detectadas directamente en
+    `source` (direccion nueva) se traducen exactas, usando los propios
+    vertices de la cara marcada. Devuelve (resultado, mascara
     actualizada, error maximo final, error medio final, error percentil
     95 final, nº de pasadas, puntos anadidos)."""
     threshold = (error_threshold_pct / 100.0) * source.length
     source_tree = cKDTree(source.points)
+    source_faces = source.regular_faces
     # Se construye una sola vez y se reutiliza en las hasta 3 pasadas:
     # `source` no cambia entre iteraciones, solo `result`, asi que
-    # reconstruir el localizador espacial en cada pasada seria trabajo
-    # repetido innecesario.
-    distance_fn = vtk.vtkImplicitPolyDataDistance()
-    distance_fn.SetInput(source)
+    # reconstruir su localizador espacial en cada pasada seria trabajo
+    # repetido innecesario (el de `result` si hace falta reconstruirlo
+    # cada vez, ver measure_bidirectional_error).
+    distance_to_source = vtk.vtkImplicitPolyDataDistance()
+    distance_to_source.SetInput(source)
     added_total = 0
-    errors, centroids = measure_error(result, distance_fn)
+    fwd_errors, fwd_centroids, rev_errors, _ = measure_bidirectional_error(
+        source, result, distance_to_source
+    )
     iterations = 0
     for iterations in range(1, 4):
-        bad = errors > threshold
-        if not bad.any():
+        bad_fwd = fwd_errors > threshold
+        bad_rev = rev_errors > threshold
+        if not bad_fwd.any() and not bad_rev.any():
             break
-        _, nearest_idx = source_tree.query(centroids[bad])
-        nearest_idx = np.unique(nearest_idx)
+        _, nearest_from_fwd = source_tree.query(fwd_centroids[bad_fwd])
+        from_rev = np.unique(source_faces[bad_rev].ravel())
+        nearest_idx = np.unique(np.concatenate([nearest_from_fwd, from_rev]).astype(np.int64))
         newly = nearest_idx[~mask[nearest_idx]]
         if newly.size == 0:
             break
         mask[newly] = True
         added_total += int(newly.size)
         result = decimate_with_mask(source, mask, settings)
-        errors, centroids = measure_error(result, distance_fn)
-    max_error, mean_error, p95_error = error_summary(errors)
+        fwd_errors, fwd_centroids, rev_errors, _ = measure_bidirectional_error(
+            source, result, distance_to_source
+        )
+    max_error, mean_error, p95_error = error_summary(np.concatenate([fwd_errors, rev_errors]))
     return result, mask, max_error, mean_error, p95_error, iterations, added_total
 
 
@@ -456,11 +521,11 @@ def run_decimation_pipeline(
     else:
         # Aunque no se auto-proteja por error, medirlo una vez (sin
         # refinamiento iterativo) sigue siendo util como diagnostico de
-        # calidad del resultado.
-        distance_fn = vtk.vtkImplicitPolyDataDistance()
-        distance_fn.SetInput(mesh)
-        errors, _ = measure_error(result, distance_fn)
-        error_max, error_mean, error_p95 = error_summary(errors)
+        # calidad del resultado. Bidireccional por la misma razon que en
+        # refine_by_error: la direccion original (result->mesh) no
+        # detectaria un detalle del original eliminado por completo.
+        fwd_errors, _, rev_errors, _ = measure_bidirectional_error(mesh, result)
+        error_max, error_mean, error_p95 = error_summary(np.concatenate([fwd_errors, rev_errors]))
 
     original_tris = mesh.n_cells
     result_tris = result.n_cells

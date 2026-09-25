@@ -17,8 +17,10 @@ def build_validation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     window.auto_error_cb = QCheckBox("Auto-proteger zonas con error alto")
     window.auto_error_cb.setChecked(True)
     window.auto_error_cb.setToolTip(tip(
-        "Tras decimar, mide cuanto se aleja cada punto del resultado de "
-        "la superficie original (aproxima la distancia de Hausdorff). "
+        "Tras decimar, mide en las dos direcciones cuanto se aleja el "
+        "resultado del original (aproxima la distancia de Hausdorff): "
+        "tanto zonas del resultado desviadas del original como detalles "
+        "del original que el resultado haya eliminado por completo. "
         "Donde el error supera el umbral, protege esos vertices en la "
         "malla original y vuelve a decimar (hasta 3 pasadas), en vez de "
         "fiarlo todo al angulo de deteccion fijo."

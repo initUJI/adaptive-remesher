@@ -16,6 +16,7 @@ from remesh_core import (
     ensure_active_texture_coords,
     error_summary,
     load_and_prepare_mesh,
+    measure_bidirectional_error,
     mesh_has_texture_coords,
     run_decimation_pipeline,
     uv_seam_point_mask,
@@ -142,6 +143,26 @@ def test_decimate_with_mask_preserves_protected_points(sphere_mesh):
     assert np.all(dist < 1e-6)
 
 
+def test_decimate_with_mask_qem_seam_is_watertight(sphere_mesh):
+    """Regresion: con el motor QEM, la costura entre la zona protegida y
+    la decimada se abria (aristas no-manifold tras el merge) a partir de
+    ~70% de reduccion con el peso de borde antiguo (1000), porque
+    vtkQuadricDecimation solo penaliza el coste de tocar el borde, no lo
+    bloquea como vtkDecimatePro. Con el peso actual (1e10) queda
+    perfectamente soldada hasta ~90% de reduccion (barrido comprobado
+    manualmente con varias resoluciones/mascaras; ver decimate_qem). Al
+    80% -usado aqui- es fiable en todos los casos probados."""
+    mask = sphere_mesh.points[:, 2] > 0.3
+    settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=80, volume_preservation=False)
+
+    result = decimate_with_mask(sphere_mesh, mask, settings)
+
+    problem_edges = result.extract_feature_edges(
+        boundary_edges=True, non_manifold_edges=True, feature_edges=False, manifold_edges=False
+    )
+    assert problem_edges.n_cells == 0
+
+
 def test_decimate_with_mask_no_mask_decimates_everything(sphere_mesh):
     mask = np.zeros(sphere_mesh.n_points, dtype=bool)
     settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=50)
@@ -164,6 +185,28 @@ def test_error_summary_values():
     assert max_e == 100.0
     assert mean_e == pytest.approx(21.2)
     assert p95_e == pytest.approx(np.percentile(errors, 95))
+
+
+def test_measure_bidirectional_error_detects_fully_removed_feature():
+    """La direccion original (result->source) no detecta que un trozo
+    entero del original haya desaparecido del resultado: todas las caras
+    que sobreviven en `result` ya estaban en `source`, asi que su
+    distancia a la superficie original es ~0 independientemente de lo que
+    falte. La direccion inversa (source->result) si lo detecta, porque
+    las caras de `source` que formaban la parte eliminada ya no tienen
+    ninguna superficie cerca en `result`."""
+    base = pv.Plane(i_resolution=10, j_resolution=10).triangulate()
+    # Bulto lejos de la base, para que su ausencia sea inequivoca.
+    bump = pv.Plane(i_resolution=2, j_resolution=2, center=(10, 10, 5)).triangulate()
+    source = base.merge(bump, merge_points=False)
+    result = base  # "olvida" el bulto por completo, como una decimacion que lo aplanara del todo
+
+    fwd_errors, _, rev_errors, _ = measure_bidirectional_error(source, result)
+
+    fwd_max, _, _ = error_summary(fwd_errors)
+    rev_max, _, _ = error_summary(rev_errors)
+    assert fwd_max < 1e-6
+    assert rev_max > 1.0
 
 
 # --- pipeline completo ---
