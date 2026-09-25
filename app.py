@@ -18,7 +18,6 @@ from contextlib import contextmanager
 from datetime import datetime
 
 import numpy as np
-import pymeshlab
 import pyvista as pv
 import vtk
 from PySide6.QtWidgets import (
@@ -50,10 +49,20 @@ from PySide6.QtGui import QKeySequence, QShortcut
 from pyvistaqt import QtInteractor
 from scipy.spatial import cKDTree
 
-DEBUG = False
+from remesh_core import (
+    ENGINE_QEM,
+    CleanSettings,
+    DecimationSettings,
+    ProtectionSettings,
+    clean_mesh,
+    decimate_with_mask,
+    load_and_prepare_mesh,
+    mesh_has_texture_coords,
+    run_decimation_pipeline,
+    uv_seam_point_mask,
+)
 
-ENGINE_DECIMATE_PRO = 0
-ENGINE_QEM = 1
+DEBUG = False
 
 PANEL_STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".panel_layout.json")
 
@@ -195,183 +204,6 @@ def debug(msg):
     """Imprime un mensaje con hora si DEBUG esta activo (diagnostico de eventos de raton/camara)."""
     if DEBUG:
         print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
-
-
-def clean_mesh(
-    mesh: pv.PolyData,
-    min_component_pct: float,
-    close_holes: bool = False,
-    max_hole_size: int = 30,
-    fix_orientation: bool = False,
-) -> pv.PolyData:
-    """Repara defectos tipicos de mallas de IA: vertices duplicados o sin
-    referenciar, aristas y vertices no-manifold, y fragmentos flotantes mas
-    pequenos que min_component_pct% de la diagonal del bounding box. Si
-    `close_holes`, ademas rellena agujeros de hasta `max_hole_size` aristas
-    (util tras quitar fragmentos, pero puede cerrar huecos intencionados
-    como ojos/boca si el umbral es demasiado alto). Si `fix_orientation`,
-    reorienta las caras de forma coherente entre si: corrige el sombreado
-    invertido o los "agujeros" aparentes que aparecen cuando un generador
-    de IA deja normales de cara mezcladas (algunas hacia dentro, otras
-    hacia fuera) dentro de la misma superficie."""
-    ms = pymeshlab.MeshSet()
-    ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.points, face_matrix=mesh.regular_faces))
-    ms.meshing_remove_duplicate_vertices()
-    ms.meshing_remove_unreferenced_vertices()
-    ms.meshing_repair_non_manifold_edges()
-    ms.meshing_repair_non_manifold_vertices()
-    if fix_orientation:
-        ms.meshing_re_orient_faces_coherently()
-    if min_component_pct > 0:
-        ms.meshing_remove_connected_component_by_diameter(
-            mincomponentdiag=pymeshlab.PercentageValue(min_component_pct)
-        )
-    if close_holes:
-        ms.meshing_close_holes(maxholesize=max_hole_size)
-    cleaned = ms.current_mesh()
-    verts = cleaned.vertex_matrix()
-    faces = cleaned.face_matrix()
-    poly_faces = np.hstack([np.full((faces.shape[0], 1), 3), faces]).astype(np.int64)
-    return pv.PolyData(verts, poly_faces)
-
-
-def mesh_has_texture_coords(mesh: pv.PolyData) -> bool:
-    """Indica si la malla tiene coordenadas de textura (UV) activas."""
-    return mesh.active_texture_coordinates is not None
-
-
-def ensure_active_texture_coords(mesh: pv.PolyData) -> None:
-    """Si la malla no tiene UV activas pero trae un array de textura sin
-    marcar como tal, lo activa. Algunos lectores (segun formato) dejan las
-    coordenadas de textura como un array de punto mas, sin activarlas, en
-    cuyo caso `active_texture_coordinates` da None aunque la malla si tenga
-    textura: la proteccion de costuras UV y el peso de distorsion UV en QEM
-    se saltarian en silencio sin este arreglo."""
-    if mesh.active_texture_coordinates is not None:
-        return
-    keywords = ("uv", "tex", "tcoord")
-    for name, array in mesh.point_data.items():
-        if array.ndim == 2 and array.shape[1] == 2 and any(k in name.lower() for k in keywords):
-            mesh.active_texture_coordinates = array
-            return
-
-
-def uv_seam_point_mask(mesh: pv.PolyData) -> np.ndarray:
-    """Detecta vertices duplicados en la misma posicion 3D pero con distinta
-    UV: la forma habitual en que OBJ/GLTF representan una costura de
-    textura. Protegerlos evita que la decimacion los colapse y rompa la
-    textura en la costura. Devuelve una mascara booleana por punto.
-    Vectorizado con numpy sobre todos los pares a la vez (en vez de un
-    bucle Python con un np.allclose por par): en mallas de IA con muchas
-    costuras (miles de vertices duplicados) el bucle era, con diferencia,
-    el cuello de botella de toda la deteccion de proteccion automatica."""
-    mask = np.zeros(mesh.n_points, dtype=bool)
-    tcoords = mesh.active_texture_coordinates
-    if tcoords is None:
-        return mask
-    tol = 1e-5 * mesh.length
-    tree = cKDTree(mesh.points)
-    pairs = tree.query_pairs(r=tol, output_type="ndarray")
-    if pairs.size == 0:
-        return mask
-    i, j = pairs[:, 0], pairs[:, 1]
-    a, b = tcoords[i], tcoords[j]
-    # Misma tolerancia que np.allclose(a, b, atol=1e-4) (rtol=1e-05 por
-    # defecto), pero evaluada de golpe sobre todos los pares.
-    close = np.all(np.abs(a - b) <= (1e-4 + 1e-5 * np.abs(b)), axis=1)
-    differing = ~close
-    mask[i[differing]] = True
-    mask[j[differing]] = True
-    return mask
-
-
-def decimate_pro(
-    mesh: pv.PolyData,
-    reduction: float,
-    feature_angle: float,
-    preserve_topology: bool,
-    boundary_vertex_deletion: bool,
-    splitting: bool,
-) -> pv.PolyData:
-    """Aplica vtkDecimatePro a `mesh`: colapsa vertices en zonas planas segun
-    `feature_angle` y deja intactos bordes duros/esquinas por encima de ese
-    angulo. Devuelve la malla sin cambios si no tiene celdas."""
-    if mesh.n_cells == 0:
-        return mesh
-
-    decimate = vtk.vtkDecimatePro()
-    decimate.SetInputData(mesh)
-    decimate.SetTargetReduction(reduction)
-    decimate.SetFeatureAngle(feature_angle)
-    decimate.SetPreserveTopology(preserve_topology)
-    decimate.SetBoundaryVertexDeletion(boundary_vertex_deletion)
-    decimate.SetSplitting(splitting)
-    decimate.Update()
-    return pv.wrap(decimate.GetOutput())
-
-
-def decimate_qem(
-    mesh: pv.PolyData,
-    reduction: float,
-    volume_preservation: bool,
-    use_uv_weight: bool,
-    tcoords_weight: float,
-    boundary_locked: bool,
-    use_normals_weight: bool = False,
-    normals_weight: float = 1.0,
-) -> pv.PolyData:
-    """Aplica vtkQuadricDecimation (Garland-Heckbert): el coste de cada
-    colapso es un error cuadratico que ya pondera la curvatura local de
-    forma continua (zonas planas -> error bajo -> se colapsan primero;
-    zonas curvas -> error alto -> se preservan), en vez del angulo fijo
-    binario de vtkDecimatePro. Si `use_uv_weight` y la malla tiene textura,
-    anade al coste la distorsion de coordenadas UV, para desalentar
-    colapses que estiren la textura incluso fuera de las costuras ya
-    protegidas por separado. Si `use_normals_weight`, anade ademas la
-    variacion de la normal de vertice al coste: sin esto, QEM puede
-    aplanar zonas suavemente curvas en facetas visibles porque solo mide
-    error de posicion; penalizar el cambio de normal mantiene el sombreado
-    mas fiel al original en mallas organicas muy decimadas (calcula las
-    normales de vertice si la malla aun no las trae). `boundary_locked`
-    penaliza fuertemente mover los bordes (reales o de union con una zona
-    protegida)."""
-    if mesh.n_cells == 0:
-        return mesh
-
-    use_uv = use_uv_weight and mesh_has_texture_coords(mesh)
-    working = mesh
-    if use_normals_weight and "Normals" not in working.point_data:
-        working = working.compute_normals(
-            cell_normals=False,
-            point_normals=True,
-            split_vertices=False,
-            consistent_normals=False,
-            auto_orient_normals=False,
-        )
-
-    decimate = vtk.vtkQuadricDecimation()
-    decimate.SetInputData(working)
-    decimate.SetTargetReduction(reduction)
-    decimate.SetVolumePreservation(volume_preservation)
-    if use_uv or use_normals_weight:
-        decimate.SetAttributeErrorMetric(True)
-        if use_uv:
-            decimate.SetTCoordsAttribute(True)
-            decimate.SetTCoordsWeight(tcoords_weight)
-        if use_normals_weight:
-            decimate.SetNormalsAttribute(True)
-            decimate.SetNormalsWeight(normals_weight)
-    decimate.SetBoundaryWeightFactor(1000.0 if boundary_locked else 1.0)
-    decimate.Update()
-    output = pv.wrap(decimate.GetOutput())
-    if working is not mesh and "Normals" in output.point_data:
-        # Las normales se calcularon solo para guiar el coste de colapso,
-        # no eran un dato original de `mesh`: si se dejan en el resultado,
-        # una pieza vecina que no paso por aqui (p.ej. la zona protegida,
-        # sin decimar) no las tendria, y el merge posterior arrastraria un
-        # array a medias con huecos.
-        del output.point_data["Normals"]
-    return output
 
 
 class ComparisonDialog(QDialog):
@@ -1226,18 +1058,8 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         try:
             with busy_cursor():
-                mesh = pv.read(path).extract_surface().triangulate()
-                if mesh.n_points == 0 or mesh.n_cells == 0:
-                    raise ValueError("El archivo no contiene una malla de superficie valida.")
-                ensure_active_texture_coords(mesh)
-                if self.auto_clean_cb.isChecked():
-                    mesh = clean_mesh(
-                        mesh,
-                        self.min_fragment_slider.value(),
-                        self.close_holes_cb.isChecked(),
-                        self.max_hole_size_spin.value(),
-                        self.fix_orientation_cb.isChecked(),
-                    )
+                clean = self._gather_clean_settings() if self.auto_clean_cb.isChecked() else None
+                mesh = load_and_prepare_mesh(path, clean)
         except Exception as exc:
             QMessageBox.critical(self, "Error al cargar la malla", str(exc))
             return
@@ -1257,12 +1079,13 @@ class AdaptiveRemesherWindow(QMainWindow):
             return
         try:
             with busy_cursor():
+                clean = self._gather_clean_settings()
                 cleaned = clean_mesh(
                     self.original_mesh,
-                    self.min_fragment_slider.value(),
-                    self.close_holes_cb.isChecked(),
-                    self.max_hole_size_spin.value(),
-                    self.fix_orientation_cb.isChecked(),
+                    clean.min_component_pct,
+                    clean.close_holes,
+                    clean.max_hole_size,
+                    clean.fix_orientation,
                 )
                 if cleaned.n_points == 0 or cleaned.n_cells == 0:
                     raise ValueError(
@@ -1546,11 +1369,13 @@ class AdaptiveRemesherWindow(QMainWindow):
 
     def _uv_seam_mask_for(self, mesh: pv.PolyData) -> np.ndarray:
         """Devuelve la mascara de costuras UV de `mesh`, cacheada igual que
-        `_curvature_for`. La proteccion de costuras se recalculaba antes en
-        cada 'Aplicar decimacion' y en cada tick de la vista previa en
-        tiempo real, aunque la malla no hubiera cambiado desde la ultima
-        vez; en mallas de IA con muchas costuras eso se notaba al arrastrar
-        el slider de agresividad con la vista previa activa."""
+        `_curvature_for`. Usada por la vista previa en tiempo real, que
+        recalcularia esta mascara en cada tick aunque la malla no hubiera
+        cambiado desde la ultima vez; en mallas de IA con muchas costuras
+        eso se notaba al arrastrar el slider de agresividad con la vista
+        previa activa. 'Aplicar decimacion' usa en su lugar el pipeline
+        compartido de `remesh_core`, que recalcula la mascara una unica vez
+        por click (no es un caso de uso repetitivo que necesite cache)."""
         key = (id(mesh), mesh.n_points)
         if self._uv_seam_cache is not None and self._uv_seam_cache[0] == key:
             return self._uv_seam_cache[1]
@@ -1626,7 +1451,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         if not self.live_preview_cb.isChecked() or self.original_mesh is None:
             return
         source = self.original_mesh
-        reduction = self.reduction_slider.value() / 100.0
+        decimation = self._gather_decimation_settings()
         mask = (
             self.protected_mask.copy()
             if self.protected_mask is not None
@@ -1635,7 +1460,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         if self.protect_uv_seams_cb.isChecked() and mesh_has_texture_coords(source):
             mask |= self._uv_seam_mask_for(source)
         try:
-            preview = self._decimate_with_mask(source, mask, reduction)
+            preview = decimate_with_mask(source, mask, decimation)
         except Exception:
             return
         if preview.n_cells == 0:
@@ -1665,193 +1490,67 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.splitting_cb.setEnabled(not is_qem)
         self.qem_group.setEnabled(is_qem)
 
-    def _decimate(self, mesh: pv.PolyData, reduction: float, lock_boundary: bool) -> pv.PolyData:
-        """Decima `mesh` con el motor elegido en el panel (vtkDecimatePro o
-        Quadric Error Metric). `lock_boundary=True` fuerza que los bordes de
-        `mesh` quedan intactos (se usa para la costura interna creada al
-        separar una zona protegida); si es False, se respeta la casilla
-        "Permitir simplificar bordes" para los bordes reales de la malla."""
-        resolved_lock = lock_boundary or not self.boundary_vertex_deletion_cb.isChecked()
-        if self.engine_combo.currentIndex() == ENGINE_DECIMATE_PRO:
-            return decimate_pro(
-                mesh,
-                reduction,
-                feature_angle=float(self.angle_slider.value()),
-                preserve_topology=self.preserve_topology_cb.isChecked(),
-                boundary_vertex_deletion=not resolved_lock,
-                splitting=self.splitting_cb.isChecked(),
-            )
-        return decimate_qem(
-            mesh,
-            reduction,
+    def _gather_clean_settings(self) -> CleanSettings:
+        """Recoge los parametros de limpieza previa configurados en el panel."""
+        return CleanSettings(
+            min_component_pct=self.min_fragment_slider.value(),
+            close_holes=self.close_holes_cb.isChecked(),
+            max_hole_size=self.max_hole_size_spin.value(),
+            fix_orientation=self.fix_orientation_cb.isChecked(),
+        )
+
+    def _gather_decimation_settings(self) -> DecimationSettings:
+        """Recoge los parametros de decimacion (ambos motores) configurados en el panel."""
+        return DecimationSettings(
+            engine=self.engine_combo.currentIndex(),
+            reduction_pct=self.reduction_slider.value(),
+            feature_angle=float(self.angle_slider.value()),
+            preserve_topology=self.preserve_topology_cb.isChecked(),
+            boundary_vertex_deletion=self.boundary_vertex_deletion_cb.isChecked(),
+            splitting=self.splitting_cb.isChecked(),
             volume_preservation=self.volume_preservation_cb.isChecked(),
             use_uv_weight=self.uv_attribute_metric_cb.isChecked(),
             tcoords_weight=self.uv_weight_spin.value(),
-            boundary_locked=resolved_lock,
             use_normals_weight=self.normals_weight_cb.isChecked(),
             normals_weight=self.normals_weight_spin.value(),
         )
 
-    def _decimate_with_mask(self, source: pv.PolyData, mask: np.ndarray, reduction: float) -> pv.PolyData:
-        """Decima `source` dejando intactos los puntos marcados en `mask`
-        (protegidos): los separa, decima solo el resto y recompone el
-        resultado. Si `mask` esta vacia, decima la malla entera."""
-        if not mask.any():
-            return self._decimate(source, reduction, lock_boundary=False)
-
-        protected_ids = np.where(mask)[0]
-        unprotected_ids = np.where(~mask)[0]
-        protected_group = source.extract_points(
-            protected_ids, adjacent_cells=True
-        ).extract_surface(algorithm="dataset_surface")
-        if unprotected_ids.size == 0:
-            return protected_group
-
-        unprotected_group = source.extract_points(
-            unprotected_ids, adjacent_cells=False
-        ).extract_surface(algorithm="dataset_surface")
-        decimated_part = self._decimate(unprotected_group, reduction, lock_boundary=True)
-        return protected_group.merge(decimated_part, merge_points=True)
-
-    def _measure_error(self, result: pv.PolyData, distance_fn: vtk.vtkImplicitPolyDataDistance):
-        """Distancia absoluta de cada centro de cara de `result` a la
-        superficie implicita `distance_fn` (aproxima el error de Hausdorff
-        unidireccional). Se mide en centros de cara, no en vertices: los
-        vertices que sobreviven a vtkDecimatePro conservan su posicion
-        original exacta, asi que su distancia a la superficie original
-        siempre seria ~0 y ocultaria el error real, que ocurre en el
-        interior de los triangulos grandes recien creados. `distance_fn` se
-        recibe ya construido (con SetInput aplicado) para no reconstruir el
-        localizador espacial en cada pasada de refinamiento. Devuelve
-        (errores, puntos_de_muestra) para poder localizar las zonas malas."""
-        centroids = result.cell_centers().points
-        dists = vtk.vtkDoubleArray()
-        distance_fn.FunctionValue(pv.convert_array(centroids), dists)
-        errors = np.abs(pv.convert_array(dists))
-        return errors, centroids
-
-    def _refine_by_error(
-        self,
-        source: pv.PolyData,
-        result: pv.PolyData,
-        mask: np.ndarray,
-        reduction: float,
-    ):
-        """Mide el error geometrico de `result` frente a `source` y, donde
-        supera el umbral configurado, protege esos vertices en la malla
-        original y vuelve a decimar; repite hasta 3 pasadas o hasta que el
-        error quede dentro del umbral. Devuelve (resultado, mascara
-        actualizada, error maximo final, error medio final, error percentil
-        95 final, nº de pasadas, puntos anadidos)."""
-        threshold = (self.error_threshold_spin.value() / 100.0) * source.length
-        source_tree = cKDTree(source.points)
-        # Se construye una sola vez y se reutiliza en las hasta 3 pasadas:
-        # `source` no cambia entre iteraciones, solo `result`, asi que
-        # reconstruir el localizador espacial en cada pasada seria trabajo
-        # repetido innecesario.
-        distance_fn = vtk.vtkImplicitPolyDataDistance()
-        distance_fn.SetInput(source)
-        added_total = 0
-        errors, centroids = self._measure_error(result, distance_fn)
-        iterations = 0
-        for iterations in range(1, 4):
-            bad = errors > threshold
-            if not bad.any():
-                break
-            _, nearest_idx = source_tree.query(centroids[bad])
-            nearest_idx = np.unique(nearest_idx)
-            newly = nearest_idx[~mask[nearest_idx]]
-            if newly.size == 0:
-                break
-            mask[newly] = True
-            added_total += int(newly.size)
-            result = self._decimate_with_mask(source, mask, reduction)
-            errors, centroids = self._measure_error(result, distance_fn)
-        max_error, mean_error, p95_error = self._error_summary(errors)
-        return result, mask, max_error, mean_error, p95_error, iterations, added_total
-
-    @staticmethod
-    def _error_summary(errors: np.ndarray):
-        """Reduce un array de errores por centro de cara a tres numeros que
-        resumen la calidad del resultado: el maximo (peor caso puntual, lo
-        unico que se mostraba antes), la media (calidad global) y el
-        percentil 95 (que tan mal esta la franja de peores puntos sin que
-        un unico pico aislado lo distorsione, mas informativo que el
-        maximo en mallas grandes)."""
-        if errors.size == 0:
-            return 0.0, 0.0, 0.0
-        return float(errors.max()), float(errors.mean()), float(np.percentile(errors, 95))
+    def _gather_protection_settings(self) -> ProtectionSettings:
+        """Recoge los parametros de proteccion automatica (costuras UV y validacion por error) del panel."""
+        return ProtectionSettings(
+            protect_uv_seams=self.protect_uv_seams_cb.isChecked(),
+            auto_error_protection=self.auto_error_cb.isChecked(),
+            error_threshold_pct=self.error_threshold_spin.value(),
+        )
 
     def apply_decimation(self):
         """Decima la malla actual segun los parametros del panel: excluye
         del colapso las zonas pintadas y las costuras UV, y si la
         validacion por error esta activa, refina el resultado protegiendo
-        automaticamente donde la deformacion supera el umbral."""
+        automaticamente donde la deformacion supera el umbral. Delega todo
+        el calculo en `run_decimation_pipeline` (remesh_core), el mismo
+        pipeline que usa el procesamiento por lotes."""
         if self.original_mesh is None:
             return
 
-        source = self.original_mesh
-        reduction = self.reduction_slider.value() / 100.0
+        decimation = self._gather_decimation_settings()
+        protection = self._gather_protection_settings()
 
-        mask = (
-            self.protected_mask.copy()
-            if self.protected_mask is not None
-            else np.zeros(source.n_points, dtype=bool)
-        )
-        manual_count = int(mask.sum())
-
-        max_error = mean_error = p95_error = None
-        iterations = 0
-        added = 0
         try:
             with busy_cursor():
-                uv_locked = 0
-                if self.protect_uv_seams_cb.isChecked() and mesh_has_texture_coords(source):
-                    seam_mask = self._uv_seam_mask_for(source)
-                    uv_locked = int((seam_mask & ~mask).sum())
-                    mask |= seam_mask
-
-                result = self._decimate_with_mask(source, mask, reduction)
-
-                error_note = ""
-                if result.n_cells > 0:
-                    if self.auto_error_cb.isChecked():
-                        result, mask, max_error, mean_error, p95_error, iterations, added = (
-                            self._refine_by_error(source, result, mask, reduction)
-                        )
-                        error_note = (
-                            f"\nError geometrico (post-ajuste): max {max_error:.4f}, "
-                            f"medio {mean_error:.4f}, p95 {p95_error:.4f} "
-                            f"({iterations} pasada(s), +{added} pts auto-protegidos)"
-                        )
-                    else:
-                        # Aunque no se auto-proteja por error, medirlo una
-                        # vez (sin refinamiento iterativo) sigue siendo
-                        # util como diagnostico de calidad del resultado.
-                        distance_fn = vtk.vtkImplicitPolyDataDistance()
-                        distance_fn.SetInput(source)
-                        errors, _ = self._measure_error(result, distance_fn)
-                        max_error, mean_error, p95_error = self._error_summary(errors)
-                        error_note = (
-                            f"\nError geometrico: max {max_error:.4f}, "
-                            f"medio {mean_error:.4f}, p95 {p95_error:.4f}"
-                        )
+                result = run_decimation_pipeline(
+                    self.original_mesh, decimation, protection, manual_mask=self.protected_mask
+                )
+        except ValueError as exc:
+            QMessageBox.warning(self, "Resultado vacio", str(exc))
+            return
         except Exception as exc:
             QMessageBox.critical(self, "Error al decimar", str(exc))
             return
 
-        if result.n_cells == 0:
-            QMessageBox.warning(
-                self,
-                "Resultado vacio",
-                "La decimacion ha dejado la malla sin caras. Prueba con una "
-                "agresividad menor o menos zonas protegidas.",
-            )
-            return
-
         self._push_undo()
-        self.decimated_mesh = result
-        self.show_mesh(result, is_original=False)
+        self.decimated_mesh = result.mesh
+        self.show_mesh(result.mesh, is_original=False)
         # Si el pincel ya estaba activo antes de decimar, desactivarlo: a
         # partir de ahora pintaria contra el resultado decimado mientras
         # compara posiciones con el KDTree de la malla original, lo que con
@@ -1861,44 +1560,50 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.paint_btn.setChecked(False)
         self.erase_btn.setChecked(False)
 
-        original_tris = self.original_mesh.n_cells
-        new_tris = result.n_cells
-        pct = 100.0 * (1 - new_tris / original_tris) if original_tris else 0
         notes = []
-        if manual_count:
+        if result.manual_protected_points:
             notes.append("zonas pintadas excluidas")
-        if uv_locked:
-            notes.append(f"{uv_locked} pts de costura UV protegidos")
+        if result.uv_seam_protected_points:
+            notes.append(f"{result.uv_seam_protected_points} pts de costura UV protegidos")
         note = f" ({', '.join(notes)})" if notes else ""
+        if protection.auto_error_protection:
+            error_note = (
+                f"\nError geometrico (post-ajuste): max {result.error_max:.4f}, "
+                f"medio {result.error_mean:.4f}, p95 {result.error_p95:.4f} "
+                f"({result.error_refine_iterations} pasada(s), "
+                f"+{result.error_refine_added_points} pts auto-protegidos)"
+            )
+        else:
+            error_note = (
+                f"\nError geometrico: max {result.error_max:.4f}, "
+                f"medio {result.error_mean:.4f}, p95 {result.error_p95:.4f}"
+            )
         self.stats_label.setText(
-            f"Original: {original_tris} tris\n"
-            f"Resultado: {new_tris} tris\n"
-            f"Reduccion real: {pct:.1f}%{note}{error_note}"
+            f"Original: {result.original_tris} tris\n"
+            f"Resultado: {result.result_tris} tris\n"
+            f"Reduccion real: {result.reduction_real_pct:.1f}%{note}{error_note}"
         )
 
         self._last_run_info = {
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "engine": self.engine_combo.currentText(),
-            "original_tris": original_tris,
-            "result_tris": new_tris,
+            "original_tris": result.original_tris,
+            "result_tris": result.result_tris,
             "reduction_target_pct": self.reduction_slider.value(),
-            "reduction_real_pct": round(pct, 2),
-            "manual_protected_points": manual_count,
-            "uv_seam_protected_points": uv_locked,
-            "auto_error_protection_enabled": self.auto_error_cb.isChecked(),
+            "reduction_real_pct": result.reduction_real_pct,
+            "manual_protected_points": result.manual_protected_points,
+            "uv_seam_protected_points": result.uv_seam_protected_points,
+            "auto_error_protection_enabled": protection.auto_error_protection,
+            "error_max": round(result.error_max, 6),
+            "error_mean": round(result.error_mean, 6),
+            "error_p95": round(result.error_p95, 6),
         }
-        if max_error is not None:
+        if protection.auto_error_protection:
             self._last_run_info.update({
-                "error_max": round(max_error, 6),
-                "error_mean": round(mean_error, 6),
-                "error_p95": round(p95_error, 6),
+                "error_threshold_pct": protection.error_threshold_pct,
+                "error_refine_iterations": result.error_refine_iterations,
+                "error_refine_added_points": result.error_refine_added_points,
             })
-            if self.auto_error_cb.isChecked():
-                self._last_run_info.update({
-                    "error_threshold_pct": self.error_threshold_spin.value(),
-                    "error_refine_iterations": iterations,
-                    "error_refine_added_points": added,
-                })
 
     def reset_mesh(self):
         """Descarta el resultado decimado y vuelve a mostrar la malla original con sus marcas de proteccion."""
@@ -1946,67 +1651,43 @@ class AdaptiveRemesherWindow(QMainWindow):
 
     # --- procesamiento por lotes ---
 
-    def _process_one_batch_file(self, path: str, reduction: float) -> dict:
+    def _process_one_batch_file(self, path: str) -> dict:
         """Carga, limpia (si toca) y decima un unico archivo con los
-        ajustes actuales del panel, igual que `apply_decimation` pero sin
-        proteccion manual (no hay malla abierta en el visor de la que
-        leer marcas de pincel/rectangulo): solo costuras UV y auto-ajuste
-        por error, si estan activados. Devuelve un diccionario con la
-        malla resultante y las estadisticas, listo para guardar. Lanza
-        una excepcion si el archivo no es una malla de superficie valida
-        o si el resultado se queda sin caras."""
-        mesh = pv.read(path).extract_surface().triangulate()
-        if mesh.n_points == 0 or mesh.n_cells == 0:
-            raise ValueError("El archivo no contiene una malla de superficie valida.")
-        ensure_active_texture_coords(mesh)
-        if self.auto_clean_cb.isChecked():
-            mesh = clean_mesh(
-                mesh,
-                self.min_fragment_slider.value(),
-                self.close_holes_cb.isChecked(),
-                self.max_hole_size_spin.value(),
-                self.fix_orientation_cb.isChecked(),
-            )
+        ajustes actuales del panel, mediante el mismo `run_decimation_pipeline`
+        que usa `apply_decimation`, pero sin proteccion manual (no hay malla
+        abierta en el visor de la que leer marcas de pincel/rectangulo):
+        solo costuras UV y auto-ajuste por error, si estan activados.
+        Devuelve un diccionario con la malla resultante y las estadisticas,
+        listo para guardar. Lanza una excepcion si el archivo no es una
+        malla de superficie valida o si el resultado se queda sin caras."""
+        clean = self._gather_clean_settings() if self.auto_clean_cb.isChecked() else None
+        mesh = load_and_prepare_mesh(path, clean)
 
-        mask = np.zeros(mesh.n_points, dtype=bool)
-        uv_locked = 0
-        if self.protect_uv_seams_cb.isChecked() and mesh_has_texture_coords(mesh):
-            seam_mask = uv_seam_point_mask(mesh)
-            uv_locked = int(seam_mask.sum())
-            mask |= seam_mask
-
-        result = self._decimate_with_mask(mesh, mask, reduction)
+        decimation = self._gather_decimation_settings()
+        protection = self._gather_protection_settings()
+        result = run_decimation_pipeline(mesh, decimation, protection, manual_mask=None)
 
         info = {
             "source_file": os.path.basename(path),
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "engine": self.engine_combo.currentText(),
-            "original_tris": mesh.n_cells,
+            "original_tris": result.original_tris,
+            "result_tris": result.result_tris,
             "reduction_target_pct": self.reduction_slider.value(),
-            "uv_seam_protected_points": uv_locked,
-            "auto_error_protection_enabled": self.auto_error_cb.isChecked(),
+            "reduction_real_pct": result.reduction_real_pct,
+            "uv_seam_protected_points": result.uv_seam_protected_points,
+            "auto_error_protection_enabled": protection.auto_error_protection,
+            "error_max": round(result.error_max, 6),
+            "error_mean": round(result.error_mean, 6),
+            "error_p95": round(result.error_p95, 6),
         }
-        if self.auto_error_cb.isChecked() and result.n_cells > 0:
-            result, mask, max_error, mean_error, p95_error, iterations, added = (
-                self._refine_by_error(mesh, result, mask, reduction)
-            )
+        if protection.auto_error_protection:
             info.update({
-                "error_threshold_pct": self.error_threshold_spin.value(),
-                "error_max": round(max_error, 6),
-                "error_mean": round(mean_error, 6),
-                "error_p95": round(p95_error, 6),
-                "error_refine_iterations": iterations,
-                "error_refine_added_points": added,
+                "error_threshold_pct": protection.error_threshold_pct,
+                "error_refine_iterations": result.error_refine_iterations,
+                "error_refine_added_points": result.error_refine_added_points,
             })
-
-        if result.n_cells == 0:
-            raise ValueError("La decimacion ha dejado la malla sin caras.")
-
-        info["result_tris"] = result.n_cells
-        info["reduction_real_pct"] = round(
-            100.0 * (1 - result.n_cells / mesh.n_cells) if mesh.n_cells else 0, 2
-        )
-        return {"mesh": result, "info": info}
+        return {"mesh": result.mesh, "info": info}
 
     def run_batch(self):
         """Aplica los ajustes actuales del panel a todos los archivos de
@@ -2065,7 +1746,6 @@ class AdaptiveRemesherWindow(QMainWindow):
         if reply != QMessageBox.Yes:
             return
 
-        reduction = self.reduction_slider.value() / 100.0
         progress = QProgressDialog("Procesando...", "Cancelar", 0, len(files), self)
         progress.setWindowModality(Qt.WindowModal)
         progress.setMinimumDuration(0)
@@ -2079,7 +1759,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             progress.setValue(i)
             src_path = os.path.join(input_dir, filename)
             try:
-                processed = self._process_one_batch_file(src_path, reduction)
+                processed = self._process_one_batch_file(src_path)
                 out_name = os.path.splitext(filename)[0] + f".{ext}"
                 processed["mesh"].save(os.path.join(output_dir, out_name))
                 if self.export_report_cb.isChecked():

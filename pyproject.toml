@@ -1,0 +1,9 @@
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+# Los docstrings y tooltips en espanol suelen superar el limite de linea;
+# no vale la pena forzar el wrap solo por estilo.
+ignore = ["E501"]
