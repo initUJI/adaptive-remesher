@@ -138,12 +138,20 @@ cambios.
 
 ## Limitaciones conocidas
 
-- La seleccion por rectangulo no hace test de profundidad: tambien
-  marca puntos ocultos detras de la malla.
-- El pincel de proteccion se desactiva automaticamente tras decimar,
-  porque trabaja contra el KDTree de la malla original y el motor QEM
-  puede mover vertices.
-- El build de PyInstaller (ver BUILD.md) solo se ha probado en Windows.
+- El motor QEM con proteccion puede, en un ~10% de combinaciones de
+  resolucion/mascara probadas, dejar 1-2 aristas de costura sin soldar en
+  reducciones extremas (>=99%), incluso tras las dos pasadas automaticas
+  de reparacion (ver CHANGELOG). Es un caso raro, con agresividad muy por
+  encima de lo habitual, y el residuo que puede quedar es minimo.
+- Las herramientas de proteccion (pincel, rectangulo) se desactivan
+  automaticamente tras decimar y, al reactivarlas, vuelven a mostrar la
+  malla original: trabajan contra su KDTree/z-buffer, y con el motor QEM
+  (que si mueve vertices) el resultado decimado ya no coincidiria con lo
+  mostrado. El resultado decimado no se pierde por esto, solo cambia la
+  vista para poder seguir pintando.
+- El build de PyInstaller (ver BUILD.md) se ha probado interactivamente
+  solo en Windows; el workflow de releases incluye una prueba de humo
+  automatica (arranca sin errores) en las tres plataformas.
 
 ## Licencia
 

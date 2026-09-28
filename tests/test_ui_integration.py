@@ -100,6 +100,26 @@ def test_apply_decimation_excludes_painted_points(loaded_window):
     assert loaded_window._last_run_info["manual_protected_points"] == int(protected_before.sum())
 
 
+def test_toggling_paint_after_decimation_preserves_result(loaded_window):
+    """Regresion: activar el pincel tras decimar solia descartar
+    `decimated_mesh` de golpe (via reset_mesh), obligando a repetir la
+    decimacion aunque el usuario solo quisiera revisar la proteccion."""
+    loaded_window.apply_decimation()
+    assert loaded_window.decimated_mesh is not None
+
+    loaded_window.paint_btn.setChecked(True)
+
+    assert loaded_window.decimated_mesh is not None
+
+
+def test_gather_protection_settings_includes_max_iterations(loaded_window):
+    loaded_window.error_max_iterations_spin.setValue(7)
+
+    settings = loaded_window._gather_protection_settings()
+
+    assert settings.error_max_iterations == 7
+
+
 def test_collapsible_group_hides_children_when_collapsed(loaded_window):
     group = loaded_window.qem_group
     child = loaded_window.volume_preservation_cb

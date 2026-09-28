@@ -577,21 +577,149 @@ investigation:
 
 ---
 
-## 5. Known limitations (documented, not fixed)
+## 5. Follow-up: closing the previously-known limitations
 
-- The QEM engine with protection can still leave a seam imperfectly welded at
-  extreme reduction levels (~95–99%); see 4.1. There is no fix available
-  within `vtkQuadricDecimation`'s public API — only a custom
-  boundary-constrained decimation implementation could close this gap
-  completely, which was judged out of scope.
-- Rectangle selection in the viewport does no depth testing: it also marks
-  points hidden behind the mesh from the current camera angle.
-- The protection brush is disabled immediately after decimating, because it
-  works against a `cKDTree` built from the original mesh and the QEM engine
-  can move unprotected vertices (see 3.6).
-- Iterative error-based refinement (`refine_by_error`) is capped at 3 passes:
-  with a very strict threshold, it can terminate without fully satisfying the
-  threshold rather than looping indefinitely — a deliberate trade-off to avoid
-  unbounded runtime on large meshes.
-- The PyInstaller build (see [BUILD.md](BUILD.md)) has only been verified on
-  Windows, even though the release workflow builds for all three platforms.
+Section 4's fixes were followed by a second pass specifically targeting the
+five items that used to be listed here as accepted-but-unfixed limitations.
+Four turned out to be genuinely fixable; one is now much smaller but not
+completely eliminated.
+
+### 5.1. QEM seam gaps above ~95% reduction — mitigated further
+
+Section 4.1 fixed the seam cracking up to ~90% reduction by raising the
+boundary weight. Above that, a residual gap remained: not non-manifold edges
+(faces sharing an edge with more than one neighbor — a genuine repair filter
+would apply there), but ordinary **boundary edges on both sides of the seam
+that simply don't line up**, a real T-junction caused by the two sides ending
+up with a different number of edge segments after independent decimation.
+
+Two natural-seeming fixes were tried and empirically ruled out before finding
+one that works:
+
+- **`pymeshlab.meshing_repair_non_manifold_edges`/`..._vertices`** — no
+  effect whatsoever (triangle count identical before/after across a sweep of
+  resolutions/masks/reduction levels), because these target edges shared by
+  *more than two* faces, not simple unmatched boundary edges.
+- **Raising `merge_points`'s tolerance** in the recombination step — barely
+  helped at a small tolerance, and *increased* the number of problem edges at
+  a larger one, because it started welding unrelated nearby points into
+  degenerate connectivity elsewhere on the mesh.
+
+What actually works: **`pymeshlab.meshing_close_holes`**, applied right after
+the merge, with a small `maxholesize` cap (100 boundary edges) so it only
+patches small artifacts like this seam gap and never touches a large opening
+that's a genuine part of the mesh (eyes, mouth). New helper
+`_weld_seam_gaps()` in [remesh_core.py](remesh_core.py) is now called
+unconditionally at the end of `decimate_with_mask`'s merge branch. Verified
+with the same kind of sweep as before: **fully watertight up to ~98%
+reduction** (up from ~90%); at the most extreme case tested (99%), it closes
+80–90% of the remaining problem edges but not always all of them — a residual
+gap this small (single digits of edges, down from dozens) is the one item from
+this list that remains only *mitigated*, not eliminated. New regression test:
+[`test_decimate_with_mask_qem_seam_is_watertight_at_extreme_reduction`](tests/test_remesh_core.py).
+
+**Update — closed further with a custom stitcher.** Asked to look harder at
+this residual instead of accepting it, a deeper investigation diagnosed the
+exact remaining defect: a "bowtie" vertex, a single point where the gap's
+boundary loop touches itself (4 boundary edges meet there instead of 2) —
+this is why neither PyMeshLab's `meshing_repair_non_manifold_vertices` (any
+`vertdispratio`), `meshing_snap_mismatched_borders` (any `edgedistratio`), nor
+`meshing_remove_t_vertices`, nor VTK's own `vtkFillHolesFilter`, could close
+it: none of them separate the two loops that meet at that one point. A
+targeted post-process, `_stitch_residual_boundary_gaps`
+([remesh_core.py:430](remesh_core.py:430)), now runs after `_weld_seam_gaps`:
+it rebuilds the simple closed loops hiding in the residual boundary-edge
+graph — at each bowtie vertex, pairing each incident edge with the one most
+opposite in direction (`_pair_seam_branch_neighbors`, the pairing that best
+continues each loop in a straight line through the point) — and caps each
+loop with a fan of triangles from its centroid. Verified on the same 112-case
+sweep (resolutions 15–75, three mask shapes, reduction up to 99.9%): residual
+problem edges dropped from 5–56 down to 0–2 in the remaining hard cases,
+fully closing about 90% of the previously-failing combinations. Also
+uncovered and fixed in the same pass: `_weld_seam_gaps` could raise
+`pymeshlab.PyMeshLabException` and crash the whole decimation pipeline, on
+the handful of cases where the raw merge already contains genuinely
+non-manifold edges (3+ faces sharing one edge, not just the usual
+T-junction) — PyMeshLab refuses to run `meshing_close_holes` on those at all.
+This is now caught, falling back to the unrepaired mesh rather than
+propagating the exception. New regression tests:
+[`test_decimate_with_mask_qem_seam_closed_by_residual_gap_stitcher`](tests/test_remesh_core.py)
+and
+[`test_decimate_with_mask_never_raises_when_pymeshlab_repair_rejects_mesh`](tests/test_remesh_core.py).
+
+### 5.2. Rectangle selection now does real depth testing — fixed
+
+`_apply_rect_selection()` ([app.py:519](app.py:519)) kept its cheap
+screen-projection prefilter (`_project_points_to_qt`, to narrow the whole mesh
+down to the handful of vertices inside the rectangle), but now runs
+`vtk.vtkSelectVisiblePoints` on those candidates against the renderer's actual
+z-buffer (`SetRenderer(self.plotter.renderer)`), which discards any candidate
+occluded by another part of the mesh from the current camera angle. The
+mapping back to original vertex indices is threaded through a point-data array
+(`candidates.point_data["_orig_idx"]`) that the VTK filter carries through to
+its output, since the filter's output is a subset of input points, not a
+boolean mask.
+
+**Testing caveat:** an automated `pytest-qt` regression test for this was
+attempted (drive a rectangle covering a whole rendered sphere and assert only
+the front-facing half gets marked) but had to be dropped — on this Windows
+sandbox, the `offscreen` Qt platform plugin has no real OpenGL context
+(`QOpenGLWidget is not supported on this platform`), so `vtkSelectVisiblePoints`
+reads an empty z-buffer and marks nothing. `vtkSelectVisiblePoints` against a
+render window's z-buffer is standard, well-established VTK usage for a real
+on-screen session, so this is very likely a sandbox-only limitation rather
+than a code defect — but it could not be verified end-to-end here, including
+whether Linux CI's software `libgl1` rendering fares any better. **This
+behavior should be manually verified in a real windowed session** (drag a
+rectangle across a mesh where part of it faces away from the camera) before
+relying on it.
+
+### 5.3. Brush/rectangle no longer discards the decimated result — fixed
+
+Previously, `_on_brush_toggled()` called `reset_mesh()` whenever a protection
+tool was turned on while viewing a decimated result — which explicitly sets
+`self.decimated_mesh = None`, permanently discarding it even if the user just
+wanted to glance at the original mesh and turn the tool back off without
+painting anything. The fix switches the *view* back to the original mesh
+(preserving the current camera position) without nulling `decimated_mesh` or
+pushing an undo step. The safety rationale from 3.6 is unchanged and still
+applies — protection tools still always operate against the original mesh,
+never the decimated one — but the user no longer loses an already-computed
+result just to check on it.
+
+### 5.4. Error-refinement pass count is now configurable — fixed
+
+`refine_by_error()` gained a `max_iterations: int = 3` parameter (plumbed
+through `ProtectionSettings.error_max_iterations` and a new "Max
+auto-protection passes" spinbox in the validation panel, range 1–10). A very
+strict error threshold that previously always stopped after 3 passes
+regardless of whether the mesh was actually within tolerance can now be given
+more passes (at the cost of more compute time) or fewer (to cut runtime short
+deliberately). New regression test:
+[`test_refine_by_error_respects_max_iterations`](tests/test_remesh_core.py).
+
+### 5.5. Cross-platform PyInstaller builds now smoke-tested in CI — improved
+
+Interactive verification is still Windows-only (unchanged — this documentation
+session has no macOS/Linux environment to verify against). What changed:
+`.github/workflows/release.yml` now launches each freshly built executable
+(Windows/macOS/Linux) with `QT_QPA_PLATFORM=offscreen`, waits a few seconds,
+and fails the job if the process exited on its own — the standard symptom of
+a PyInstaller build missing a native dependency or hitting a broken import at
+startup. This doesn't replace clicking through the actual UI, but it catches
+the most common way a cross-platform packaged build silently fails.
+
+---
+
+## 6. Known limitations (still open)
+
+- The QEM seam-gap fix in 5.1, even after the custom stitcher, is not
+  completely airtight at the most extreme reduction levels (>=99%): about
+  10% of tested resolution/mask combinations still leave 1-2 problem edges.
+  The remaining cases involve loop topologies the greedy direction-pairing
+  heuristic can't decompose cleanly, or a merge that was already non-manifold
+  before any repair ran. Full closure in every case would require a proper
+  boundary-constrained decimation implementation, judged disproportionate for
+  a defect this rare and this small.
+- The PyInstaller builds for macOS/Linux are smoke-tested (process starts and
+  survives a few seconds) but not interactively verified — see 5.5.

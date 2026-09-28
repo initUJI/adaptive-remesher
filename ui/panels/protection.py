@@ -44,12 +44,12 @@ def build_protection_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     window.rect_btn.setCheckable(True)
     window.rect_btn.setToolTip(tip(
         "Activa la seleccion por rectangulo: arrastra sobre el "
-        "viewport para proteger de golpe todos los vertices dentro "
-        "del rectangulo (sin test de profundidad: tambien marca "
-        "puntos ocultos detras de la malla). Manten pulsado Mayus "
-        "mientras arrastras para desproteger en vez de proteger. "
-        "Util para zonas grandes de forma irregular donde el pincel "
-        "circular es lento."
+        "viewport para proteger de golpe todos los vertices visibles "
+        "dentro del rectangulo (test de profundidad real contra la "
+        "vista actual: no marca puntos ocultos detras de otra parte "
+        "de la malla). Manten pulsado Mayus mientras arrastras para "
+        "desproteger en vez de proteger. Util para zonas grandes de "
+        "forma irregular donde el pincel circular es lento."
     ))
     window.rect_btn.toggled.connect(
         lambda checked: window._on_brush_toggled(window.rect_btn, checked)

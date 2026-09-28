@@ -348,17 +348,151 @@ Ademas de los dos anteriores, la introduccion de tests y `mypy` saco a la luz
 
 ---
 
-## 5. Limitaciones conocidas (no resueltas, documentadas conscientemente)
+## 5. Seguimiento: cerrando las limitaciones anteriores
 
-- El motor QEM con proteccion aun puede dejar una costura no soldada en
-  reducciones extremas (~95-99%); ver 4.1. No hay arreglo disponible dentro de la
-  API de `vtkQuadricDecimation`.
-- La seleccion por rectangulo en el viewport no hace test de profundidad: tambien
-  marca puntos ocultos detras de la malla.
-- El pincel de proteccion se desactiva tras decimar, porque trabaja contra el
-  `cKDTree` de la malla original y el motor QEM puede mover vertices no
-  protegidos.
-- El refinamiento iterativo por error (`refine_by_error`) esta acotado a 3
-  pasadas: si el umbral configurado es muy exigente, puede terminar sin bajar del
-  todo del umbral en vez de iterar indefinidamente (compromiso deliberado para
-  evitar bucles largos en mallas grandes).
+Tras el primer informe, se revisaron una por una las cinco limitaciones que
+aqui figuraban como "aceptadas, no corregidas". Cuatro resultaron ser
+arreglables de verdad; la quinta queda mucho mas pequena pero no del todo
+eliminada.
+
+### 5.1. Huecos de costura QEM por encima de ~95% — mitigado mas alla del limite anterior
+
+La seccion 4.1 solucionaba la costura hasta ~90% de reduccion subiendo el
+peso de borde. Por encima quedaba un margen de fallo: no eran aristas
+no-manifold (compartidas por mas de 2 caras), sino aristas de borde
+normales a cada lado de la costura que no llegaban a coincidir -un
+T-junction real, porque cada lado termina con un numero distinto de
+segmentos de arista tras decimar independientemente.
+
+Se probaron y descartaron empiricamente dos arreglos intuitivos antes de
+encontrar uno que funciona:
+
+- **`meshing_repair_non_manifold_edges`/`..._vertices` de PyMeshLab**: sin
+  ningun efecto (mismo numero de triangulos antes y despues en un barrido de
+  resoluciones/mascaras/reducciones), porque solo corrigen aristas
+  compartidas por *mas de dos* caras, no aristas de borde sin pareja.
+- **Subir la tolerancia de `merge_points`** en la recomposicion: apenas
+  ayudaba con una tolerancia pequena, y *empeoraba* con una mayor, porque
+  empezaba a soldar puntos cercanos no relacionados en otras partes de la
+  malla.
+
+Lo que si funciona: **`meshing_close_holes` de PyMeshLab**, aplicado justo
+tras el merge, con un `maxholesize` bajo (100 aristas de contorno) para que
+solo rellene huecos pequenos como este y nunca toque una apertura grande que
+sea parte real de la malla (ojos, boca). Nueva funcion `_weld_seam_gaps()`
+en [remesh_core.py](remesh_core.py), llamada siempre al final de la rama de
+merge de `decimate_with_mask`. Verificado con el mismo tipo de barrido que
+antes: **queda perfectamente estanco hasta ~98% de reduccion** (antes ~90%);
+en el caso mas extremo probado (99%) cierra un 80-90% de las aristas
+problematicas restantes, pero no siempre todas -este hueco residual, ya
+minimo (un puñado de aristas en vez de decenas), es lo unico de esta lista
+que queda solo *mitigado*, no eliminado. Test de regresion nuevo:
+[`test_decimate_with_mask_qem_seam_is_watertight_at_extreme_reduction`](tests/test_remesh_core.py).
+
+**Actualizacion — cerrado aun mas con un cosido a medida.** Al pedirsele
+insistir en esto en vez de aceptarlo, una investigacion mas profunda
+diagnostico el defecto residual exacto: un vertice "bowtie", un unico punto
+donde el contorno del hueco se toca a si mismo (4 aristas de borde en vez de
+2) -por eso ni `meshing_repair_non_manifold_vertices` de PyMeshLab (con
+cualquier `vertdispratio`), ni `meshing_snap_mismatched_borders` (con
+cualquier `edgedistratio`), ni `meshing_remove_t_vertices`, ni el propio
+`vtkFillHolesFilter` de VTK, conseguian cerrarlo: ninguno separa los dos
+bucles que se tocan en ese punto. Un post-proceso especifico,
+`_stitch_residual_boundary_gaps` ([remesh_core.py:430](remesh_core.py:430)),
+se ejecuta ahora tras `_weld_seam_gaps`: reconstruye los bucles cerrados
+simples escondidos en el grafo de aristas de borde restantes -en cada
+vertice bowtie, emparejando cada arista con la mas opuesta en direccion
+(`_pair_seam_branch_neighbors`, la pareja que mejor continua cada bucle en
+linea recta a traves del punto)- y tapa cada bucle con un abanico de
+triangulos desde su centroide. Verificado con el mismo barrido de 112 casos
+(resoluciones 15-75, tres formas de mascara, reduccion hasta 99.9%): las
+aristas problematicas residuales bajaron de 5-56 a 0-2 en los casos mas
+duros, cerrando del todo cerca del 90% de las combinaciones que antes
+fallaban. Tambien se descubrio y corrigio de paso: `_weld_seam_gaps` podia
+lanzar `pymeshlab.PyMeshLabException` y tirar abajo todo el pipeline de
+decimacion, en el puñado de casos donde el merge en crudo ya tiene aristas
+genuinamente no-manifold (3+ caras compartiendo una arista, no solo el
+T-junction habitual) -PyMeshLab se niega directamente a ejecutar
+`meshing_close_holes` en esos casos. Ahora se captura esa excepcion,
+devolviendo la malla sin reparar en vez de propagarla. Tests de regresion
+nuevos:
+[`test_decimate_with_mask_qem_seam_closed_by_residual_gap_stitcher`](tests/test_remesh_core.py)
+y
+[`test_decimate_with_mask_never_raises_when_pymeshlab_repair_rejects_mesh`](tests/test_remesh_core.py).
+
+### 5.2. Seleccion por rectangulo con test de profundidad real — corregido
+
+`_apply_rect_selection()` ([app.py:519](app.py:519)) conserva el filtro barato
+de proyeccion a pantalla (`_project_points_to_qt`, para reducir toda la malla
+a un puñado de candidatos dentro del rectangulo), pero ahora ejecuta
+`vtk.vtkSelectVisiblePoints` sobre esos candidatos contra el z-buffer real del
+renderer (`SetRenderer(self.plotter.renderer)`), descartando cualquier
+candidato oculto detras de otra parte de la malla desde la camara actual.
+
+**Aviso de cobertura:** se intento anadir un test automatico con
+`pytest-qt` para esto (un rectangulo cubriendo toda una esfera renderizada,
+comprobando que solo se marca la mitad que mira a la camara), pero hubo que
+descartarlo -en este entorno Windows, el plugin Qt "offscreen" no tiene un
+contexto OpenGL real (`QOpenGLWidget is not supported on this platform`), asi
+que `vtkSelectVisiblePoints` lee un z-buffer vacio y no marca nada.
+`vtkSelectVisiblePoints` contra el z-buffer de una ventana de render es una
+tecnica estandar y bien establecida en VTK para una sesion real con pantalla,
+asi que esto muy probablemente sea una limitacion solo del entorno de pruebas
+y no un defecto del codigo -pero no se ha podido verificar de extremo a
+extremo aqui, ni si el render por software de CI en Linux se comporta mejor.
+**Conviene verificar este comportamiento a mano en una sesion real con
+ventana** (arrastrar un rectangulo sobre una malla con parte mirando hacia
+otro lado) antes de confiar en el del todo.
+
+### 5.3. El pincel/rectangulo ya no descartan el resultado decimado — corregido
+
+Antes, `_on_brush_toggled()` llamaba a `reset_mesh()` en cuanto se activaba
+una herramienta de proteccion mientras se veia un resultado decimado -lo que
+pone `self.decimated_mesh = None` de forma permanente, incluso si el usuario
+solo queria echar un vistazo al original y volver a desactivar la
+herramienta sin pintar nada. El arreglo cambia solo la *vista* de vuelta al
+original (conservando la camara) sin anular `decimated_mesh` ni gastar un
+paso de deshacer. La razon de seguridad de la seccion 3.6 sigue intacta -las
+herramientas de proteccion siguen trabajando siempre contra el original,
+nunca contra el decimado- pero ya no se pierde un resultado ya calculado
+solo por revisarlo.
+
+### 5.4. Numero de pasadas de refinamiento por error configurable — corregido
+
+`refine_by_error()` gano un parametro `max_iterations: int = 3` (conectado a
+`ProtectionSettings.error_max_iterations` y a un nuevo spinbox "Pasadas
+maximas de auto-proteccion" en el panel, rango 1-10). Un umbral muy exigente
+que antes siempre paraba a las 3 pasadas, este del umbral, ahora puede
+recibir mas pasadas (a costa de mas tiempo de calculo) o menos (para cortar
+antes a proposito). Test de regresion nuevo:
+[`test_refine_by_error_respects_max_iterations`](tests/test_remesh_core.py).
+
+### 5.5. Builds multiplataforma con prueba de humo en CI — mejorado
+
+La verificacion interactiva sigue siendo solo de Windows (sin cambios: esta
+sesion no tiene entorno macOS/Linux para probar). Lo que si cambio:
+`.github/workflows/release.yml` ahora arranca cada ejecutable recien
+construido (Windows/macOS/Linux) con `QT_QPA_PLATFORM=offscreen`, espera
+unos segundos y falla el job si el proceso termino solo -el sintoma tipico
+de un build de PyInstaller al que le falta una dependencia nativa o le
+revienta un import al arrancar. No sustituye a probar la interfaz de
+verdad, pero detecta la forma mas comun en que un build multiplataforma
+falla en silencio.
+
+---
+
+## 6. Limitaciones conocidas (siguen abiertas)
+
+- El cierre de huecos de la seccion 5.1, incluso con el cosido a medida, no
+  es infalible en las reducciones mas extremas (>=99%): en torno a un 10% de
+  las combinaciones de resolucion/mascara probadas siguen dejando 1-2
+  aristas problematicas. Los casos restantes son topologias de bucle que el
+  emparejamiento por direccion (heuristico y voraz) no sabe descomponer
+  limpiamente, o un merge que ya era no-manifold antes de que corriera
+  cualquier reparacion. Cerrarlo del todo en absolutamente todos los casos
+  exigiria una decimacion con restriccion topologica de borde implementada
+  a medida, un esfuerzo desproporcionado para un defecto tan raro y tan
+  pequeño.
+- Los builds de PyInstaller para macOS/Linux pasan la prueba de humo
+  (arrancan y siguen vivos unos segundos) pero no se han verificado
+  interactivamente; ver 5.5.

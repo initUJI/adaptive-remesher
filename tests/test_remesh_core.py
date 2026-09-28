@@ -18,6 +18,7 @@ from remesh_core import (
     load_and_prepare_mesh,
     measure_bidirectional_error,
     mesh_has_texture_coords,
+    refine_by_error,
     run_decimation_pipeline,
     uv_seam_point_mask,
 )
@@ -163,6 +164,68 @@ def test_decimate_with_mask_qem_seam_is_watertight(sphere_mesh):
     assert problem_edges.n_cells == 0
 
 
+def test_decimate_with_mask_qem_seam_is_watertight_at_extreme_reduction(sphere_mesh):
+    """Regresion para `_weld_seam_gaps`: antes de anadir el cierre de
+    huecos residuales en `decimate_with_mask`, el 98% de reduccion dejaba
+    aristas de borde sin soldar en la costura (un T-junction real, no
+    solucionable subiendo la tolerancia de `merge_points` ni con una
+    reparacion de no-manifold estandar, comprobado empiricamente). Con el
+    cierre de huecos anadido, esta resolucion/mascara queda perfectamente
+    soldada hasta el 98% (a partir de ~99% el hueco remanente ya no es un
+    poligono simple y PyMeshLab no siempre lo puede cerrar del todo, ver
+    `_weld_seam_gaps`)."""
+    mask = sphere_mesh.points[:, 2] > 0.3
+    settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=98, volume_preservation=False)
+
+    result = decimate_with_mask(sphere_mesh, mask, settings)
+
+    problem_edges = result.extract_feature_edges(
+        boundary_edges=True, non_manifold_edges=True, feature_edges=False, manifold_edges=False
+    )
+    assert problem_edges.n_cells == 0
+
+
+def test_decimate_with_mask_qem_seam_closed_by_residual_gap_stitcher():
+    """Regresion para `_stitch_residual_boundary_gaps`: a esta resolucion,
+    mascara y reduccion (deliberadamente distinta de la del fixture
+    `sphere_mesh`: a esa resolucion concreta el residuo, aunque
+    reproducible, ya no es un poligono simple y ni siquiera el cosido
+    final lo cierra del todo -ver limitaciones conocidas en el
+    CHANGELOG), `_weld_seam_gaps` (cierre de huecos de PyMeshLab) por si
+    solo dejaba 5 aristas de borde sin soldar -un vertice 'bowtie' que
+    ningun reparador de PyMeshLab/VTK probado sabe resolver (varios
+    intentos documentados en `_weld_seam_gaps`). El triangulado en abanico
+    de `_stitch_residual_boundary_gaps` como ultimo recurso las cierra del
+    todo aqui."""
+    sphere = pv.Sphere(theta_resolution=30, phi_resolution=30).triangulate()
+    mask = sphere.points[:, 2] > 0.3
+    settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=99, volume_preservation=False)
+
+    result = decimate_with_mask(sphere, mask, settings)
+
+    problem_edges = result.extract_feature_edges(
+        boundary_edges=True, non_manifold_edges=True, feature_edges=False, manifold_edges=False
+    )
+    assert problem_edges.n_cells == 0
+
+
+def test_decimate_with_mask_never_raises_when_pymeshlab_repair_rejects_mesh():
+    """Regresion: en un puñado de combinaciones de resolucion/mascara, la
+    malla resultante del merge tiene aristas genuinamente no-manifold
+    (compartidas por 3+ caras), no solo el T-junction habitual, y
+    PyMeshLab rechaza `meshing_close_holes` con una excepcion en vez de
+    repararla. `_weld_seam_gaps` debe capturarla y devolver la malla sin
+    reparar en vez de dejar que reviente todo `decimate_with_mask` (y con
+    ella, `run_decimation_pipeline` completo)."""
+    sphere = pv.Sphere(theta_resolution=25, phi_resolution=25).triangulate()
+    mask = sphere.points[:, 2] > 0.3
+    settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=99, volume_preservation=False)
+
+    result = decimate_with_mask(sphere, mask, settings)  # no debe lanzar
+
+    assert result.n_cells > 0
+
+
 def test_decimate_with_mask_no_mask_decimates_everything(sphere_mesh):
     mask = np.zeros(sphere_mesh.n_points, dtype=bool)
     settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=50)
@@ -207,6 +270,22 @@ def test_measure_bidirectional_error_detects_fully_removed_feature():
     rev_max, _, _ = error_summary(rev_errors)
     assert fwd_max < 1e-6
     assert rev_max > 1.0
+
+
+def test_refine_by_error_respects_max_iterations(sphere_mesh):
+    """`max_iterations` acota cuantas veces `refine_by_error` puede volver
+    a decimar; con un umbral tan estricto que nunca se satisface del
+    todo, no debe superar el limite pedido aunque el error siga por
+    encima del umbral tras esa pasada."""
+    mask = np.zeros(sphere_mesh.n_points, dtype=bool)
+    settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=90)
+    result = decimate_with_mask(sphere_mesh, mask, settings)
+
+    _, _, _, _, _, iterations, _ = refine_by_error(
+        sphere_mesh, result, mask, settings, error_threshold_pct=0.001, max_iterations=1
+    )
+
+    assert iterations <= 1
 
 
 # --- pipeline completo ---

@@ -1,8 +1,9 @@
 name: Release
 
 # Se dispara al empujar un tag "vX.Y.Z" (ver BUILD.md): construye el
-# ejecutable de escritorio con PyInstaller en Windows, macOS y Linux, y
-# adjunta cada uno como asset de una GitHub Release para ese tag.
+# ejecutable de escritorio con PyInstaller en Windows, macOS y Linux,
+# comprueba que cada uno arranca (prueba de humo) y adjunta cada uno como
+# asset de una GitHub Release para ese tag.
 on:
   push:
     tags:
@@ -37,6 +38,42 @@ jobs:
 
       - name: Build (PyInstaller)
         run: pyinstaller adaptive-remesher.spec
+
+      - name: Prueba de humo (arranca sin errores en las tres plataformas)
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          import time
+
+          exe_name = "adaptive-remesher.exe" if sys.platform == "win32" else "adaptive-remesher"
+          exe = os.path.join("dist", "adaptive-remesher", exe_name)
+
+          proc = subprocess.Popen(
+              [exe], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+          )
+          time.sleep(8)
+          if proc.poll() is not None:
+              print(proc.stdout.read())
+              print(
+                  f"El ejecutable termino solo (codigo {proc.returncode}) antes de "
+                  "los 8s: probable fallo de arranque (import roto, dependencia "
+                  "nativa no empaquetada, etc.)."
+              )
+              sys.exit(1)
+
+          proc.terminate()
+          try:
+              proc.wait(timeout=5)
+          except subprocess.TimeoutExpired:
+              proc.kill()
+              proc.wait()
+          print("El ejecutable arranco y siguio vivo 8s sin errores aparentes.")
+          PY
 
       - name: Empaquetar (Windows)
         if: runner.os == 'Windows'

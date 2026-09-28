@@ -122,6 +122,7 @@ class AdaptiveRemesherWindow(QMainWindow):
     normals_weight_spin: QDoubleSpinBox
     auto_error_cb: QCheckBox
     error_threshold_spin: QDoubleSpinBox
+    error_max_iterations_spin: QSpinBox
     export_report_cb: QCheckBox
 
     def __init__(self) -> None:
@@ -386,26 +387,28 @@ class AdaptiveRemesherWindow(QMainWindow):
     def _on_brush_toggled(self, button: QPushButton, checked: bool):
         """Activa como mucho una herramienta de proteccion a la vez (pintar,
         borrar o rectangulo); si no hay malla cargada, cancela la
-        activacion. Si se esta viendo un resultado decimado ya aplicado,
-        vuelve primero a la malla original: las herramientas de proteccion
+        activacion. Si se esta viendo un resultado decimado ya aplicado (o
+        una vista previa en tiempo real), cambia la vista a la malla
+        original antes de dejar operar: las herramientas de proteccion
         trabajan contra `self.original_mesh` (buscan el punto mas cercano
-        en su KDTree), y tras decimar (sobre todo con el motor QEM, que si
-        mueve vertices) eso ya no coincidiria con lo mostrado. Si solo hay
-        una vista previa en tiempo real sin aplicar (el resultado 'real'
-        sigue siendo el original), basta con refrescar la vista sin gastar
-        un paso de deshacer."""
+        en su KDTree/z-buffer), y tras decimar (sobre todo con el motor
+        QEM, que si mueve vertices) eso ya no coincidiria con lo mostrado.
+        Esto solo cambia la vista, sin descartar `self.decimated_mesh` ni
+        gastar un paso de deshacer: si el usuario solo queria revisar o
+        anadir proteccion y acaba desactivando el pincel sin volver a
+        aplicar la decimacion, conserva el resultado ya calculado en vez
+        de obligar a repetirlo desde cero."""
         if checked and self.original_mesh is None:
             button.setChecked(False)
             return
-        if checked:
-            if self.decimated_mesh is not None:
-                self.reset_mesh()
-            elif self.live_preview_cb.isChecked():
-                # Invariante garantizado por el "return" de arriba: si
-                # llegamos aqui con checked=True, original_mesh no es None.
-                assert self.original_mesh is not None
-                self.show_mesh(self.original_mesh, is_original=True)
-                self._refresh_protection_overlay()
+        if checked and (self.decimated_mesh is not None or self.live_preview_cb.isChecked()):
+            # Invariante garantizado por el "return" de arriba: si
+            # llegamos aqui con checked=True, original_mesh no es None.
+            assert self.original_mesh is not None
+            self.show_mesh(
+                self.original_mesh, is_original=True, preserve_camera=self.plotter.camera_position
+            )
+            self._refresh_protection_overlay()
         if checked:
             for other in (self.paint_btn, self.erase_btn, self.rect_btn):
                 if other is not button:
@@ -517,12 +520,15 @@ class AdaptiveRemesherWindow(QMainWindow):
         return np.column_stack([display_x, qt_y]), in_front
 
     def _apply_rect_selection(self, rect: QRect):
-        """Protege (o desprotege, si se arrastro con Mayus pulsado) todos
-        los vertices originales cuya proyeccion en pantalla cae dentro del
-        rectangulo `rect` (coordenadas Qt). No hace test de profundidad:
-        tambien selecciona puntos ocultos detras de otra parte de la malla,
-        una limitacion aceptable para un prototipo frente a implementar
-        picking por frustum completo."""
+        """Protege (o desprotege, si se arrastro con Mayus pulsado) los
+        vertices originales cuya proyeccion en pantalla cae dentro del
+        rectangulo `rect` (coordenadas Qt) y que ademas son visibles desde
+        la camara actual. La proyeccion a pantalla (`_project_points_to_qt`)
+        es un filtro previo barato para reducir a un puñado de candidatos
+        de entre todos los vertices; sobre esos candidatos, `vtkSelectVisiblePoints`
+        hace el test de profundidad de verdad contra el z-buffer ya
+        renderizado, descartando los que quedan ocultos detras de otra
+        parte de la malla."""
         if rect.width() < 3 or rect.height() < 3:
             return
         # Solo se llama desde eventFilter cuando rect_btn esta activo, lo
@@ -535,9 +541,23 @@ class AdaptiveRemesherWindow(QMainWindow):
             & (xy[:, 0] >= rect.left()) & (xy[:, 0] <= rect.right())
             & (xy[:, 1] >= rect.top()) & (xy[:, 1] <= rect.bottom())
         )
-        if not inside.any():
+        candidate_idx = np.where(inside)[0]
+        if candidate_idx.size == 0:
             return
-        self.protected_mask[inside] = not self._rect_erase
+
+        candidates = pv.PolyData(self.original_mesh.points[candidate_idx])
+        candidates.point_data["_orig_idx"] = candidate_idx
+        self.plotter.render()  # asegura que el z-buffer refleja la ultima vista antes de leerlo
+        visible_filter = vtk.vtkSelectVisiblePoints()
+        visible_filter.SetInputData(candidates)
+        visible_filter.SetRenderer(self.plotter.renderer)
+        visible_filter.Update()
+        visible = pv.wrap(visible_filter.GetOutput())
+        if visible.n_points == 0:
+            return
+
+        visible_idx = np.asarray(visible.point_data["_orig_idx"], dtype=np.int64)
+        self.protected_mask[visible_idx] = not self._rect_erase
         self._refresh_protection_overlay()
 
     def clear_protection(self):
@@ -809,6 +829,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             protect_uv_seams=self.protect_uv_seams_cb.isChecked(),
             auto_error_protection=self.auto_error_cb.isChecked(),
             error_threshold_pct=self.error_threshold_spin.value(),
+            error_max_iterations=self.error_max_iterations_spin.value(),
         )
 
     def apply_decimation(self):
@@ -839,14 +860,16 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._push_undo()
         self.decimated_mesh = result.mesh
         self.show_mesh(result.mesh, is_original=False)
-        # Si el pincel ya estaba activo antes de decimar, desactivarlo: a
-        # partir de ahora pintaria contra el resultado decimado mientras
-        # compara posiciones con el KDTree de la malla original, lo que con
-        # el motor QEM (mueve vertices) marcaria puntos en el sitio
-        # equivocado sin avisar. Reactivarlo restaura antes el original
-        # (ver _on_brush_toggled).
+        # Si alguna herramienta de proteccion ya estaba activa antes de
+        # decimar, desactivarla: a partir de ahora trabajaria contra el
+        # resultado decimado (vista actual) mientras compara posiciones
+        # con el KDTree/z-buffer de la malla original, lo que con el motor
+        # QEM (mueve vertices) marcaria puntos en el sitio equivocado sin
+        # avisar. Reactivarla vuelve a mostrar el original para seguir
+        # pintando (ver _on_brush_toggled), sin descartar este resultado.
         self.paint_btn.setChecked(False)
         self.erase_btn.setChecked(False)
+        self.rect_btn.setChecked(False)
 
         notes = []
         if result.manual_protected_points:

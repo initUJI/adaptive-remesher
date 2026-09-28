@@ -251,6 +251,7 @@ class ProtectionSettings:
     protect_uv_seams: bool = True
     auto_error_protection: bool = True
     error_threshold_pct: float = 1.0
+    error_max_iterations: int = 3
 
 
 @dataclass
@@ -332,7 +333,10 @@ def decimate_with_mask(
 ) -> pv.PolyData:
     """Decima `source` dejando intactos los puntos marcados en `mask`
     (protegidos): los separa, decima solo el resto y recompone el
-    resultado. Si `mask` esta vacia, decima la malla entera."""
+    resultado, con dos pasadas de cierre de huecos residuales en la
+    costura (`_weld_seam_gaps`, y `_stitch_residual_boundary_gaps` como
+    ultimo recurso sobre lo que aun quede) antes de devolverlo. Si `mask`
+    esta vacia, decima la malla entera (no hay costura que reparar)."""
     if not mask.any():
         return decimate(source, settings, lock_boundary=False)
 
@@ -348,7 +352,174 @@ def decimate_with_mask(
         unprotected_ids, adjacent_cells=False
     ).extract_surface(algorithm="dataset_surface")
     decimated_part = decimate(unprotected_group, settings, lock_boundary=True)
-    return protected_group.merge(decimated_part, merge_points=True)
+    merged = protected_group.merge(decimated_part, merge_points=True)
+    return _stitch_residual_boundary_gaps(_weld_seam_gaps(merged))
+
+
+def _weld_seam_gaps(mesh: pv.PolyData, max_hole_size: int = 100) -> pv.PolyData:
+    """Cierra los huecos residuales que puede dejar la costura entre la
+    zona protegida y la decimada en `decimate_with_mask`. No son aristas
+    no-manifold (compartidas por mas de 2 caras, lo que corregiria
+    `meshing_repair_non_manifold_edges`), sino aristas de borde genuinas a
+    cada lado de la costura que no llegan a coincidir: un T-junction real
+    (distinto numero de segmentos de arista en cada lado tras decimar),
+    no un problema de posicion, asi que ni un `merge_points` con
+    tolerancia mayor ni una reparacion de no-manifold estandar lo
+    resuelven (comprobado empiricamente: ninguna de las dos cambia nada
+    aqui, igual que `meshing_snap_mismatched_borders` y
+    `meshing_remove_t_vertices` con distintos parametros). Como el hueco
+    es pequeno y esta cerrado por los dos lados, PyMeshLab puede
+    rellenarlo igual que rellenaria un agujero genuino; `max_hole_size`
+    (en aristas del contorno) se mantiene bajo a proposito para no tocar
+    aperturas grandes que sean parte real de la malla (ojos, boca...) en
+    vez de un artefacto de la costura. Cierra el hueco por completo hasta
+    ~97% de reduccion; por encima (~98-99%) reduce las aristas
+    problematicas restantes en un 80-90% pero no siempre a cero, de ahi
+    `_stitch_residual_boundary_gaps` como ultimo recurso despues. En el
+    puñado de casos donde la malla resultante del merge ya tiene aristas
+    genuinamente no-manifold (compartidas por 3+ caras, no solo el
+    T-junction habitual), PyMeshLab puede rechazar el filtro por completo
+    (`PyMeshLabException`); se captura y se devuelve `mesh` tal cual, sin
+    reparar, antes que romper todo el pipeline de decimacion por un
+    intento de reparacion fallido."""
+    if mesh.n_cells == 0:
+        return mesh
+    try:
+        ms = pymeshlab.MeshSet()
+        ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.points, face_matrix=mesh.regular_faces))
+        ms.meshing_close_holes(maxholesize=max_hole_size)
+        repaired = ms.current_mesh()
+        verts = repaired.vertex_matrix()
+        faces = repaired.face_matrix()
+        poly_faces = np.hstack([np.full((faces.shape[0], 1), 3), faces]).astype(np.int64)
+        return pv.PolyData(verts, poly_faces)
+    except pymeshlab.PyMeshLabException:
+        return mesh
+
+
+def _pair_seam_branch_neighbors(vertex: int, neighbors: list, points: np.ndarray):
+    """En un vertice 'bowtie' del grafo de aristas de borde residuales
+    (mas de 2 aristas de borde se tocan en el mismo punto: dos bucles de
+    costura distintos que coinciden ahi), empareja cada vecino con el mas
+    opuesto en direccion, la pareja que mejor continua la curva en linea
+    recta a traves del punto -asi se separan los bucles en vez de
+    tratarlos como uno solo en forma de ocho, que ningun triangulador de
+    agujeros simple sabe rellenar."""
+    direcciones = []
+    for n in neighbors:
+        d = points[n] - points[vertex]
+        norm = np.linalg.norm(d)
+        if norm > 1e-12:
+            direcciones.append((n, d / norm))
+    restantes = list(direcciones)
+    pares = []
+    while len(restantes) >= 2:
+        n0, d0 = restantes.pop(0)
+        mejor_j, mejor_cos = None, 2.0
+        for j, (_, d1) in enumerate(restantes):
+            cos = float(np.dot(d0, d1))
+            if cos < mejor_cos:
+                mejor_cos, mejor_j = cos, j
+        if mejor_j is None:
+            break
+        n1, _ = restantes.pop(mejor_j)
+        pares.append((n0, n1))
+    return pares
+
+
+def _stitch_residual_boundary_gaps(mesh: pv.PolyData) -> pv.PolyData:
+    """Ultimo recurso tras `_weld_seam_gaps`: si aun quedan aristas de
+    borde sin soldar (no aristas no-manifold genuinas, esas se dejan
+    intactas: anadir mas caras encima de una arista ya compartida por 3+
+    caras la empeora, no la arregla), las tapa a mano triangulando en
+    abanico cada bucle cerrado simple que puede reconstruir a partir de
+    ellas. En un vertice donde varios bucles se tocan en el mismo punto
+    (ver `_pair_seam_branch_neighbors`), el punto acaba formando parte de
+    mas de un abanico: dos parches que solo se tocan en ese vertice, no
+    una arista no-manifold (extract_feature_edges no lo marca, aunque
+    tecnicamente sea un vertice no-manifold) -aceptable para cerrar del
+    todo un hueco que, por lo demas, ningun reparador de PyMeshLab/VTK
+    probado sabe cerrar (ver `_weld_seam_gaps`). Si el recorrido del grafo
+    no encuentra un bucle cerrado valido (topologia con la que este
+    heuristico no sabe lidiar), deja esas aristas como estaban en vez de
+    forzar un parche incorrecto."""
+    if mesh.n_cells == 0:
+        return mesh
+    boundary = mesh.extract_feature_edges(
+        boundary_edges=True, non_manifold_edges=False, feature_edges=False, manifold_edges=False
+    )
+    if boundary.n_cells == 0:
+        return mesh
+
+    tree = cKDTree(mesh.points)
+    dist, mesh_idx = tree.query(boundary.points)
+    if dist.max() > 1e-6:
+        return mesh  # no deberia pasar; salvaguarda defensiva
+
+    lines = boundary.lines.reshape(-1, 3)[:, 1:]
+    adjacency: dict = {}
+    for a, b in lines:
+        ga, gb = int(mesh_idx[a]), int(mesh_idx[b])
+        adjacency.setdefault(ga, []).append(gb)
+        adjacency.setdefault(gb, []).append(ga)
+
+    points = mesh.points
+    allowed_next: dict = {}
+    for v, neighbors in adjacency.items():
+        if len(neighbors) == 2 and neighbors[0] != neighbors[1]:
+            allowed_next[v] = {neighbors[0]: neighbors[1], neighbors[1]: neighbors[0]}
+        else:
+            paired = {}
+            for a, b in _pair_seam_branch_neighbors(v, neighbors, points):
+                paired[a] = b
+                paired[b] = a
+            allowed_next[v] = paired
+
+    visited_edges = set()
+    loops = []
+    for v, neighbors in adjacency.items():
+        for n in set(neighbors):
+            edge = (min(v, n), max(v, n))
+            if edge in visited_edges:
+                continue
+            loop = [v, n]
+            visited_edges.add(edge)
+            prev, current = v, n
+            ok = True
+            while current != v:
+                nxt = allowed_next.get(current, {}).get(prev)
+                if nxt is None:
+                    ok = False
+                    break
+                e2 = (min(current, nxt), max(current, nxt))
+                if e2 in visited_edges:
+                    ok = nxt == v
+                    if ok:
+                        visited_edges.add(e2)
+                        loop.append(nxt)
+                    break
+                visited_edges.add(e2)
+                loop.append(nxt)
+                prev, current = current, nxt
+            if ok and loop[0] == loop[-1] and len(loop) >= 4:
+                loops.append(loop[:-1])
+
+    if not loops:
+        return mesh
+
+    new_points = list(points)
+    new_faces = []
+    for loop in loops:
+        centroid = points[loop].mean(axis=0)
+        centroid_idx = len(new_points)
+        new_points.append(centroid)
+        n = len(loop)
+        for i in range(n):
+            new_faces.append([3, loop[i], loop[(i + 1) % n], centroid_idx])
+
+    all_points = np.array(new_points)
+    all_faces = np.vstack([mesh.faces.reshape(-1, 4), np.array(new_faces, dtype=np.int64)])
+    return pv.PolyData(all_points, all_faces)
 
 
 def measure_error(result: pv.PolyData, distance_fn: "vtk.vtkImplicitPolyDataDistance"):
@@ -425,13 +596,14 @@ def refine_by_error(
     mask: np.ndarray,
     settings: DecimationSettings,
     error_threshold_pct: float,
+    max_iterations: int = 3,
 ):
     """Mide el error geometrico bidireccional entre `source` y `result`
     (ver `measure_bidirectional_error`) y, donde cualquiera de las dos
     direcciones supera el umbral configurado, protege esos vertices en la
-    malla original y vuelve a decimar; repite hasta 3 pasadas o hasta que
-    el error quede dentro del umbral. Las zonas malas detectadas en
-    `result` (direccion original) se traducen a vertices de `source` por
+    malla original y vuelve a decimar; repite hasta `max_iterations`
+    pasadas o hasta que el error quede dentro del umbral. Las zonas malas
+    detectadas en `result` (direccion original) se traducen a vertices de `source` por
     vecino mas cercano (aproximado: los centros de `result` no coinciden
     con ningun vertice de `source`); las detectadas directamente en
     `source` (direccion nueva) se traducen exactas, usando los propios
@@ -441,9 +613,9 @@ def refine_by_error(
     threshold = (error_threshold_pct / 100.0) * source.length
     source_tree = cKDTree(source.points)
     source_faces = source.regular_faces
-    # Se construye una sola vez y se reutiliza en las hasta 3 pasadas:
-    # `source` no cambia entre iteraciones, solo `result`, asi que
-    # reconstruir su localizador espacial en cada pasada seria trabajo
+    # Se construye una sola vez y se reutiliza en las hasta max_iterations
+    # pasadas: `source` no cambia entre iteraciones, solo `result`, asi
+    # que reconstruir su localizador espacial en cada pasada seria trabajo
     # repetido innecesario (el de `result` si hace falta reconstruirlo
     # cada vez, ver measure_bidirectional_error).
     distance_to_source = vtk.vtkImplicitPolyDataDistance()
@@ -453,7 +625,7 @@ def refine_by_error(
         source, result, distance_to_source
     )
     iterations = 0
-    for iterations in range(1, 4):
+    for iterations in range(1, max_iterations + 1):
         bad_fwd = fwd_errors > threshold
         bad_rev = rev_errors > threshold
         if not bad_fwd.any() and not bad_rev.any():
@@ -511,7 +683,8 @@ def run_decimation_pipeline(
     iterations = added = 0
     if protection.auto_error_protection:
         result, mask, error_max, error_mean, error_p95, iterations, added = refine_by_error(
-            mesh, result, mask, decimation, protection.error_threshold_pct
+            mesh, result, mask, decimation, protection.error_threshold_pct,
+            protection.error_max_iterations,
         )
         if result.n_cells == 0:
             raise ValueError(

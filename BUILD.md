@@ -41,9 +41,15 @@ repo (revisar el diff antes de sustituirlo).
 ```
 
 Comprobado que arranca sin argumentos ni configuracion adicional en
-Windows con Python 3.14; en macOS/Linux no se ha probado (PyInstaller es
-multiplataforma, pero cada SO tiene sus propias peculiaridades de firma/
-notarizacion o de librerias del sistema que aqui no se han verificado).
+Windows con Python 3.14. En macOS/Linux no se ha probado *manualmente*,
+pero `.github/workflows/release.yml` incluye ahora un paso de "prueba de
+humo" automatico que arranca el ejecutable recien construido en las tres
+plataformas (con `QT_QPA_PLATFORM=offscreen`) y falla el build si el
+proceso termina solo antes de unos segundos -- el fallo tipico si falta
+una dependencia nativa o un import se rompe al empaquetar. No sustituye a
+probar la app de verdad (no interactua con la ventana, solo confirma que
+arranca y no revienta al importar), pero detecta el problema mas comun de
+un build roto en un SO donde no hay forma de probarlo a mano.
 
 ## Notas
 
@@ -64,6 +70,7 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-Solo el build de Windows se ha verificado manualmente (ver mas arriba);
-los de macOS/Linux quedan por confirmar en el primer run real del
-workflow -- revisa los logs de esa Action tras el primer tag.
+El build de Windows se ha verificado manualmente (ver mas arriba); los de
+macOS/Linux pasan por la prueba de humo automatica del workflow, pero no
+se han probado interactivamente -- revisa los logs de esa Action tras el
+primer tag si algo falla alli.
