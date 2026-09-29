@@ -1,6 +1,6 @@
-"""Utilidades y widgets compartidos por los distintos paneles: la hoja de
-estilos, el cursor de espera, el tooltip HTML, el panel plegable y el
-dialogo de comparacion lado a lado."""
+"""Utilities and widgets shared by the different panels: the stylesheet,
+the wait cursor, the HTML tooltip, the collapsible panel and the
+side-by-side comparison dialog."""
 
 from contextlib import contextmanager
 
@@ -126,8 +126,8 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none;
 
 @contextmanager
 def busy_cursor():
-    """Muestra el cursor de espera durante una operacion potencialmente
-    larga (limpieza o decimacion), para que la interfaz no parezca colgada."""
+    """Shows the wait cursor during a potentially long operation (cleanup
+    or decimation), so the interface doesn't appear frozen."""
     QApplication.setOverrideCursor(Qt.WaitCursor)
     QApplication.processEvents()
     try:
@@ -137,16 +137,15 @@ def busy_cursor():
 
 
 def tip(text: str) -> str:
-    """Envuelve un texto de tooltip en HTML simple para que Qt lo ajuste a varias lineas con un ancho maximo legible."""
+    """Wraps a tooltip text in simple HTML so Qt wraps it across several lines with a readable max width."""
     return f"<div style='max-width:280px'>{text}</div>"
 
 
 class CollapsibleGroupBox(QGroupBox):
-    """QGroupBox cuyo titulo actua de interruptor: un click lo pliega o
-    despliega. Al plegarlo solo se ocultan sus widgets hijos (siguen
-    existiendo y conservan su valor); se usa para que quepan muchas
-    secciones en el panel sin obligar a hacer scroll todo el rato con
-    grupos que en ese momento no interesan."""
+    """QGroupBox whose title acts as a switch: a click collapses or expands
+    it. Collapsing only hides its child widgets (they still exist and keep
+    their value); this lets many sections fit in the panel without forcing
+    constant scrolling through groups that aren't of interest right now."""
 
     def __init__(self, title: str, parent=None, expanded: bool = True):
         super().__init__(parent)
@@ -157,8 +156,8 @@ class CollapsibleGroupBox(QGroupBox):
         self.toggled.connect(self._apply_expanded)
 
     def _apply_expanded(self, expanded: bool):
-        """Antepone una flecha (desplegado/plegado) al titulo y muestra u
-        oculta los widgets hijos directos del layout del grupo."""
+        """Prepends an arrow (expanded/collapsed) to the title and shows or
+        hides the direct child widgets of the group's layout."""
         arrow = "▾" if expanded else "▸"
         self.setTitle(f"{arrow} {self._base_title}")
         layout = self.layout()
@@ -171,23 +170,23 @@ class CollapsibleGroupBox(QGroupBox):
 
 
 class ComparisonDialog(QDialog):
-    """Ventana de comparacion lado a lado: malla original a la izquierda,
-    resultado decimado a la derecha, con las camaras de ambos viewports
-    sincronizadas (orbitar/hacer zoom en uno mueve el otro igual)."""
+    """Side-by-side comparison window: original mesh on the left, decimated
+    result on the right, with both viewport cameras synchronized (orbiting/
+    zooming in one moves the other the same way)."""
 
     def __init__(self, original: pv.PolyData, decimated: pv.PolyData, parent=None):
-        """Construye el dialogo con dos sub-vistas de un mismo QtInteractor y encuadra la camara sobre el original."""
+        """Builds the dialog with two sub-views of the same QtInteractor and frames the camera on the original."""
         super().__init__(parent)
-        self.setWindowTitle("Comparar original vs. decimado")
+        self.setWindowTitle("Compare original vs. decimated")
         self.resize(1100, 650)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.plotter = QtInteractor(self, shape=(1, 2))
-        # pyvista envuelve estos metodos de BasePlotter con un decorador que
-        # los stubs de tipos no reflejan bien: mypy los ve como si esperaran
-        # un BasePlotter posicional en vez de estar ya vinculados a self.plotter.
+        # pyvista wraps these BasePlotter methods with a decorator that the
+        # type stubs don't reflect well: mypy sees them as if they expected
+        # a positional BasePlotter instead of already being bound to self.plotter.
         self.plotter.set_background("#24262c")  # type: ignore[arg-type]
         layout.addWidget(self.plotter.interactor)
 
@@ -202,7 +201,7 @@ class ComparisonDialog(QDialog):
         self.plotter.subplot(0, 1)
         self.plotter.add_mesh(decimated, show_edges=True, color="#d8dadd", edge_color="#101114")
         self.plotter.add_text(
-            f"Decimado: {decimated.n_points} vert / {decimated.n_cells} tris",
+            f"Decimated: {decimated.n_points} vert / {decimated.n_cells} tris",
             color="white",
             font_size=10,
         )

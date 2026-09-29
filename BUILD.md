@@ -1,9 +1,9 @@
-# Empaquetado (PyInstaller)
+# Packaging (PyInstaller)
 
-Genera un ejecutable de escritorio independiente, para poder repartir la
-app a alguien sin Python instalado.
+Builds a standalone desktop executable, so the app can be shared with
+someone who doesn't have Python installed.
 
-## Requisitos
+## Requirements
 
 ```bash
 pip install -r requirements-dev.txt
@@ -15,62 +15,63 @@ pip install -r requirements-dev.txt
 pyinstaller adaptive-remesher.spec
 ```
 
-El resultado queda en `dist/adaptive-remesher/` (carpeta con
-`adaptive-remesher.exe` en Windows, o el binario equivalente en
-macOS/Linux, junto a sus dependencias). Ese directorio completo es lo que
-hay que distribuir; el `.exe`/binario suelto no arranca sin el resto de
-archivos.
+The result lands in `dist/adaptive-remesher/` (a folder containing
+`adaptive-remesher.exe` on Windows, or the equivalent binary on
+macOS/Linux, alongside its dependencies). That whole directory is what
+needs to be distributed; the standalone `.exe`/binary won't start without
+the rest of the files.
 
-`adaptive-remesher.spec` ya incluye lo necesario: PySide6, PyVista/VTK y
-PyMeshLab se detectan solos via los hooks que trae PyInstaller (no hace
-falta declarar hidden-imports ni datas a mano). Si tras actualizar alguna
-dependencia el build deja de arrancar, suele bastar con volver a generar
-el spec desde cero:
+`adaptive-remesher.spec` already includes what's needed: PySide6,
+PyVista/VTK and PyMeshLab are detected automatically via PyInstaller's
+built-in hooks (no need to declare hidden-imports or datas by hand). If the
+build stops starting after updating a dependency, regenerating the spec
+from scratch is usually enough:
 
 ```bash
 pyinstaller --windowed --name adaptive-remesher app.py
 ```
 
-y comparar el `adaptive-remesher.spec` resultante con el que hay en el
-repo (revisar el diff antes de sustituirlo).
+then compare the resulting `adaptive-remesher.spec` with the one in the
+repo (review the diff before replacing it).
 
-## Verificar el build
+## Verifying the build
 
 ```bash
 ./dist/adaptive-remesher/adaptive-remesher.exe
 ```
 
-Comprobado que arranca sin argumentos ni configuracion adicional en
-Windows con Python 3.14. En macOS/Linux no se ha probado *manualmente*,
-pero `.github/workflows/release.yml` incluye ahora un paso de "prueba de
-humo" automatico que arranca el ejecutable recien construido en las tres
-plataformas (con `QT_QPA_PLATFORM=offscreen`) y falla el build si el
-proceso termina solo antes de unos segundos -- el fallo tipico si falta
-una dependencia nativa o un import se rompe al empaquetar. No sustituye a
-probar la app de verdad (no interactua con la ventana, solo confirma que
-arranca y no revienta al importar), pero detecta el problema mas comun de
-un build roto en un SO donde no hay forma de probarlo a mano.
+Confirmed to start with no arguments or extra configuration on Windows
+with Python 3.14. macOS/Linux haven't been tested *manually*, but
+`.github/workflows/release.yml` now includes an automatic "smoke test"
+step that starts the freshly built executable on all three platforms
+(with `QT_QPA_PLATFORM=offscreen`) and fails the build if the process
+exits on its own within a few seconds — the typical symptom of a missing
+native dependency or a broken import at packaging time. This doesn't
+replace testing the app for real (it doesn't interact with the window, it
+only confirms it starts and doesn't blow up on import), but it catches the
+most common way a broken build fails on an OS where there's no way to test
+it by hand.
 
-## Notas
+## Notes
 
-- El build es especifico de la plataforma en la que se ejecuta
-  `pyinstaller`: para distribuir en Windows, macOS y Linux hace falta
-  generar el ejecutable por separado en cada uno (no hay cross-compilation).
-- `build/` y `dist/` estan en `.gitignore`: son artefactos generados, no
-  se versionan.
+- The build is specific to the platform `pyinstaller` runs on: to
+  distribute on Windows, macOS and Linux, the executable has to be built
+  separately on each one (no cross-compilation).
+- `build/` and `dist/` are in `.gitignore`: they're generated artifacts,
+  not version-controlled.
 
-## Releases automaticas (multi-SO)
+## Automated releases (multi-OS)
 
-`.github/workflows/release.yml` construye el ejecutable en Windows, macOS
-y Linux y los adjunta como assets a una GitHub Release, al empujar un tag
-`vX.Y.Z`:
+`.github/workflows/release.yml` builds the executable on Windows, macOS
+and Linux and attaches them as assets to a GitHub Release, when a
+`vX.Y.Z` tag is pushed:
 
 ```bash
 git tag v0.2.0
 git push origin v0.2.0
 ```
 
-El build de Windows se ha verificado manualmente (ver mas arriba); los de
-macOS/Linux pasan por la prueba de humo automatica del workflow, pero no
-se han probado interactivamente -- revisa los logs de esa Action tras el
-primer tag si algo falla alli.
+The Windows build has been verified manually (see above); the macOS/Linux
+ones go through the workflow's automatic smoke test, but haven't been
+tested interactively — check that Action's logs after the first tag if
+something fails there.

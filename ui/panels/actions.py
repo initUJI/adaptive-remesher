@@ -1,4 +1,4 @@
-"""Botones de accion principal: aplicar, restaurar, comparar y exportar."""
+"""Main action buttons: apply, restore, compare and export."""
 
 from typing import TYPE_CHECKING
 
@@ -11,54 +11,51 @@ if TYPE_CHECKING:
 
 
 def build_action_buttons(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout) -> None:
-    apply_btn = QPushButton("Aplicar decimacion")
+    apply_btn = QPushButton("Apply decimation")
     apply_btn.setObjectName("primaryButton")
     apply_btn.setToolTip(tip(
-        "Ejecuta el motor de decimacion elegido sobre la malla "
-        "original con los parametros actuales. Si hay zonas "
-        "protegidas (pintadas, costuras UV o auto-detectadas por "
-        "error), solo se decima el resto y luego se recompone el "
-        "resultado."
+        "Runs the chosen decimation engine on the original mesh with "
+        "the current parameters. If there are protected areas "
+        "(painted, UV seams or auto-detected by error), only the rest "
+        "is decimated and then the result is recomposed."
     ))
     apply_btn.clicked.connect(window.apply_decimation)
     panel_layout.addWidget(apply_btn)
 
-    reset_btn = QPushButton("Restaurar original")
+    reset_btn = QPushButton("Restore original")
     reset_btn.setToolTip(tip(
-        "Descarta el resultado decimado y vuelve a mostrar la malla "
-        "original tal como se cargo (o se limpio), conservando las "
-        "marcas de proteccion."
+        "Discards the decimated result and shows the original mesh "
+        "again as it was loaded (or cleaned), keeping the protection marks."
     ))
     reset_btn.clicked.connect(window.reset_mesh)
     panel_layout.addWidget(reset_btn)
 
-    compare_btn = QPushButton("Comparar original/decimado")
+    compare_btn = QPushButton("Compare original/decimated")
     compare_btn.setToolTip(tip(
-        "Abre una ventana con dos vistas lado a lado -original y "
-        "decimado- con las camaras sincronizadas, para juzgar la "
-        "perdida de detalle. Necesita haber aplicado una decimacion "
-        "primero."
+        "Opens a window with two side-by-side views -original and "
+        "decimated- with synchronized cameras, to judge the loss of "
+        "detail. Requires having applied a decimation first."
     ))
     compare_btn.clicked.connect(window.open_comparison)
     panel_layout.addWidget(compare_btn)
 
-    window.export_report_cb = QCheckBox("Exportar informe .json junto a la malla")
+    window.export_report_cb = QCheckBox("Export .json report alongside the mesh")
     window.export_report_cb.setChecked(True)
     window.export_report_cb.setToolTip(tip(
-        "Al exportar, ademas del archivo de malla, guarda un .json con "
-        "el mismo nombre (sufijo _report) con las estadisticas de la "
-        "ultima decimacion: motor, reduccion, puntos protegidos y "
-        "error medido."
+        "When exporting, besides the mesh file, saves a .json with "
+        "the same name (suffix _report) containing the statistics of "
+        "the last decimation: engine, reduction, protected points and "
+        "measured error."
     ))
     panel_layout.addWidget(window.export_report_cb)
 
-    export_btn = QPushButton("Exportar malla...")
+    export_btn = QPushButton("Export mesh...")
     export_btn.setToolTip(tip(
-        "Guarda en disco la malla decimada; si todavia no has aplicado "
-        "ninguna decimacion, guarda la malla original (ya limpiada, si "
-        "aplica). OBJ y PLY conservan las coordenadas UV si la malla "
-        "tiene textura; STL no soporta UV/textura (limitacion del "
-        "propio formato)."
+        "Saves the decimated mesh to disk; if you haven't applied any "
+        "decimation yet, saves the original mesh (already cleaned, if "
+        "applicable). OBJ and PLY preserve UV coordinates if the mesh "
+        "has a texture; STL doesn't support UV/texture (a limitation "
+        "of the format itself)."
     ))
     export_btn.clicked.connect(window.export_mesh)
     panel_layout.addWidget(export_btn)

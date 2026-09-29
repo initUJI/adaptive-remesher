@@ -24,7 +24,7 @@ from remesh_core import (
 )
 
 
-# --- texturas / UV ---
+# --- textures / UV ---
 
 
 def test_mesh_has_texture_coords_false_by_default(sphere_mesh):
@@ -32,8 +32,8 @@ def test_mesh_has_texture_coords_false_by_default(sphere_mesh):
 
 
 def test_ensure_active_texture_coords_activates_named_uv_array():
-    # Un PolyData construido a mano (a diferencia de pv.Plane(), que ya trae
-    # unas UV activas por defecto) para partir de una malla sin textura.
+    # A hand-built PolyData (unlike pv.Plane(), which already comes with
+    # active UVs by default) so we start from a mesh with no texture.
     points = np.array(
         [
             [0.0, 0.0, 0.0],
@@ -57,7 +57,7 @@ def test_ensure_active_texture_coords_activates_named_uv_array():
 
 
 def test_ensure_active_texture_coords_is_noop_if_already_active(sphere_mesh):
-    ensure_active_texture_coords(sphere_mesh)  # no debe lanzar ni cambiar nada
+    ensure_active_texture_coords(sphere_mesh)  # must not raise or change anything
     assert not mesh_has_texture_coords(sphere_mesh)
 
 
@@ -72,19 +72,19 @@ def test_uv_seam_point_mask_without_uv_returns_all_false(sphere_mesh):
     assert not mask.any()
 
 
-# --- limpieza ---
+# --- cleanup ---
 
 
 def test_clean_mesh_removes_small_distant_fragment():
     big = pv.Sphere(theta_resolution=20, phi_resolution=20).triangulate()
     tiny = pv.Sphere(radius=0.01, center=(10, 10, 10), theta_resolution=6, phi_resolution=6).triangulate()
     combined = big.merge(tiny)
-    assert combined.length > 10  # la diagonal la domina el fragmento lejano
+    assert combined.length > 10  # the diagonal is dominated by the distant fragment
 
     cleaned = clean_mesh(combined, min_component_pct=5.0)
 
-    # Sin el fragmento lejano, la diagonal del resultado vuelve a ser la de
-    # la esfera grande (~1), muy por debajo de la del conjunto combinado.
+    # Without the distant fragment, the result's diagonal goes back to the
+    # big sphere's (~1), well below the combined set's.
     assert cleaned.length < 2.0
     assert cleaned.n_cells < combined.n_cells
 
@@ -95,7 +95,7 @@ def test_clean_mesh_keeps_single_component_mesh(sphere_mesh):
     assert cleaned.length == pytest.approx(sphere_mesh.length, rel=1e-3)
 
 
-# --- decimacion (motores individuales) ---
+# --- decimation (individual engines) ---
 
 
 def test_decimate_pro_reduces_cell_count(sphere_mesh):
@@ -129,11 +129,11 @@ def test_decimate_pro_no_cells_is_passthrough():
     assert result is empty
 
 
-# --- mascara de proteccion ---
+# --- protection mask ---
 
 
 def test_decimate_with_mask_preserves_protected_points(sphere_mesh):
-    mask = sphere_mesh.points[:, 2] > 0  # hemisferio protegido
+    mask = sphere_mesh.points[:, 2] > 0  # protected hemisphere
     settings = DecimationSettings(engine=ENGINE_DECIMATE_PRO, reduction_pct=90, preserve_topology=False)
 
     result = decimate_with_mask(sphere_mesh, mask, settings)
@@ -145,14 +145,14 @@ def test_decimate_with_mask_preserves_protected_points(sphere_mesh):
 
 
 def test_decimate_with_mask_qem_seam_is_watertight(sphere_mesh):
-    """Regresion: con el motor QEM, la costura entre la zona protegida y
-    la decimada se abria (aristas no-manifold tras el merge) a partir de
-    ~70% de reduccion con el peso de borde antiguo (1000), porque
-    vtkQuadricDecimation solo penaliza el coste de tocar el borde, no lo
-    bloquea como vtkDecimatePro. Con el peso actual (1e10) queda
-    perfectamente soldada hasta ~90% de reduccion (barrido comprobado
-    manualmente con varias resoluciones/mascaras; ver decimate_qem). Al
-    80% -usado aqui- es fiable en todos los casos probados."""
+    """Regression: with the QEM engine, the seam between the protected
+    region and the decimated one used to open up (non-manifold edges after
+    the merge) starting at ~70% reduction with the old boundary weight
+    (1000), because vtkQuadricDecimation only penalizes the cost of
+    touching the boundary, it doesn't lock it like vtkDecimatePro. With the
+    current weight (1e10) it stays perfectly welded up to ~90% reduction
+    (manually verified with a sweep of resolutions/masks; see
+    decimate_qem). At 80% -used here- it's reliable in every case tested."""
     mask = sphere_mesh.points[:, 2] > 0.3
     settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=80, volume_preservation=False)
 
@@ -165,15 +165,14 @@ def test_decimate_with_mask_qem_seam_is_watertight(sphere_mesh):
 
 
 def test_decimate_with_mask_qem_seam_is_watertight_at_extreme_reduction(sphere_mesh):
-    """Regresion para `_weld_seam_gaps`: antes de anadir el cierre de
-    huecos residuales en `decimate_with_mask`, el 98% de reduccion dejaba
-    aristas de borde sin soldar en la costura (un T-junction real, no
-    solucionable subiendo la tolerancia de `merge_points` ni con una
-    reparacion de no-manifold estandar, comprobado empiricamente). Con el
-    cierre de huecos anadido, esta resolucion/mascara queda perfectamente
-    soldada hasta el 98% (a partir de ~99% el hueco remanente ya no es un
-    poligono simple y PyMeshLab no siempre lo puede cerrar del todo, ver
-    `_weld_seam_gaps`)."""
+    """Regression for `_weld_seam_gaps`: before adding the residual-gap
+    closing step in `decimate_with_mask`, 98% reduction left boundary edges
+    unwelded on the seam (a genuine T-junction, not solvable by raising
+    `merge_points`'s tolerance nor with a standard non-manifold repair,
+    verified empirically). With the gap-closing step added, this
+    resolution/mask stays perfectly welded up to 98% (above ~99% the
+    remaining gap is no longer a simple polygon and PyMeshLab can't always
+    close it fully, see `_weld_seam_gaps`)."""
     mask = sphere_mesh.points[:, 2] > 0.3
     settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=98, volume_preservation=False)
 
@@ -186,17 +185,17 @@ def test_decimate_with_mask_qem_seam_is_watertight_at_extreme_reduction(sphere_m
 
 
 def test_decimate_with_mask_qem_seam_closed_by_residual_gap_stitcher():
-    """Regresion para `_stitch_residual_boundary_gaps`: a esta resolucion,
-    mascara y reduccion (deliberadamente distinta de la del fixture
-    `sphere_mesh`: a esa resolucion concreta el residuo, aunque
-    reproducible, ya no es un poligono simple y ni siquiera el cosido
-    final lo cierra del todo -ver limitaciones conocidas en el
-    CHANGELOG), `_weld_seam_gaps` (cierre de huecos de PyMeshLab) por si
-    solo dejaba 5 aristas de borde sin soldar -un vertice 'bowtie' que
-    ningun reparador de PyMeshLab/VTK probado sabe resolver (varios
-    intentos documentados en `_weld_seam_gaps`). El triangulado en abanico
-    de `_stitch_residual_boundary_gaps` como ultimo recurso las cierra del
-    todo aqui."""
+    """Regression for `_stitch_residual_boundary_gaps`: at this resolution,
+    mask and reduction level (deliberately different from the `sphere_mesh`
+    fixture's: at that specific resolution the residual, although
+    reproducible, is no longer a simple polygon and even the final stitch
+    doesn't close it completely -see known limitations in the CHANGELOG),
+    `_weld_seam_gaps` (PyMeshLab's hole closing) alone left 5 boundary
+    edges unwelded -a 'bowtie' vertex that no PyMeshLab/VTK repair filter
+    tried knows how to resolve (several attempts documented in
+    `_weld_seam_gaps`). The fan triangulation of
+    `_stitch_residual_boundary_gaps` as a last resort closes them
+    completely here."""
     sphere = pv.Sphere(theta_resolution=30, phi_resolution=30).triangulate()
     mask = sphere.points[:, 2] > 0.3
     settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=99, volume_preservation=False)
@@ -210,18 +209,18 @@ def test_decimate_with_mask_qem_seam_closed_by_residual_gap_stitcher():
 
 
 def test_decimate_with_mask_never_raises_when_pymeshlab_repair_rejects_mesh():
-    """Regresion: en un puñado de combinaciones de resolucion/mascara, la
-    malla resultante del merge tiene aristas genuinamente no-manifold
-    (compartidas por 3+ caras), no solo el T-junction habitual, y
-    PyMeshLab rechaza `meshing_close_holes` con una excepcion en vez de
-    repararla. `_weld_seam_gaps` debe capturarla y devolver la malla sin
-    reparar en vez de dejar que reviente todo `decimate_with_mask` (y con
-    ella, `run_decimation_pipeline` completo)."""
+    """Regression: in a handful of resolution/mask combinations, the mesh
+    resulting from the merge has genuinely non-manifold edges (shared by 3+
+    faces), not just the usual T-junction, and PyMeshLab rejects
+    `meshing_close_holes` with an exception instead of repairing it.
+    `_weld_seam_gaps` must catch it and return the unrepaired mesh instead
+    of letting it blow up all of `decimate_with_mask` (and with it, the
+    whole `run_decimation_pipeline`)."""
     sphere = pv.Sphere(theta_resolution=25, phi_resolution=25).triangulate()
     mask = sphere.points[:, 2] > 0.3
     settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=99, volume_preservation=False)
 
-    result = decimate_with_mask(sphere, mask, settings)  # no debe lanzar
+    result = decimate_with_mask(sphere, mask, settings)  # must not raise
 
     assert result.n_cells > 0
 
@@ -235,7 +234,7 @@ def test_decimate_with_mask_no_mask_decimates_everything(sphere_mesh):
     assert 0 < result.n_cells < sphere_mesh.n_cells
 
 
-# --- error geometrico ---
+# --- geometric error ---
 
 
 def test_error_summary_empty_array():
@@ -251,18 +250,18 @@ def test_error_summary_values():
 
 
 def test_measure_bidirectional_error_detects_fully_removed_feature():
-    """La direccion original (result->source) no detecta que un trozo
-    entero del original haya desaparecido del resultado: todas las caras
-    que sobreviven en `result` ya estaban en `source`, asi que su
-    distancia a la superficie original es ~0 independientemente de lo que
-    falte. La direccion inversa (source->result) si lo detecta, porque
-    las caras de `source` que formaban la parte eliminada ya no tienen
-    ninguna superficie cerca en `result`."""
+    """The original direction (result->source) fails to detect that an
+    entire chunk of the original has disappeared from the result: every
+    face that survives in `result` was already in `source`, so its
+    distance to the original surface is ~0 regardless of what's missing.
+    The reverse direction (source->result) does detect it, because the
+    `source` faces that made up the removed part no longer have any
+    surface nearby in `result`."""
     base = pv.Plane(i_resolution=10, j_resolution=10).triangulate()
-    # Bulto lejos de la base, para que su ausencia sea inequivoca.
+    # Bump far from the base, so its absence is unambiguous.
     bump = pv.Plane(i_resolution=2, j_resolution=2, center=(10, 10, 5)).triangulate()
     source = base.merge(bump, merge_points=False)
-    result = base  # "olvida" el bulto por completo, como una decimacion que lo aplanara del todo
+    result = base  # "forgets" the bump entirely, like a decimation that flattened it out completely
 
     fwd_errors, _, rev_errors, _ = measure_bidirectional_error(source, result)
 
@@ -273,10 +272,10 @@ def test_measure_bidirectional_error_detects_fully_removed_feature():
 
 
 def test_refine_by_error_respects_max_iterations(sphere_mesh):
-    """`max_iterations` acota cuantas veces `refine_by_error` puede volver
-    a decimar; con un umbral tan estricto que nunca se satisface del
-    todo, no debe superar el limite pedido aunque el error siga por
-    encima del umbral tras esa pasada."""
+    """`max_iterations` caps how many times `refine_by_error` can decimate
+    again; with a threshold so strict it's never fully satisfied, it must
+    not exceed the requested limit even if the error is still above the
+    threshold after that pass."""
     mask = np.zeros(sphere_mesh.n_points, dtype=bool)
     settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=90)
     result = decimate_with_mask(sphere_mesh, mask, settings)
@@ -288,7 +287,7 @@ def test_refine_by_error_respects_max_iterations(sphere_mesh):
     assert iterations <= 1
 
 
-# --- pipeline completo ---
+# --- full pipeline ---
 
 
 def test_run_decimation_pipeline_reduces_triangle_count(sphere_mesh):
@@ -330,9 +329,10 @@ def test_run_decimation_pipeline_protects_uv_seams(uv_seam_mesh):
 
 
 def test_run_decimation_pipeline_raises_when_result_is_empty():
-    # target_reduction es un objetivo, no una garantia (vtkDecimatePro no
-    # necesariamente deja una malla real en 0 caras aunque se pida 100%),
-    # asi que se fuerza el caso "sin caras" con una malla ya vacia de origen.
+    # target_reduction is a goal, not a guarantee (vtkDecimatePro doesn't
+    # necessarily leave an actual mesh at 0 faces even if 100% is
+    # requested), so the "no faces" case is forced with an already-empty
+    # source mesh.
     empty = pv.PolyData()
     decimation = DecimationSettings(engine=ENGINE_DECIMATE_PRO, reduction_pct=50)
     protection = ProtectionSettings(protect_uv_seams=False, auto_error_protection=False)
@@ -341,7 +341,7 @@ def test_run_decimation_pipeline_raises_when_result_is_empty():
         run_decimation_pipeline(empty, decimation, protection)
 
 
-# --- carga desde disco ---
+# --- loading from disk ---
 
 
 def test_load_and_prepare_mesh_reads_and_cleans(tmp_path, sphere_mesh):

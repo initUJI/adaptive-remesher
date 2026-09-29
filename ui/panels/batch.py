@@ -1,4 +1,4 @@
-"""Panel de procesamiento por lotes."""
+"""Batch processing panel."""
 
 from typing import TYPE_CHECKING
 
@@ -11,27 +11,27 @@ if TYPE_CHECKING:
 
 
 def build_batch_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout) -> None:
-    batch_group = window._add_collapsible_group("batch", "Procesamiento por lotes")
+    batch_group = window._add_collapsible_group("batch", "Batch processing")
     batch_layout = QVBoxLayout(batch_group)
 
     batch_info = QLabel(
-        "Aplica los ajustes actuales del panel (limpieza, motor, "
-        "decimacion y proteccion automatica) a todos los archivos de "
-        "una carpeta, sin pasar por el visor. No incluye proteccion "
-        "manual (pincel ni rectangulo): solo costuras UV y el "
-        "auto-ajuste por error, si estan activados arriba."
+        "Applies the panel's current settings (cleanup, engine, "
+        "decimation and automatic protection) to every file in a "
+        "folder, without going through the viewer. Doesn't include "
+        "manual protection (brush or rectangle): only UV seams and "
+        "the error-based auto-adjustment, if enabled above."
     )
     batch_info.setWordWrap(True)
     batch_layout.addWidget(batch_info)
 
-    batch_btn = QPushButton("Procesar carpeta...")
+    batch_btn = QPushButton("Process folder...")
     batch_btn.setToolTip(tip(
-        "Elige una carpeta de entrada (OBJ/STL/PLY/VTP/GLB/GLTF) y una "
-        "de salida: decima cada archivo con los ajustes actuales del "
-        "panel y guarda el resultado (mas el informe .json, si esta "
-        "marcado arriba) en la carpeta de salida con el mismo nombre. "
-        "Si un archivo falla, se salta y se sigue con el resto; al "
-        "final se muestra un resumen."
+        "Choose an input folder (OBJ/STL/PLY/VTP/GLB/GLTF) and an "
+        "output one: decimates each file with the panel's current "
+        "settings and saves the result (plus the .json report, if "
+        "checked above) in the output folder under the same name. If "
+        "a file fails, it's skipped and processing continues with "
+        "the rest; a summary is shown at the end."
     ))
     batch_btn.clicked.connect(window.run_batch)
     batch_layout.addWidget(batch_btn)

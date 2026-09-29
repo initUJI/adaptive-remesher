@@ -1,9 +1,9 @@
 name: Release
 
-# Se dispara al empujar un tag "vX.Y.Z" (ver BUILD.md): construye el
-# ejecutable de escritorio con PyInstaller en Windows, macOS y Linux,
-# comprueba que cada uno arranca (prueba de humo) y adjunta cada uno como
-# asset de una GitHub Release para ese tag.
+# Triggered by pushing a "vX.Y.Z" tag (see BUILD.md): builds the
+# desktop executable with PyInstaller on Windows, macOS and Linux,
+# checks that each one starts up (smoke test) and attaches each one as
+# an asset of a GitHub Release for that tag.
 on:
   push:
     tags:
@@ -33,13 +33,13 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Instalar dependencias
+      - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
       - name: Build (PyInstaller)
         run: pyinstaller adaptive-remesher.spec
 
-      - name: Prueba de humo (arranca sin errores en las tres plataformas)
+      - name: Smoke test (starts without errors on all three platforms)
         shell: bash
         env:
           QT_QPA_PLATFORM: offscreen
@@ -60,9 +60,9 @@ jobs:
           if proc.poll() is not None:
               print(proc.stdout.read())
               print(
-                  f"El ejecutable termino solo (codigo {proc.returncode}) antes de "
-                  "los 8s: probable fallo de arranque (import roto, dependencia "
-                  "nativa no empaquetada, etc.)."
+                  f"The executable exited on its own (code {proc.returncode}) "
+                  "within 8s: likely a startup failure (broken import, "
+                  "unpackaged native dependency, etc.)."
               )
               sys.exit(1)
 
@@ -72,24 +72,24 @@ jobs:
           except subprocess.TimeoutExpired:
               proc.kill()
               proc.wait()
-          print("El ejecutable arranco y siguio vivo 8s sin errores aparentes.")
+          print("The executable started and stayed alive for 8s with no apparent errors.")
           PY
 
-      - name: Empaquetar (Windows)
+      - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           Compress-Archive -Path dist/adaptive-remesher/* -DestinationPath "${{ matrix.asset_name }}.zip"
           echo "ARCHIVE=${{ matrix.asset_name }}.zip" >> $env:GITHUB_ENV
 
-      - name: Empaquetar (macOS/Linux)
+      - name: Package (macOS/Linux)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           tar -czf "${{ matrix.asset_name }}.tar.gz" -C dist adaptive-remesher
           echo "ARCHIVE=${{ matrix.asset_name }}.tar.gz" >> "$GITHUB_ENV"
 
-      - name: Adjuntar a la Release
+      - name: Attach to the Release
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.ARCHIVE }}

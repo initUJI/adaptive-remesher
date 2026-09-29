@@ -1,13 +1,13 @@
-"""Interfaz Qt del remesher adaptativo, dividida por responsabilidad:
+"""Qt interface for the adaptive remesher, split by responsibility:
 
-- `common`: estilos, dialogos y widgets reutilizables (tooltip, cursor de
-  espera, panel plegable, comparacion lado a lado).
-- `panels`: una funcion `build_xxx_panel(window, panel_layout)` por cada
-  seccion del panel de control, que construye sus widgets, los expone como
-  atributos de `window` (para que el resto de metodos de
-  `AdaptiveRemesherWindow` sigan leyendolos igual que antes) y conecta sus
-  senales a los metodos de `window` que ya existian.
+- `common`: shared styles, dialogs and widgets (tooltip helper, busy
+  cursor, collapsible panel, side-by-side comparison).
+- `panels`: one `build_xxx_panel(window, panel_layout)` function per
+  control-panel section, which builds its widgets, exposes them as
+  attributes of `window` (so the rest of `AdaptiveRemesherWindow`'s
+  methods keep reading them the same way as before) and wires their
+  signals to `window`'s already-existing methods.
 
-Ningun modulo de este paquete depende de `remesh_core`: la logica de
-decimacion/limpieza vive fuera de la UI.
+No module in this package depends on `remesh_core`: decimation/cleanup
+logic lives outside the UI.
 """

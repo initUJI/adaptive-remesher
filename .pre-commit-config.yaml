@@ -1,5 +1,5 @@
-# Instalar una vez con: pip install -r requirements-dev.txt && pre-commit install
-# Actualizar las revisiones periodicamente con: pre-commit autoupdate
+# Install once with: pip install -r requirements-dev.txt && pre-commit install
+# Update the revisions periodically with: pre-commit autoupdate
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.7.4
@@ -12,11 +12,12 @@ repos:
     rev: v2.3.1
     hooks:
       - id: mypy
-        # Solo numpy/scipy como dependencia extra: PySide6/pyvista/vtk/
-        # pymeshlab son binarios pesados que ralentizarian cada commit sin
-        # anadir precision (con ignore_missing_imports ya se tratan como
-        # Any). El chequeo con las dependencias completas instaladas es el
-        # paso "Tipos (mypy)" de CI (.github/workflows/ci.yml).
+        # Only numpy/scipy as an extra dependency: PySide6/pyvista/vtk/
+        # pymeshlab are heavy binaries that would slow down every commit
+        # without adding precision (with ignore_missing_imports they're
+        # already treated as Any). The check with the full dependencies
+        # installed is the "Type checking (mypy)" step of CI
+        # (.github/workflows/ci.yml).
         additional_dependencies: [numpy, scipy]
         args: [--ignore-missing-imports]
         files: ^(remesh_core|app|logging_config)\.py$|^(ui|tests)/

@@ -1,4 +1,4 @@
-"""Panel de perfiles de configuracion (guardar/cargar preset .json)."""
+"""Configuration profiles panel (save/load .json preset)."""
 
 from typing import TYPE_CHECKING
 
@@ -11,24 +11,24 @@ if TYPE_CHECKING:
 
 
 def build_presets_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout) -> None:
-    preset_group = window._add_collapsible_group("presets", "Perfiles de configuracion")
+    preset_group = window._add_collapsible_group("presets", "Configuration profiles")
     preset_grid = QGridLayout(preset_group)
 
-    save_preset_btn = QPushButton("Guardar preset...")
+    save_preset_btn = QPushButton("Save preset...")
     save_preset_btn.setToolTip(tip(
-        "Guarda todos los parametros actuales del panel (limpieza, "
-        "proteccion automatica de costuras, motor de decimacion y sus "
-        "opciones, validacion por error...) en un .json reutilizable, "
-        "para aplicar rapidamente el mismo ajuste a otras mallas "
-        "parecidas (personajes, props, terreno...). No incluye la "
-        "malla en si ni las marcas de proteccion manual."
+        "Saves all the panel's current parameters (cleanup, "
+        "automatic seam protection, decimation engine and its "
+        "options, error-based validation...) into a reusable .json, "
+        "to quickly apply the same settings to other similar meshes "
+        "(characters, props, terrain...). Does not include the mesh "
+        "itself nor the manual protection marks."
     ))
     save_preset_btn.clicked.connect(window.save_preset)
-    load_preset_btn = QPushButton("Cargar preset...")
+    load_preset_btn = QPushButton("Load preset...")
     load_preset_btn.setToolTip(tip(
-        "Carga un preset guardado previamente y aplica sus valores a "
-        "todos los controles del panel. No toca la malla cargada ni "
-        "las marcas de proteccion manual existentes."
+        "Loads a previously saved preset and applies its values to "
+        "all the panel's controls. Does not touch the loaded mesh nor "
+        "the existing manual protection marks."
     ))
     load_preset_btn.clicked.connect(window.load_preset)
     preset_grid.addWidget(save_preset_btn, 0, 0)

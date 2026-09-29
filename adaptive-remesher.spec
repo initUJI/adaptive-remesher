@@ -1,10 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# Genera un ejecutable de escritorio independiente (ver BUILD.md). Se
-# regenero con `pyinstaller --windowed --name adaptive-remesher app.py`
-# y no ha necesitado hidden-imports ni datas manuales: PyInstaller detecta
-# solo PySide6/pyvista/VTK/PyMeshLab via sus hooks incluidos. Reconstruir
-# con `pyinstaller adaptive-remesher.spec` tras cualquier cambio.
+# Generates a standalone desktop executable (see BUILD.md). It was
+# regenerated with `pyinstaller --windowed --name adaptive-remesher app.py`
+# and hasn't needed manual hidden-imports or datas: PyInstaller detects
+# PySide6/pyvista/VTK/PyMeshLab on its own via their bundled hooks.
+# Rebuild with `pyinstaller adaptive-remesher.spec` after any change.
 
 a = Analysis(
     ['app.py'],

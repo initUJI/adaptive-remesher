@@ -1,12 +1,12 @@
-"""Logica de dominio del remesher adaptativo, independiente de Qt.
+"""Domain logic for the adaptive remesher, independent of Qt.
 
-Concentra limpieza (PyMeshLab), los dos motores de decimacion (vtkDecimatePro
-y Quadric Error Metric), la proteccion automatica de costuras UV y la
-validacion/refinamiento por error geometrico. Separado de `app.py` para que
-se pueda testear con pytest sin necesidad de un QApplication ni de mockear
-Qt, y para que el flujo interactivo (boton "Aplicar decimacion") y el
-procesamiento por lotes compartan un unico pipeline en vez de dos copias
-casi identicas.
+Brings together cleanup (PyMeshLab), the two decimation engines
+(vtkDecimatePro and Quadric Error Metric), automatic UV seam protection,
+and error-based geometric validation/refinement. Kept separate from
+`app.py` so it can be tested with pytest without needing a QApplication
+or mocking Qt, and so the interactive flow (the "Apply decimation"
+button) and batch processing share a single pipeline instead of two
+nearly identical copies.
 """
 
 from dataclasses import dataclass
@@ -23,17 +23,18 @@ ENGINE_QEM = 1
 
 
 def mesh_has_texture_coords(mesh: pv.PolyData) -> bool:
-    """Indica si la malla tiene coordenadas de textura (UV) activas."""
+    """Whether the mesh has active texture coordinates (UV)."""
     return mesh.active_texture_coordinates is not None
 
 
 def ensure_active_texture_coords(mesh: pv.PolyData) -> None:
-    """Si la malla no tiene UV activas pero trae un array de textura sin
-    marcar como tal, lo activa. Algunos lectores (segun formato) dejan las
-    coordenadas de textura como un array de punto mas, sin activarlas, en
-    cuyo caso `active_texture_coordinates` da None aunque la malla si tenga
-    textura: la proteccion de costuras UV y el peso de distorsion UV en QEM
-    se saltarian en silencio sin este arreglo."""
+    """If the mesh has no active UV but carries a texture array that
+    isn't flagged as such, activate it. Some readers (depending on
+    format) leave texture coordinates as just another point array
+    without activating them, in which case `active_texture_coordinates`
+    returns None even though the mesh does have texture: UV seam
+    protection and the UV distortion weight in QEM would silently be
+    skipped without this fix."""
     if mesh.active_texture_coordinates is not None:
         return
     keywords = ("uv", "tex", "tcoord")
@@ -50,16 +51,16 @@ def clean_mesh(
     max_hole_size: int = 30,
     fix_orientation: bool = False,
 ) -> pv.PolyData:
-    """Repara defectos tipicos de mallas de IA: vertices duplicados o sin
-    referenciar, aristas y vertices no-manifold, y fragmentos flotantes mas
-    pequenos que min_component_pct% de la diagonal del bounding box. Si
-    `close_holes`, ademas rellena agujeros de hasta `max_hole_size` aristas
-    (util tras quitar fragmentos, pero puede cerrar huecos intencionados
-    como ojos/boca si el umbral es demasiado alto). Si `fix_orientation`,
-    reorienta las caras de forma coherente entre si: corrige el sombreado
-    invertido o los "agujeros" aparentes que aparecen cuando un generador
-    de IA deja normales de cara mezcladas (algunas hacia dentro, otras
-    hacia fuera) dentro de la misma superficie."""
+    """Repairs defects typical of AI-generated meshes: duplicated or
+    unreferenced vertices, non-manifold edges and vertices, and floating
+    fragments smaller than min_component_pct% of the bounding-box
+    diagonal. If `close_holes`, it also fills holes of up to
+    `max_hole_size` edges (useful after removing fragments, but can
+    close intentional gaps such as eyes/mouth if the threshold is too
+    high). If `fix_orientation`, it reorients faces coherently with each
+    other: fixes inverted shading or apparent "holes" that show up when
+    an AI generator leaves mixed face normals (some pointing inward,
+    some outward) within the same surface."""
     ms = pymeshlab.MeshSet()
     ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.points, face_matrix=mesh.regular_faces))
     ms.meshing_remove_duplicate_vertices()
@@ -82,14 +83,14 @@ def clean_mesh(
 
 
 def uv_seam_point_mask(mesh: pv.PolyData) -> np.ndarray:
-    """Detecta vertices duplicados en la misma posicion 3D pero con distinta
-    UV: la forma habitual en que OBJ/GLTF representan una costura de
-    textura. Protegerlos evita que la decimacion los colapse y rompa la
-    textura en la costura. Devuelve una mascara booleana por punto.
-    Vectorizado con numpy sobre todos los pares a la vez (en vez de un
-    bucle Python con un np.allclose por par): en mallas de IA con muchas
-    costuras (miles de vertices duplicados) el bucle era, con diferencia,
-    el cuello de botella de toda la deteccion de proteccion automatica."""
+    """Detects vertices duplicated at the same 3D position but with
+    different UV: the usual way OBJ/GLTF represent a texture seam.
+    Protecting them keeps decimation from collapsing them and breaking
+    the texture at the seam. Returns a boolean per-point mask.
+    Vectorized with numpy over all pairs at once (instead of a Python
+    loop with an np.allclose per pair): on AI meshes with many seams
+    (thousands of duplicated vertices) the loop was by far the
+    bottleneck of the whole automatic protection detection."""
     mask = np.zeros(mesh.n_points, dtype=bool)
     tcoords = mesh.active_texture_coordinates
     if tcoords is None:
@@ -101,8 +102,8 @@ def uv_seam_point_mask(mesh: pv.PolyData) -> np.ndarray:
         return mask
     i, j = pairs[:, 0], pairs[:, 1]
     a, b = tcoords[i], tcoords[j]
-    # Misma tolerancia que np.allclose(a, b, atol=1e-4) (rtol=1e-05 por
-    # defecto), pero evaluada de golpe sobre todos los pares.
+    # Same tolerance as np.allclose(a, b, atol=1e-4) (rtol=1e-05 by
+    # default), but evaluated all at once over every pair.
     close = np.all(np.abs(a - b) <= (1e-4 + 1e-5 * np.abs(b)), axis=1)
     differing = ~close
     mask[i[differing]] = True
@@ -118,9 +119,9 @@ def decimate_pro(
     boundary_vertex_deletion: bool,
     splitting: bool,
 ) -> pv.PolyData:
-    """Aplica vtkDecimatePro a `mesh`: colapsa vertices en zonas planas segun
-    `feature_angle` y deja intactos bordes duros/esquinas por encima de ese
-    angulo. Devuelve la malla sin cambios si no tiene celdas."""
+    """Applies vtkDecimatePro to `mesh`: collapses vertices in flat areas
+    according to `feature_angle` and leaves hard edges/corners above that
+    angle untouched. Returns the mesh unchanged if it has no cells."""
     if mesh.n_cells == 0:
         return mesh
 
@@ -145,34 +146,34 @@ def decimate_qem(
     use_normals_weight: bool = False,
     normals_weight: float = 1.0,
 ) -> pv.PolyData:
-    """Aplica vtkQuadricDecimation (Garland-Heckbert): el coste de cada
-    colapso es un error cuadratico que ya pondera la curvatura local de
-    forma continua (zonas planas -> error bajo -> se colapsan primero;
-    zonas curvas -> error alto -> se preservan), en vez del angulo fijo
-    binario de vtkDecimatePro. Si `use_uv_weight` y la malla tiene textura,
-    anade al coste la distorsion de coordenadas UV, para desalentar
-    colapses que estiren la textura incluso fuera de las costuras ya
-    protegidas por separado. Si `use_normals_weight`, anade ademas la
-    variacion de la normal de vertice al coste: sin esto, QEM puede
-    aplanar zonas suavemente curvas en facetas visibles porque solo mide
-    error de posicion; penalizar el cambio de normal mantiene el sombreado
-    mas fiel al original en mallas organicas muy decimadas (calcula las
-    normales de vertice si la malla aun no las trae). `boundary_locked`
-    penaliza fuertemente mover los bordes (reales o de union con una zona
-    protegida): a diferencia de vtkDecimatePro (que si puede bloquearlos
-    del todo con SetBoundaryVertexDeletion), vtkQuadricDecimation solo
-    permite penalizar el coste, nunca prohibir el colapso, asi que si el
-    peso es insuficiente el borde puede perder vertices igual, dejando
-    aristas no-manifold donde se une con la zona protegida (el merge
-    posterior ya no encuentra un vertice identico con el que soldar).
-    Comprobado empiricamente barriendo agresividad/resolucion/mascara: con
-    el peso anterior (1000) la costura ya se abria a partir de ~70% de
-    reduccion; con 1e10 se mantiene perfectamente soldada hasta ~90%, y
-    solo se degrada (no a cero, pero mucho menos que antes) por encima de
-    eso. Un peso mayor no ayuda: en el limite (~99%) VTK prioriza cumplir
-    el target de reduccion sobre respetar el peso del borde, algo que
-    vtkQuadricDecimation no permite evitar del todo (no expone, a
-    diferencia de vtkDecimatePro, un bloqueo topologico absoluto)."""
+    """Applies vtkQuadricDecimation (Garland-Heckbert): the cost of each
+    collapse is a quadric error that already weighs local curvature
+    continuously (flat areas -> low error -> collapsed first; curved
+    areas -> high error -> preserved), instead of vtkDecimatePro's fixed
+    binary angle. If `use_uv_weight` and the mesh has texture, it adds UV
+    coordinate distortion to the cost, to discourage collapses that
+    stretch the texture even outside the seams already protected
+    separately. If `use_normals_weight`, it additionally adds vertex
+    normal variation to the cost: without this, QEM can flatten smoothly
+    curved areas into visible facets because it only measures positional
+    error; penalizing normal change keeps shading closer to the original
+    on heavily decimated organic meshes (computes vertex normals if the
+    mesh doesn't already carry them). `boundary_locked` heavily penalizes
+    moving edges (real ones, or the join with a protected zone): unlike
+    vtkDecimatePro (which can fully lock them with
+    SetBoundaryVertexDeletion), vtkQuadricDecimation can only penalize
+    the cost, never forbid the collapse, so if the weight is
+    insufficient the edge can still lose vertices, leaving non-manifold
+    edges where it meets the protected zone (the subsequent merge no
+    longer finds an identical vertex to weld to). Verified empirically by
+    sweeping aggressiveness/resolution/mask: with the previous weight
+    (1000) the seam already opened up starting at ~70% reduction; with
+    1e10 it stays perfectly welded up to ~90%, and only degrades beyond
+    that (not to zero, but far less than before). A higher weight
+    doesn't help: in the limit (~99%) VTK prioritizes meeting the
+    reduction target over respecting the edge weight, something
+    vtkQuadricDecimation doesn't let you avoid entirely (unlike
+    vtkDecimatePro, it doesn't expose an absolute topological lock)."""
     if mesh.n_cells == 0:
         return mesh
 
@@ -203,18 +204,19 @@ def decimate_qem(
     decimate.Update()
     output = pv.wrap(decimate.GetOutput())
     if working is not mesh and "Normals" in output.point_data:
-        # Las normales se calcularon solo para guiar el coste de colapso,
-        # no eran un dato original de `mesh`: si se dejan en el resultado,
-        # una pieza vecina que no paso por aqui (p.ej. la zona protegida,
-        # sin decimar) no las tendria, y el merge posterior arrastraria un
-        # array a medias con huecos.
+        # The normals were only computed to guide the collapse cost,
+        # they weren't original data of `mesh`: if left in the result, a
+        # neighboring piece that didn't go through here (e.g. the
+        # protected zone, not decimated) wouldn't have them, and the
+        # subsequent merge would carry an array that's half full of
+        # gaps.
         del output.point_data["Normals"]
     return output
 
 
 @dataclass
 class CleanSettings:
-    """Parametros de limpieza previa (PyMeshLab). Ver `clean_mesh`."""
+    """Pre-processing cleanup parameters (PyMeshLab). See `clean_mesh`."""
 
     min_component_pct: float = 2.0
     close_holes: bool = False
@@ -224,8 +226,8 @@ class CleanSettings:
 
 @dataclass
 class DecimationSettings:
-    """Parametros de decimacion, comunes a ambos motores mas los propios de
-    cada uno (los que no aplican al motor elegido se ignoran)."""
+    """Decimation parameters, common to both engines plus each engine's
+    own (the ones that don't apply to the chosen engine are ignored)."""
 
     engine: int = ENGINE_DECIMATE_PRO
     reduction_pct: float = 50.0
@@ -246,7 +248,8 @@ class DecimationSettings:
 
 @dataclass
 class ProtectionSettings:
-    """Parametros de proteccion automatica: costuras UV y validacion por error geometrico."""
+    """Automatic protection parameters: UV seams and error-based
+    geometric validation."""
 
     protect_uv_seams: bool = True
     auto_error_protection: bool = True
@@ -256,9 +259,9 @@ class ProtectionSettings:
 
 @dataclass
 class PipelineResult:
-    """Resultado de `run_decimation_pipeline`, con la malla decimada y las
-    estadisticas necesarias tanto para actualizar la UI como para el
-    informe .json exportable."""
+    """Result of `run_decimation_pipeline`, with the decimated mesh and
+    the statistics needed both to update the UI and for the exportable
+    .json report."""
 
     mesh: pv.PolyData
     mask: np.ndarray
@@ -267,8 +270,9 @@ class PipelineResult:
     reduction_real_pct: float
     manual_protected_points: int
     uv_seam_protected_points: int
-    # Siempre poblados por run_decimation_pipeline (con o sin refinamiento
-    # iterativo, el error se mide al menos una vez), nunca None.
+    # Always populated by run_decimation_pipeline (with or without
+    # iterative refinement, the error is measured at least once), never
+    # None.
     error_max: float
     error_mean: float
     error_p95: float
@@ -277,13 +281,13 @@ class PipelineResult:
 
 
 def load_and_prepare_mesh(path: str, clean: Optional[CleanSettings]) -> pv.PolyData:
-    """Carga una malla de superficie desde `path`, activa sus UV si las
-    trae sin marcar, y opcionalmente la limpia con `clean`. Lanza
-    ValueError si el archivo no contiene una malla de superficie valida o
-    si la limpieza la deja vacia."""
+    """Loads a surface mesh from `path`, activates its UV if present but
+    unflagged, and optionally cleans it with `clean`. Raises ValueError
+    if the file doesn't contain a valid surface mesh or if cleanup
+    leaves it empty."""
     mesh = pv.read(path).extract_surface(algorithm="dataset_surface").triangulate()
     if mesh.n_points == 0 or mesh.n_cells == 0:
-        raise ValueError("El archivo no contiene una malla de superficie valida.")
+        raise ValueError("The file does not contain a valid surface mesh.")
     ensure_active_texture_coords(mesh)
     if clean is not None:
         mesh = clean_mesh(
@@ -295,17 +299,18 @@ def load_and_prepare_mesh(path: str, clean: Optional[CleanSettings]) -> pv.PolyD
         )
         if mesh.n_points == 0 or mesh.n_cells == 0:
             raise ValueError(
-                "La limpieza ha dejado la malla vacia (umbral de fragmento "
-                "demasiado alto para este modelo)."
+                "Cleanup left the mesh empty (fragment threshold too "
+                "high for this model)."
             )
     return mesh
 
 
 def decimate(mesh: pv.PolyData, settings: DecimationSettings, lock_boundary: bool) -> pv.PolyData:
-    """Decima `mesh` con el motor elegido en `settings`. `lock_boundary=True`
-    fuerza que los bordes de `mesh` queden intactos (se usa para la costura
-    interna creada al separar una zona protegida); si es False, se respeta
-    `settings.boundary_vertex_deletion` para los bordes reales de la malla."""
+    """Decimates `mesh` with the engine chosen in `settings`.
+    `lock_boundary=True` forces the edges of `mesh` to remain untouched
+    (used for the internal seam created when splitting off a protected
+    zone); if False, `settings.boundary_vertex_deletion` is respected for
+    the mesh's real boundary edges."""
     resolved_lock = lock_boundary or not settings.boundary_vertex_deletion
     if settings.engine == ENGINE_DECIMATE_PRO:
         return decimate_pro(
@@ -331,12 +336,13 @@ def decimate(mesh: pv.PolyData, settings: DecimationSettings, lock_boundary: boo
 def decimate_with_mask(
     source: pv.PolyData, mask: np.ndarray, settings: DecimationSettings
 ) -> pv.PolyData:
-    """Decima `source` dejando intactos los puntos marcados en `mask`
-    (protegidos): los separa, decima solo el resto y recompone el
-    resultado, con dos pasadas de cierre de huecos residuales en la
-    costura (`_weld_seam_gaps`, y `_stitch_residual_boundary_gaps` como
-    ultimo recurso sobre lo que aun quede) antes de devolverlo. Si `mask`
-    esta vacia, decima la malla entera (no hay costura que reparar)."""
+    """Decimates `source` leaving the points marked in `mask` untouched
+    (protected): splits them off, decimates only the rest, and
+    recomposes the result, with two passes closing residual gaps in the
+    seam (`_weld_seam_gaps`, and `_stitch_residual_boundary_gaps` as a
+    last resort on whatever is still left) before returning it. If
+    `mask` is empty, decimates the whole mesh (there's no seam to
+    repair)."""
     if not mask.any():
         return decimate(source, settings, lock_boundary=False)
 
@@ -357,31 +363,30 @@ def decimate_with_mask(
 
 
 def _weld_seam_gaps(mesh: pv.PolyData, max_hole_size: int = 100) -> pv.PolyData:
-    """Cierra los huecos residuales que puede dejar la costura entre la
-    zona protegida y la decimada en `decimate_with_mask`. No son aristas
-    no-manifold (compartidas por mas de 2 caras, lo que corregiria
-    `meshing_repair_non_manifold_edges`), sino aristas de borde genuinas a
-    cada lado de la costura que no llegan a coincidir: un T-junction real
-    (distinto numero de segmentos de arista en cada lado tras decimar),
-    no un problema de posicion, asi que ni un `merge_points` con
-    tolerancia mayor ni una reparacion de no-manifold estandar lo
-    resuelven (comprobado empiricamente: ninguna de las dos cambia nada
-    aqui, igual que `meshing_snap_mismatched_borders` y
-    `meshing_remove_t_vertices` con distintos parametros). Como el hueco
-    es pequeno y esta cerrado por los dos lados, PyMeshLab puede
-    rellenarlo igual que rellenaria un agujero genuino; `max_hole_size`
-    (en aristas del contorno) se mantiene bajo a proposito para no tocar
-    aperturas grandes que sean parte real de la malla (ojos, boca...) en
-    vez de un artefacto de la costura. Cierra el hueco por completo hasta
-    ~97% de reduccion; por encima (~98-99%) reduce las aristas
-    problematicas restantes en un 80-90% pero no siempre a cero, de ahi
-    `_stitch_residual_boundary_gaps` como ultimo recurso despues. En el
-    puñado de casos donde la malla resultante del merge ya tiene aristas
-    genuinamente no-manifold (compartidas por 3+ caras, no solo el
-    T-junction habitual), PyMeshLab puede rechazar el filtro por completo
-    (`PyMeshLabException`); se captura y se devuelve `mesh` tal cual, sin
-    reparar, antes que romper todo el pipeline de decimacion por un
-    intento de reparacion fallido."""
+    """Closes the residual gaps that the seam between the protected zone
+    and the decimated one can leave in `decimate_with_mask`. These
+    aren't non-manifold edges (shared by more than 2 faces, which
+    `meshing_repair_non_manifold_edges` would fix), but genuine boundary
+    edges on each side of the seam that don't quite line up: a real
+    T-junction (a different number of edge segments on each side after
+    decimating), not a positional problem, so neither a `merge_points`
+    with a larger tolerance nor a standard non-manifold repair fixes it
+    (checked empirically: neither changes anything here, same as
+    `meshing_snap_mismatched_borders` and `meshing_remove_t_vertices`
+    with different parameters). Since the gap is small and closed on
+    both sides, PyMeshLab can fill it just as it would fill a genuine
+    hole; `max_hole_size` (in boundary edges) is deliberately kept low
+    so as not to touch large openings that are a real part of the mesh
+    (eyes, mouth...) rather than a seam artifact. Closes the gap
+    completely up to ~97% reduction; above that (~98-99%) it reduces the
+    remaining problematic edges by 80-90% but not always to zero, hence
+    `_stitch_residual_boundary_gaps` as a last resort afterward. In the
+    handful of cases where the mesh resulting from the merge already has
+    genuinely non-manifold edges (shared by 3+ faces, not just the usual
+    T-junction), PyMeshLab can reject the filter entirely
+    (`PyMeshLabException`); this is caught and `mesh` is returned as-is,
+    unrepaired, rather than breaking the whole decimation pipeline over
+    a failed repair attempt."""
     if mesh.n_cells == 0:
         return mesh
     try:
@@ -398,13 +403,13 @@ def _weld_seam_gaps(mesh: pv.PolyData, max_hole_size: int = 100) -> pv.PolyData:
 
 
 def _pair_seam_branch_neighbors(vertex: int, neighbors: list, points: np.ndarray):
-    """En un vertice 'bowtie' del grafo de aristas de borde residuales
-    (mas de 2 aristas de borde se tocan en el mismo punto: dos bucles de
-    costura distintos que coinciden ahi), empareja cada vecino con el mas
-    opuesto en direccion, la pareja que mejor continua la curva en linea
-    recta a traves del punto -asi se separan los bucles en vez de
-    tratarlos como uno solo en forma de ocho, que ningun triangulador de
-    agujeros simple sabe rellenar."""
+    """At a 'bowtie' vertex of the residual boundary-edge graph (more
+    than 2 boundary edges meet at the same point: two distinct seam
+    loops that happen to coincide there), pairs each neighbor with the
+    most opposite one in direction, the pairing that best continues the
+    curve in a straight line through the point - this way the loops are
+    separated instead of being treated as a single figure-eight, which
+    no simple hole triangulator knows how to fill."""
     direcciones = []
     for n in neighbors:
         d = points[n] - points[vertex]
@@ -428,21 +433,21 @@ def _pair_seam_branch_neighbors(vertex: int, neighbors: list, points: np.ndarray
 
 
 def _stitch_residual_boundary_gaps(mesh: pv.PolyData) -> pv.PolyData:
-    """Ultimo recurso tras `_weld_seam_gaps`: si aun quedan aristas de
-    borde sin soldar (no aristas no-manifold genuinas, esas se dejan
-    intactas: anadir mas caras encima de una arista ya compartida por 3+
-    caras la empeora, no la arregla), las tapa a mano triangulando en
-    abanico cada bucle cerrado simple que puede reconstruir a partir de
-    ellas. En un vertice donde varios bucles se tocan en el mismo punto
-    (ver `_pair_seam_branch_neighbors`), el punto acaba formando parte de
-    mas de un abanico: dos parches que solo se tocan en ese vertice, no
-    una arista no-manifold (extract_feature_edges no lo marca, aunque
-    tecnicamente sea un vertice no-manifold) -aceptable para cerrar del
-    todo un hueco que, por lo demas, ningun reparador de PyMeshLab/VTK
-    probado sabe cerrar (ver `_weld_seam_gaps`). Si el recorrido del grafo
-    no encuentra un bucle cerrado valido (topologia con la que este
-    heuristico no sabe lidiar), deja esas aristas como estaban en vez de
-    forzar un parche incorrecto."""
+    """Last resort after `_weld_seam_gaps`: if there are still unwelded
+    boundary edges left (not genuine non-manifold edges, those are left
+    untouched: adding more faces on top of an edge already shared by 3+
+    faces makes it worse, not better), caps them by hand,
+    fan-triangulating each simple closed loop it can reconstruct from
+    them. At a vertex where several loops meet at the same point (see
+    `_pair_seam_branch_neighbors`), the point ends up part of more than
+    one fan: two patches that only touch at that vertex, not a
+    non-manifold edge (extract_feature_edges doesn't flag it, even
+    though it's technically a non-manifold vertex) - acceptable to fully
+    close a gap that, otherwise, no PyMeshLab/VTK repairer tested knows
+    how to close (see `_weld_seam_gaps`). If the graph traversal doesn't
+    find a valid closed loop (a topology this heuristic doesn't know how
+    to handle), it leaves those edges as they were instead of forcing an
+    incorrect patch."""
     if mesh.n_cells == 0:
         return mesh
     boundary = mesh.extract_feature_edges(
@@ -454,7 +459,7 @@ def _stitch_residual_boundary_gaps(mesh: pv.PolyData) -> pv.PolyData:
     tree = cKDTree(mesh.points)
     dist, mesh_idx = tree.query(boundary.points)
     if dist.max() > 1e-6:
-        return mesh  # no deberia pasar; salvaguarda defensiva
+        return mesh  # shouldn't happen; defensive safeguard
 
     lines = boundary.lines.reshape(-1, 3)[:, 1:]
     adjacency: dict = {}
@@ -523,16 +528,16 @@ def _stitch_residual_boundary_gaps(mesh: pv.PolyData) -> pv.PolyData:
 
 
 def measure_error(result: pv.PolyData, distance_fn: "vtk.vtkImplicitPolyDataDistance"):
-    """Distancia absoluta de cada centro de cara de `result` a la
-    superficie implicita `distance_fn` (aproxima el error de Hausdorff
-    unidireccional). Se mide en centros de cara, no en vertices: los
-    vertices que sobreviven a vtkDecimatePro conservan su posicion
-    original exacta, asi que su distancia a la superficie original
-    siempre seria ~0 y ocultaria el error real, que ocurre en el
-    interior de los triangulos grandes recien creados. `distance_fn` se
-    recibe ya construido (con SetInput aplicado) para no reconstruir el
-    localizador espacial en cada pasada de refinamiento. Devuelve
-    (errores, puntos_de_muestra) para poder localizar las zonas malas."""
+    """Absolute distance from each face center of `result` to the
+    implicit surface `distance_fn` (approximates one-directional
+    Hausdorff error). Measured at face centers, not vertices: vertices
+    that survive vtkDecimatePro keep their exact original position, so
+    their distance to the original surface would always be ~0 and would
+    hide the real error, which occurs inside the large newly created
+    triangles. `distance_fn` is received already built (with SetInput
+    applied) so as not to rebuild the spatial locator on every
+    refinement pass. Returns (errors, sample_points) so the bad zones
+    can be located."""
     centroids = result.cell_centers().points
     dists = vtk.vtkDoubleArray()
     distance_fn.FunctionValue(pv.convert_array(centroids), dists)
@@ -541,12 +546,12 @@ def measure_error(result: pv.PolyData, distance_fn: "vtk.vtkImplicitPolyDataDist
 
 
 def error_summary(errors: np.ndarray):
-    """Reduce un array de errores por centro de cara a tres numeros que
-    resumen la calidad del resultado: el maximo (peor caso puntual, lo
-    unico que se mostraba antes), la media (calidad global) y el
-    percentil 95 (que tan mal esta la franja de peores puntos sin que
-    un unico pico aislado lo distorsione, mas informativo que el
-    maximo en mallas grandes)."""
+    """Reduces an array of per-face-center errors to three numbers
+    summarizing result quality: the maximum (worst single-point case,
+    the only one shown before), the mean (overall quality), and the
+    95th percentile (how bad the band of worst points is without a
+    single isolated spike distorting it, more informative than the
+    maximum on large meshes)."""
     if errors.size == 0:
         return 0.0, 0.0, 0.0
     return float(errors.max()), float(errors.mean()), float(np.percentile(errors, 95))
@@ -557,27 +562,26 @@ def measure_bidirectional_error(
     result: pv.PolyData,
     distance_to_source: Optional["vtk.vtkImplicitPolyDataDistance"] = None,
 ):
-    """Mide el error geometrico en las dos direcciones entre `source` y
-    `result`, no solo `result` -> `source`: esa unica direccion (la unica
-    que se media antes) no detecta que un detalle sobresaliente del
-    original haya desaparecido por completo en el resultado, porque solo
-    pregunta "¿que tan lejos esta cada centro de cara de RESULT de la
-    superficie original?" y si el resultado ya no tiene ninguna cara cerca
-    de la zona eliminada, esa pregunta nunca llega a hacerse alli. La
-    direccion inversa, `source` -> `result`, pregunta lo contrario: "¿que
-    tan lejos esta cada centro de cara ORIGINAL del resultado?", y si esa
-    zona se ha aplanado/eliminado, el centro original correspondiente
-    seguira estando lejos de la superficie decimada, delatandolo. El
-    maximo de Hausdorff real es el mayor de las dos direcciones; aqui se
-    devuelven ambas por separado (en vez de ya combinadas) porque cada una
-    localiza el problema en una malla distinta -`result` o `source`- y
-    `refine_by_error` necesita saber en cual para poder proteger los
-    vertices correctos. `distance_to_source` se puede pasar ya construido
-    (con SetInput aplicado) para reutilizarlo entre pasadas de
-    refinamiento, ya que `source` no cambia entre ellas; `result` si, asi
-    que su localizador (`distance_to_result`) se reconstruye siempre.
-    Devuelve (errores_result, centros_result, errores_source,
-    centros_source)."""
+    """Measures the geometric error in both directions between `source`
+    and `result`, not only `result` -> `source`: that single direction
+    (the only one measured before) doesn't detect that a prominent
+    detail from the original has completely disappeared in the result,
+    because it only asks "how far is each face center of RESULT from the
+    original surface?" and if the result no longer has any face near the
+    removed area, that question never gets asked there. The reverse
+    direction, `source` -> `result`, asks the opposite: "how far is each
+    ORIGINAL face center from the result?", and if that area has been
+    flattened/removed, the corresponding original center will still be
+    far from the decimated surface, giving it away. The true Hausdorff
+    maximum is the larger of the two directions; both are returned
+    separately here (instead of already combined) because each one
+    locates the problem on a different mesh -`result` or `source`- and
+    `refine_by_error` needs to know which one in order to protect the
+    correct vertices. `distance_to_source` can be passed already built
+    (with SetInput applied) to reuse it across refinement passes, since
+    `source` doesn't change between them; `result` does, so its locator
+    (`distance_to_result`) is always rebuilt. Returns (result_errors,
+    result_centroids, source_errors, source_centroids)."""
     if distance_to_source is None:
         distance_to_source = vtk.vtkImplicitPolyDataDistance()
         distance_to_source.SetInput(source)
@@ -598,26 +602,26 @@ def refine_by_error(
     error_threshold_pct: float,
     max_iterations: int = 3,
 ):
-    """Mide el error geometrico bidireccional entre `source` y `result`
-    (ver `measure_bidirectional_error`) y, donde cualquiera de las dos
-    direcciones supera el umbral configurado, protege esos vertices en la
-    malla original y vuelve a decimar; repite hasta `max_iterations`
-    pasadas o hasta que el error quede dentro del umbral. Las zonas malas
-    detectadas en `result` (direccion original) se traducen a vertices de `source` por
-    vecino mas cercano (aproximado: los centros de `result` no coinciden
-    con ningun vertice de `source`); las detectadas directamente en
-    `source` (direccion nueva) se traducen exactas, usando los propios
-    vertices de la cara marcada. Devuelve (resultado, mascara
-    actualizada, error maximo final, error medio final, error percentil
-    95 final, nº de pasadas, puntos anadidos)."""
+    """Measures the bidirectional geometric error between `source` and
+    `result` (see `measure_bidirectional_error`) and, wherever either
+    direction exceeds the configured threshold, protects those vertices
+    in the original mesh and decimates again; repeats up to
+    `max_iterations` passes or until the error is within the threshold.
+    Bad zones detected in `result` (original direction) are translated
+    to `source` vertices by nearest neighbor (approximate: `result`
+    centers don't coincide with any `source` vertex); those detected
+    directly in `source` (new direction) are translated exactly, using
+    the marked face's own vertices. Returns (result, updated mask, final
+    max error, final mean error, final 95th percentile error, number of
+    passes, points added)."""
     threshold = (error_threshold_pct / 100.0) * source.length
     source_tree = cKDTree(source.points)
     source_faces = source.regular_faces
-    # Se construye una sola vez y se reutiliza en las hasta max_iterations
-    # pasadas: `source` no cambia entre iteraciones, solo `result`, asi
-    # que reconstruir su localizador espacial en cada pasada seria trabajo
-    # repetido innecesario (el de `result` si hace falta reconstruirlo
-    # cada vez, ver measure_bidirectional_error).
+    # Built once and reused across up to max_iterations passes: `source`
+    # doesn't change between iterations, only `result` does, so
+    # rebuilding its spatial locator on every pass would be unnecessary
+    # repeated work (the one for `result` does need rebuilding every
+    # time, see measure_bidirectional_error).
     distance_to_source = vtk.vtkImplicitPolyDataDistance()
     distance_to_source.SetInput(source)
     added_total = 0
@@ -652,14 +656,14 @@ def run_decimation_pipeline(
     protection: ProtectionSettings,
     manual_mask: Optional[np.ndarray] = None,
 ) -> PipelineResult:
-    """Pipeline completo de decimacion adaptativa sobre una malla ya cargada
-    (y ya limpiada, si aplica): aplica la mascara de proteccion (manual +
-    costuras UV automaticas), decima, y si `protection.auto_error_protection`
-    esta activo, refina iterativamente protegiendo zonas de error alto. Es
-    el unico pipeline compartido por el flujo interactivo ("Aplicar
-    decimacion") y por el procesamiento por lotes, para no mantener dos
-    copias de la misma logica. Lanza ValueError si el resultado se queda
-    sin caras."""
+    """Full adaptive decimation pipeline over an already-loaded mesh (and
+    already cleaned, if applicable): applies the protection mask (manual
+    + automatic UV seams), decimates, and if
+    `protection.auto_error_protection` is active, iteratively refines by
+    protecting high-error zones. This is the single pipeline shared by
+    the interactive flow (the "Apply decimation" button) and by batch
+    processing, so as not to keep two copies of the same logic. Raises
+    ValueError if the result ends up with no faces."""
     mask = (
         manual_mask.copy()
         if manual_mask is not None
@@ -676,8 +680,8 @@ def run_decimation_pipeline(
     result = decimate_with_mask(mesh, mask, decimation)
     if result.n_cells == 0:
         raise ValueError(
-            "La decimacion ha dejado la malla sin caras. Prueba con una "
-            "agresividad menor o menos zonas protegidas."
+            "Decimation left the mesh with no faces. Try a lower "
+            "aggressiveness or fewer protected zones."
         )
 
     iterations = added = 0
@@ -688,15 +692,15 @@ def run_decimation_pipeline(
         )
         if result.n_cells == 0:
             raise ValueError(
-                "La decimacion ha dejado la malla sin caras. Prueba con una "
-                "agresividad menor o menos zonas protegidas."
+                "Decimation left the mesh with no faces. Try a lower "
+                "aggressiveness or fewer protected zones."
             )
     else:
-        # Aunque no se auto-proteja por error, medirlo una vez (sin
-        # refinamiento iterativo) sigue siendo util como diagnostico de
-        # calidad del resultado. Bidireccional por la misma razon que en
-        # refine_by_error: la direccion original (result->mesh) no
-        # detectaria un detalle del original eliminado por completo.
+        # Even without auto error-protection, measuring it once (without
+        # iterative refinement) is still useful as a quality diagnostic
+        # of the result. Bidirectional for the same reason as in
+        # refine_by_error: the original direction (result->mesh) wouldn't
+        # detect a detail from the original that was completely removed.
         fwd_errors, _, rev_errors, _ = measure_bidirectional_error(mesh, result)
         error_max, error_mean, error_p95 = error_summary(np.concatenate([fwd_errors, rev_errors]))
 

@@ -9,8 +9,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      # Los tests de tests/test_ui_integration.py instancian la ventana
-      # Qt real (con pytest-qt); "offscreen" evita necesitar un display.
+      # The tests in tests/test_ui_integration.py instantiate the real Qt
+      # window (with pytest-qt); "offscreen" avoids needing a display.
       QT_QPA_PLATFORM: offscreen
     steps:
       - uses: actions/checkout@v4
@@ -20,20 +20,20 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      # Librerias del sistema que el plugin "offscreen" de Qt6 necesita
-      # para cargar en un runner Ubuntu sin entorno grafico.
-      - name: Dependencias del sistema para Qt (offscreen)
+      # System libraries that Qt6's "offscreen" plugin needs to load on
+      # an Ubuntu runner without a graphical environment.
+      - name: System dependencies for Qt (offscreen)
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libdbus-1-3
 
-      - name: Instalar dependencias
+      - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
       - name: Lint (ruff)
         run: ruff check .
 
-      - name: Tipos (mypy)
+      - name: Type checking (mypy)
         run: mypy remesh_core.py app.py logging_config.py ui tests
 
       - name: Tests (pytest)

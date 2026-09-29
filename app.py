@@ -1,17 +1,17 @@
-"""Prototipo de remesher adaptativo: reduce poligonos solo donde no hacen
-falta, con dos motores de decimacion intercambiables: vtkDecimatePro
-(angulo de caracteristica fijo) y Quadric Error Metric (coste continuo
-ponderado por curvatura, con penalizacion opcional de distorsion UV).
+"""Adaptive remesher prototype: reduces polygons only where they aren't
+needed, with two interchangeable decimation engines: vtkDecimatePro (fixed
+feature angle) and Quadric Error Metric (continuous cost weighted by
+curvature, with optional UV-distortion penalty).
 
-Incluye limpieza previa tipica de mallas generadas por IA (fragmentos
-sueltos, vertices/aristas no-manifold, relleno opcional de agujeros) via
-PyMeshLab; pintado/borrado manual de zonas protegidas; proteccion
-automatica de costuras UV; y validacion por error geometrico que
-auto-protege zonas donde la decimacion se desvia demasiado del original.
+Includes pre-cleanup typical of AI-generated meshes (loose fragments,
+non-manifold vertices/edges, optional hole filling) via PyMeshLab; manual
+paint/erase of protected regions; automatic UV-seam protection; and
+geometric error validation that auto-protects regions where decimation
+deviates too far from the original.
 
-La construccion de la UI esta dividida por seccion en `ui/panels/` (una
-funcion `build_xxx_panel(window, panel_layout)` por cada grupo del panel de
-control); este modulo conserva el estado y toda la logica de la ventana.
+UI construction is split by section under `ui/panels/` (one
+`build_xxx_panel(window, panel_layout)` function per control-panel group);
+this module holds the window's state and all its logic.
 """
 
 import json
@@ -82,13 +82,13 @@ logger = logging.getLogger(__name__)
 
 
 class AdaptiveRemesherWindow(QMainWindow):
-    """Ventana principal: viewport 3D + panel de controles para limpiar,
-    proteger manualmente y decimar de forma adaptativa una malla."""
+    """Main window: 3D viewport + control panel to clean, manually protect
+    and adaptively decimate a mesh."""
 
-    # Widgets creados y asignados por las funciones build_xxx_panel de
-    # ui.panels (llamadas desde __init__): anotados aqui sin asignar, solo
-    # para que mypy conozca su tipo -la asignacion real ocurre dentro de
-    # cada build_xxx_panel, no aqui.
+    # Widgets created and assigned by the build_xxx_panel functions in
+    # ui.panels (called from __init__): annotated here without assignment,
+    # purely so mypy knows their type — the actual assignment happens inside
+    # each build_xxx_panel, not here.
     undo_btn: QPushButton
     redo_btn: QPushButton
     auto_clean_cb: QCheckBox
@@ -126,9 +126,9 @@ class AdaptiveRemesherWindow(QMainWindow):
     export_report_cb: QCheckBox
 
     def __init__(self) -> None:
-        """Construye el viewport 3D y el panel de controles, e inicializa el estado de la malla/proteccion."""
+        """Builds the 3D viewport and the control panel, and initializes the mesh/protection state."""
         super().__init__()
-        self.setWindowTitle("Adaptive Remesher — prototipo")
+        self.setWindowTitle("Adaptive Remesher — prototype")
         self.resize(1300, 800)
 
         self._panel_state = self._load_panel_state()
@@ -151,11 +151,10 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._preview_timer.setSingleShot(True)
         self._preview_timer.setInterval(150)
         self._preview_timer.timeout.connect(self._update_live_preview)
-        # Caches de un solo hueco (curvatura, costuras UV) para no repetir
-        # calculos caros sobre la misma malla en cada redibujado o en cada
-        # tick de la vista previa en tiempo real: se invalidan solas en
-        # cuanto cambia la identidad de la malla (nueva carga, limpieza,
-        # deshacer/rehacer...).
+        # Single-slot caches (curvature, UV seams) to avoid repeating
+        # expensive computations on the same mesh on every redraw or on
+        # every live-preview tick: they invalidate themselves as soon as
+        # the mesh's identity changes (new load, cleanup, undo/redo...).
         self._curvature_cache: tuple | None = None
         self._uv_seam_cache: tuple | None = None
         self._last_brush_point: np.ndarray | None = None
@@ -167,13 +166,13 @@ class AdaptiveRemesherWindow(QMainWindow):
         layout.setSpacing(0)
 
         self.plotter = QtInteractor(self)
-        # pyvista envuelve set_background con un decorador que los stubs de
-        # tipos no reflejan bien (ver el mismo patron en ui/common.py).
+        # pyvista wraps set_background with a decorator that the type stubs
+        # don't reflect well (see the same pattern in ui/common.py).
         self.plotter.set_background("#24262c")  # type: ignore[arg-type]
-        # Intercepta el raton a nivel de Qt, antes de que llegue a VTK: es la
-        # unica forma fiable de evitar que el estilo de camara consuma el
-        # arrastre mientras se pinta/borra (los observadores de VTK no
-        # bastan, ver _on_brush_toggled/eventFilter).
+        # Intercepts the mouse at the Qt level, before it reaches VTK: this
+        # is the only reliable way to stop the camera style from consuming
+        # the drag while painting/erasing (VTK observers alone aren't
+        # enough, see _on_brush_toggled/eventFilter).
         self.plotter.interactor.installEventFilter(self)
         self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self.plotter.interactor)
 
@@ -182,10 +181,10 @@ class AdaptiveRemesherWindow(QMainWindow):
         panel_layout.setContentsMargins(14, 14, 14, 14)
         panel_layout.setSpacing(10)
 
-        # El panel ya no cabe entero en una ventana de tamano normal (se
-        # comprobo: necesita ~1150px de alto), asi que va dentro de un
-        # scroll para que ningun control -ni el boton "Aplicar decimacion"-
-        # quede inaccesible en pantallas mas pequenas.
+        # The panel no longer fits entirely in a normal-sized window (tested:
+        # it needs ~1150px of height), so it lives inside a scroll area so
+        # that no control — not even the "Apply decimation" button — becomes
+        # unreachable on smaller screens.
         scroll = QScrollArea()
         scroll.setWidget(panel)
         scroll.setWidgetResizable(True)
@@ -193,10 +192,10 @@ class AdaptiveRemesherWindow(QMainWindow):
         scroll.setMaximumWidth(700)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        # Splitter en vez de un ancho fijo: el borde entre el viewport y el
-        # panel se puede arrastrar con el raton para hacer el panel mas
-        # ancho o mas estrecho (dentro de 260-700px), en vez de quedar
-        # bloqueado a 336px.
+        # A splitter instead of a fixed width: the edge between the viewport
+        # and the panel can be dragged with the mouse to make the panel
+        # wider or narrower (within 260-700px), instead of being locked to
+        # 336px.
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.setHandleWidth(6)
@@ -210,7 +209,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         build_header(self, panel_layout)
         build_presets_panel(self, panel_layout)
 
-        self.stats_label = QLabel("Sin malla cargada")
+        self.stats_label = QLabel("No mesh loaded")
         self.stats_label.setWordWrap(True)
         panel_layout.addWidget(self.stats_label)
 
@@ -225,12 +224,13 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         panel_layout.addStretch(1)
 
-    # --- bloques plegables ---
+    # --- collapsible sections ---
 
     def _load_panel_state(self) -> dict:
-        """Carga que bloques del panel estaban plegados/desplegados en la
-        sesion anterior desde `PANEL_STATE_PATH`. Si el archivo no existe o
-        esta corrupto, no pliega nada por defecto (todos desplegados)."""
+        """Loads which panel sections were collapsed/expanded in the
+        previous session from `PANEL_STATE_PATH`. If the file doesn't exist
+        or is corrupt, nothing is collapsed by default (everything
+        expanded)."""
         try:
             with open(PANEL_STATE_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
@@ -238,7 +238,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             return {}
 
     def _save_panel_state(self):
-        """Guarda que bloques del panel estan plegados/desplegados, para restaurarlo la proxima vez que se abra la app."""
+        """Saves which panel sections are collapsed/expanded, to restore it next time the app is opened."""
         try:
             with open(PANEL_STATE_PATH, "w", encoding="utf-8") as f:
                 json.dump(self._panel_state, f)
@@ -246,33 +246,33 @@ class AdaptiveRemesherWindow(QMainWindow):
             pass
 
     def _add_collapsible_group(self, key: str, title: str) -> CollapsibleGroupBox:
-        """Crea un `CollapsibleGroupBox` restaurando su estado plegado/
-        desplegado guardado (por defecto desplegado si no hay nada
-        guardado para `key`), y lo conecta para persistir cualquier
-        cambio que el usuario haga al plegarlo o desplegarlo."""
+        """Creates a `CollapsibleGroupBox` restoring its saved
+        collapsed/expanded state (expanded by default if nothing is saved
+        for `key`), and wires it to persist any change the user makes by
+        collapsing or expanding it."""
         expanded = self._panel_state.get(key, True)
         group = CollapsibleGroupBox(title, expanded=expanded)
         group.toggled.connect(lambda checked, k=key: self._on_panel_toggled(k, checked))
         return group
 
     def _on_panel_toggled(self, key: str, expanded: bool):
-        """Guarda de inmediato el nuevo estado plegado/desplegado de un bloque del panel."""
+        """Immediately saves the new collapsed/expanded state of a panel section."""
         self._panel_state[key] = expanded
         self._save_panel_state()
 
-    # --- deshacer / rehacer ---
+    # --- undo / redo ---
 
     def _snapshot(self) -> dict:
-        """Guarda el estado relevante para el historial de deshacer/rehacer.
-        La malla original y la decimada NO se copian (solo se guarda la
-        referencia al objeto): ninguna operacion de la app las modifica en
-        el sitio una vez publicadas en self.original_mesh/decimated_mesh
-        -limpiar o decimar siempre crea un objeto pv.PolyData nuevo en vez
-        de mutar el existente-, asi que una copia profunda seria trabajo
-        perdido y, en mallas grandes, un coste notable que antes se pagaba
-        en cada trazo de pincel (un `_push_undo` por cada click). Solo
-        `protected_mask` es un array que si se muta en el sitio (el pincel
-        escribe directamente en el), por eso ese si necesita copiarse."""
+        """Saves the state relevant to the undo/redo history. The original
+        and decimated meshes are NOT copied (only the object reference is
+        saved): no app operation mutates them in place once published to
+        self.original_mesh/decimated_mesh — cleaning or decimating always
+        creates a new pv.PolyData object instead of mutating the existing
+        one — so a deep copy would be wasted work and, on large meshes, a
+        noticeable cost that used to be paid on every brush stroke (one
+        `_push_undo` per click). Only `protected_mask` is an array that
+        IS mutated in place (the brush writes directly into it), which is
+        why it's the only one that needs copying."""
         return {
             "original_mesh": self.original_mesh,
             "protected_mask": self.protected_mask.copy() if self.protected_mask is not None else None,
@@ -280,7 +280,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         }
 
     def _push_undo(self):
-        """Guarda el estado actual en la pila de deshacer, antes de que una accion lo modifique; invalida la pila de rehacer."""
+        """Saves the current state onto the undo stack, before an action modifies it; invalidates the redo stack."""
         if self.original_mesh is None:
             return
         self._undo_stack.append(self._snapshot())
@@ -290,7 +290,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._update_undo_redo_buttons()
 
     def _restore_snapshot(self, state: dict):
-        """Aplica un estado guardado (de deshacer o rehacer) y refresca la vista, las estadisticas y el overlay de proteccion."""
+        """Applies a saved state (from undo or redo) and refreshes the view, the stats, and the protection overlay."""
         self.original_mesh = state["original_mesh"]
         self.protected_mask = state["protected_mask"]
         self.decimated_mesh = state["decimated_mesh"]
@@ -305,33 +305,33 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._update_undo_redo_buttons()
 
     def undo(self):
-        """Retrocede al estado guardado mas reciente, moviendo el estado actual a la pila de rehacer."""
+        """Steps back to the most recent saved state, moving the current state onto the redo stack."""
         if not self._undo_stack:
             return
         self._redo_stack.append(self._snapshot())
         self._restore_snapshot(self._undo_stack.pop())
 
     def redo(self):
-        """Rehace la ultima accion deshecha, moviendo el estado actual a la pila de deshacer."""
+        """Redoes the last undone action, moving the current state onto the undo stack."""
         if not self._redo_stack:
             return
         self._undo_stack.append(self._snapshot())
         self._restore_snapshot(self._redo_stack.pop())
 
     def _update_undo_redo_buttons(self):
-        """Habilita/deshabilita los botones de deshacer/rehacer segun si hay algo que deshacer/rehacer."""
+        """Enables/disables the undo/redo buttons depending on whether there's anything to undo/redo."""
         self.undo_btn.setEnabled(bool(self._undo_stack))
         self.redo_btn.setEnabled(bool(self._redo_stack))
 
-    # --- carga / limpieza ---
+    # --- loading / cleanup ---
 
     def load_mesh(self):
-        """Abre un dialogo de archivo, carga la malla elegida, la limpia si toca y la muestra."""
+        """Opens a file dialog, loads the chosen mesh, cleans it if applicable, and displays it."""
         path, _ = QFileDialog.getOpenFileName(
             self,
-            "Cargar malla",
+            "Load mesh",
             "",
-            "Mallas 3D (*.obj *.stl *.ply *.vtp *.glb *.gltf)",
+            "3D meshes (*.obj *.stl *.ply *.vtp *.glb *.gltf)",
         )
         if not path:
             return
@@ -341,7 +341,7 @@ class AdaptiveRemesherWindow(QMainWindow):
                 clean = self._gather_clean_settings() if self.auto_clean_cb.isChecked() else None
                 mesh = load_and_prepare_mesh(path, clean)
         except Exception as exc:
-            QMessageBox.critical(self, "Error al cargar la malla", str(exc))
+            QMessageBox.critical(self, "Error loading mesh", str(exc))
             return
 
         self.original_mesh = mesh
@@ -354,7 +354,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.update_stats(mesh)
 
     def clean_now(self):
-        """Vuelve a limpiar la malla actual con el umbral de fragmento configurado y reinicia la proteccion."""
+        """Re-cleans the current mesh with the configured fragment threshold and resets protection."""
         if self.original_mesh is None:
             return
         try:
@@ -369,11 +369,11 @@ class AdaptiveRemesherWindow(QMainWindow):
                 )
                 if cleaned.n_points == 0 or cleaned.n_cells == 0:
                     raise ValueError(
-                        "La limpieza ha dejado la malla vacia (umbral de fragmento "
-                        "demasiado alto para este modelo)."
+                        "Cleanup left the mesh empty (fragment threshold "
+                        "too high for this model)."
                     )
         except Exception as exc:
-            QMessageBox.critical(self, "Error al limpiar la malla", str(exc))
+            QMessageBox.critical(self, "Error cleaning mesh", str(exc))
             return
         self._push_undo()
         self.original_mesh = cleaned
@@ -382,28 +382,28 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.show_mesh(cleaned, is_original=True)
         self.update_stats(cleaned)
 
-    # --- proteccion manual (pintar/borrar) ---
+    # --- manual protection (paint/erase) ---
 
     def _on_brush_toggled(self, button: QPushButton, checked: bool):
-        """Activa como mucho una herramienta de proteccion a la vez (pintar,
-        borrar o rectangulo); si no hay malla cargada, cancela la
-        activacion. Si se esta viendo un resultado decimado ya aplicado (o
-        una vista previa en tiempo real), cambia la vista a la malla
-        original antes de dejar operar: las herramientas de proteccion
-        trabajan contra `self.original_mesh` (buscan el punto mas cercano
-        en su KDTree/z-buffer), y tras decimar (sobre todo con el motor
-        QEM, que si mueve vertices) eso ya no coincidiria con lo mostrado.
-        Esto solo cambia la vista, sin descartar `self.decimated_mesh` ni
-        gastar un paso de deshacer: si el usuario solo queria revisar o
-        anadir proteccion y acaba desactivando el pincel sin volver a
-        aplicar la decimacion, conserva el resultado ya calculado en vez
-        de obligar a repetirlo desde cero."""
+        """Activates at most one protection tool at a time (paint, erase or
+        rectangle); if no mesh is loaded, cancels the activation. If an
+        already-applied decimated result is being viewed (or a live
+        preview), switches the view to the original mesh before allowing
+        it to operate: the protection tools work against
+        `self.original_mesh` (they look up the nearest point in its
+        KDTree/z-buffer), and after decimating (especially with the QEM
+        engine, which does move vertices) that would no longer match what's
+        displayed. This only changes the view, without discarding
+        `self.decimated_mesh` or spending an undo step: if the user just
+        wanted to review or add protection and ends up disabling the brush
+        without reapplying decimation, the already-computed result is
+        preserved instead of forcing it to be redone from scratch."""
         if checked and self.original_mesh is None:
             button.setChecked(False)
             return
         if checked and (self.decimated_mesh is not None or self.live_preview_cb.isChecked()):
-            # Invariante garantizado por el "return" de arriba: si
-            # llegamos aqui con checked=True, original_mesh no es None.
+            # Invariant guaranteed by the "return" above: if we get here
+            # with checked=True, original_mesh is not None.
             assert self.original_mesh is not None
             self.show_mesh(
                 self.original_mesh, is_original=True, preserve_camera=self.plotter.camera_position
@@ -418,9 +418,9 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._rubber_band.hide()
 
     def eventFilter(self, obj, event):
-        """Intercepta el raton sobre el viewport 3D mientras una herramienta
-        de proteccion esta activa (pincel de pintar/borrar, o seleccion por
-        rectangulo), para operar sobre la malla en vez de rotar la camara."""
+        """Intercepts the mouse over the 3D viewport while a protection tool
+        is active (paint/erase brush, or rectangle selection), so it
+        operates on the mesh instead of rotating the camera."""
         if obj is not self.plotter.interactor or self.original_mesh is None:
             return super().eventFilter(obj, event)
 
@@ -428,7 +428,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         brush_active = self.paint_btn.isChecked() or self.erase_btn.isChecked()
         if brush_active:
             if et == QEvent.Type.MouseButtonPress and event.button() == Qt.LeftButton:
-                self._push_undo()  # un solo paso de deshacer por trazo, no por movimiento
+                self._push_undo()  # one undo step per stroke, not per movement
                 self._is_painting = True
                 self._last_brush_point = None
                 self._apply_brush_at_qt_pos(event.position())
@@ -443,7 +443,7 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         if self.rect_btn.isChecked():
             if et == QEvent.Type.MouseButtonPress and event.button() == Qt.LeftButton:
-                self._push_undo()  # un solo paso de deshacer por rectangulo
+                self._push_undo()  # one undo step per rectangle
                 self._rect_origin = event.position().toPoint()
                 self._rect_erase = bool(event.modifiers() & Qt.ShiftModifier)
                 self._rubber_band.setGeometry(QRect(self._rect_origin, self._rect_origin))
@@ -462,7 +462,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         return super().eventFilter(obj, event)
 
     def _apply_brush_at_qt_pos(self, qt_pos):
-        """Convierte una posicion de Qt (pixeles desde arriba-izquierda) a coordenadas VTK y aplica el pincel ahi."""
+        """Converts a Qt position (pixels from top-left) to VTK coordinates and applies the brush there."""
         height = self.plotter.interactor.height()
         x, y = qt_pos.x(), height - qt_pos.y()
         self._paint_picker.Pick(x, y, 0, self.plotter.renderer)
@@ -471,13 +471,13 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._apply_brush(self._paint_picker.GetPickPosition())
 
     def _apply_brush(self, point):
-        """Marca o desmarca como protegidos los puntos dentro del radio de
-        pincel alrededor de `point`. Si `point` esta muy cerca (menos de un
-        15% del radio) del ultimo punto aplicado en el mismo trazo, se
-        salta: el resultado seria practicamente el mismo circulo de puntos
-        ya marcado, y en mallas grandes repetir la consulta al KDTree y el
-        redibujado del overlay en cada micro-movimiento del raton (varias
-        veces por segundo mientras se arrastra) es un coste innecesario."""
+        """Marks or unmarks as protected the points within the brush radius
+        around `point`. If `point` is very close (less than 15% of the
+        radius) to the last point applied in the same stroke, it's skipped:
+        the result would be practically the same circle of already-marked
+        points, and on large meshes repeating the KDTree query and the
+        overlay redraw on every micro-movement of the mouse (several times
+        a second while dragging) is an unnecessary cost."""
         radius = (self.brush_slider.value() / 100.0) * self.original_mesh.length
         point = np.asarray(point, dtype=float)
         if (
@@ -493,13 +493,13 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._refresh_protection_overlay()
 
     def _project_points_to_qt(self, points: np.ndarray):
-        """Proyecta puntos 3D del mundo a coordenadas de pixel Qt (origen
-        arriba-izquierda) usando la matriz de camara actual, para la
-        seleccion por rectangulo. Vectorizado con numpy en vez de llamar a
-        vtkCoordinate punto a punto, que seria demasiado lento con mallas
-        de miles de vertices. Devuelve (xy, in_front): `in_front` marca los
-        puntos delante de la camara (w>0 tras la proyeccion en perspectiva),
-        los unicos con una posicion en pantalla valida."""
+        """Projects 3D world points to Qt pixel coordinates (top-left
+        origin) using the current camera matrix, for rectangle selection.
+        Vectorized with numpy instead of calling vtkCoordinate point by
+        point, which would be too slow on meshes with thousands of
+        vertices. Returns (xy, in_front): `in_front` flags the points in
+        front of the camera (w>0 after perspective projection), the only
+        ones with a valid screen position."""
         renderer = self.plotter.renderer
         camera = renderer.GetActiveCamera()
         width = max(self.plotter.interactor.width(), 1)
@@ -520,19 +520,18 @@ class AdaptiveRemesherWindow(QMainWindow):
         return np.column_stack([display_x, qt_y]), in_front
 
     def _apply_rect_selection(self, rect: QRect):
-        """Protege (o desprotege, si se arrastro con Mayus pulsado) los
-        vertices originales cuya proyeccion en pantalla cae dentro del
-        rectangulo `rect` (coordenadas Qt) y que ademas son visibles desde
-        la camara actual. La proyeccion a pantalla (`_project_points_to_qt`)
-        es un filtro previo barato para reducir a un puñado de candidatos
-        de entre todos los vertices; sobre esos candidatos, `vtkSelectVisiblePoints`
-        hace el test de profundidad de verdad contra el z-buffer ya
-        renderizado, descartando los que quedan ocultos detras de otra
-        parte de la malla."""
+        """Protects (or unprotects, if dragged with Shift held) the original
+        vertices whose screen projection falls inside `rect` (Qt
+        coordinates) and that are also visible from the current camera. The
+        screen projection (`_project_points_to_qt`) is a cheap prefilter to
+        narrow down to a handful of candidates out of all the vertices;
+        over those candidates, `vtkSelectVisiblePoints` does the real depth
+        test against the already-rendered z-buffer, discarding any that are
+        hidden behind another part of the mesh."""
         if rect.width() < 3 or rect.height() < 3:
             return
-        # Solo se llama desde eventFilter cuando rect_btn esta activo, lo
-        # que _on_brush_toggled ya garantiza que exige una malla cargada.
+        # Only called from eventFilter when rect_btn is active, which
+        # _on_brush_toggled already guarantees requires a loaded mesh.
         assert self.original_mesh is not None
         assert self.protected_mask is not None
         xy, in_front = self._project_points_to_qt(self.original_mesh.points)
@@ -547,7 +546,7 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         candidates = pv.PolyData(self.original_mesh.points[candidate_idx])
         candidates.point_data["_orig_idx"] = candidate_idx
-        self.plotter.render()  # asegura que el z-buffer refleja la ultima vista antes de leerlo
+        self.plotter.render()  # ensures the z-buffer reflects the latest view before reading it
         visible_filter = vtk.vtkSelectVisiblePoints()
         visible_filter.SetInputData(candidates)
         visible_filter.SetRenderer(self.plotter.renderer)
@@ -561,12 +560,12 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._refresh_protection_overlay()
 
     def clear_protection(self):
-        """Borra todas las marcas de proteccion de la malla actual."""
+        """Clears all protection marks on the current mesh."""
         self._push_undo()
         self._reset_protection(rebuild_kdtree=False)
 
     def _reset_protection(self, rebuild_kdtree: bool):
-        """Reinicia la mascara de proteccion (y opcionalmente el KDTree de puntos) para la malla actual."""
+        """Resets the protection mask (and optionally the point KDTree) for the current mesh."""
         if self.original_mesh is not None:
             self.protected_mask = np.zeros(self.original_mesh.n_points, dtype=bool)
             if rebuild_kdtree:
@@ -577,10 +576,10 @@ class AdaptiveRemesherWindow(QMainWindow):
         if self.protected_actor is not None:
             self.plotter.remove_actor(self.protected_actor)
             self.protected_actor = None
-        self.protected_count_label.setText("Puntos protegidos: 0")
+        self.protected_count_label.setText("Protected points: 0")
 
     def _refresh_protection_overlay(self):
-        """Redibuja los puntos protegidos en rojo sobre la malla, sin tocar la camara actual."""
+        """Redraws the protected points in red over the mesh, without touching the current camera."""
         if self.protected_actor is not None:
             self.plotter.remove_actor(self.protected_actor)
             self.protected_actor = None
@@ -596,18 +595,18 @@ class AdaptiveRemesherWindow(QMainWindow):
                 pickable=False,
                 reset_camera=False,
             )
-        self.protected_count_label.setText(f"Puntos protegidos: {count}")
+        self.protected_count_label.setText(f"Protected points: {count}")
 
     def export_protection_mask(self):
-        """Guarda la mascara de proteccion actual (indices de vertices
-        marcados) en un .json, para reutilizarla en otra sesion o en otra
-        malla con la misma topologia (mismo numero y orden de vertices,
-        p.ej. variantes de un mismo modelo)."""
+        """Saves the current protection mask (marked vertex indices) to a
+        .json, to reuse it in another session or on another mesh with the
+        same topology (same number and order of vertices, e.g. variants of
+        the same model)."""
         if self.protected_mask is None:
-            QMessageBox.information(self, "Exportar mascara", "No hay ninguna malla cargada.")
+            QMessageBox.information(self, "Export mask", "No mesh is loaded.")
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar mascara de proteccion", "", "Mascara de proteccion (*.json)"
+            self, "Export protection mask", "", "Protection mask (*.json)"
         )
         if not path:
             return
@@ -619,18 +618,18 @@ class AdaptiveRemesherWindow(QMainWindow):
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f)
         except Exception as exc:
-            QMessageBox.critical(self, "Error al exportar mascara", str(exc))
+            QMessageBox.critical(self, "Error exporting mask", str(exc))
 
     def import_protection_mask(self):
-        """Carga una mascara de proteccion guardada y la aplica a la malla
-        actual, sustituyendo las marcas existentes. Solo funciona si el
-        numero de vertices coincide exactamente con el de cuando se guardo
-        (misma malla o una variante con identica topologia); si no
-        coincide, avisa y no cambia nada."""
+        """Loads a saved protection mask and applies it to the current mesh,
+        replacing the existing marks. Only works if the number of vertices
+        matches exactly the one from when it was saved (same mesh or a
+        variant with identical topology); if it doesn't match, warns and
+        changes nothing."""
         if self.original_mesh is None:
             return
         path, _ = QFileDialog.getOpenFileName(
-            self, "Importar mascara de proteccion", "", "Mascara de proteccion (*.json)"
+            self, "Import protection mask", "", "Protection mask (*.json)"
         )
         if not path:
             return
@@ -640,15 +639,15 @@ class AdaptiveRemesherWindow(QMainWindow):
             n_points = data.get("n_points")
             indices = np.array(data.get("protected_indices", []), dtype=int)
         except Exception as exc:
-            QMessageBox.critical(self, "Error al importar mascara", str(exc))
+            QMessageBox.critical(self, "Error importing mask", str(exc))
             return
         if n_points != self.original_mesh.n_points:
             QMessageBox.warning(
                 self,
-                "Mascara incompatible",
-                f"La mascara tiene {n_points} vertices guardados y la malla "
-                f"actual tiene {self.original_mesh.n_points}: no coincide "
-                "la topologia, no se ha aplicado.",
+                "Incompatible mask",
+                f"The mask has {n_points} saved vertices and the current "
+                f"mesh has {self.original_mesh.n_points}: the topology "
+                "doesn't match, nothing was applied.",
             )
             return
         self._push_undo()
@@ -657,15 +656,15 @@ class AdaptiveRemesherWindow(QMainWindow):
             self.protected_mask[indices] = True
         self._refresh_protection_overlay()
 
-    # --- visualizacion ---
+    # --- visualization ---
 
     def _curvature_for(self, mesh: pv.PolyData) -> np.ndarray:
-        """Devuelve la curvatura media de `mesh`, cacheada por identidad del
-        objeto (mas su numero de puntos, para descartar una coincidencia de
-        id() con una malla ya liberada). Sin esto, activar el mapa de
-        curvatura o simplemente alternar otra opcion de visualizacion que
-        redibuja preservando la camara recalcularia la curvatura de toda la
-        malla cada vez, un calculo notable en mallas grandes."""
+        """Returns the mean curvature of `mesh`, cached by the object's
+        identity (plus its point count, to rule out an id() collision with
+        an already-freed mesh). Without this, turning on the curvature map
+        or simply toggling another view option that redraws while
+        preserving the camera would recompute the curvature of the whole
+        mesh every time, a noticeable cost on large meshes."""
         key = (id(mesh), mesh.n_points)
         if self._curvature_cache is not None and self._curvature_cache[0] == key:
             return self._curvature_cache[1]
@@ -674,14 +673,14 @@ class AdaptiveRemesherWindow(QMainWindow):
         return curvature
 
     def _uv_seam_mask_for(self, mesh: pv.PolyData) -> np.ndarray:
-        """Devuelve la mascara de costuras UV de `mesh`, cacheada igual que
-        `_curvature_for`. Usada por la vista previa en tiempo real, que
-        recalcularia esta mascara en cada tick aunque la malla no hubiera
-        cambiado desde la ultima vez; en mallas de IA con muchas costuras
-        eso se notaba al arrastrar el slider de agresividad con la vista
-        previa activa. 'Aplicar decimacion' usa en su lugar el pipeline
-        compartido de `remesh_core`, que recalcula la mascara una unica vez
-        por click (no es un caso de uso repetitivo que necesite cache)."""
+        """Returns the UV-seam mask of `mesh`, cached the same way as
+        `_curvature_for`. Used by the live preview, which would otherwise
+        recompute this mask on every tick even if the mesh hadn't changed
+        since the last one; on AI-generated meshes with many seams this was
+        noticeable while dragging the aggressiveness slider with live
+        preview on. 'Apply decimation' instead uses `remesh_core`'s shared
+        pipeline, which recomputes the mask once per click (not a
+        repetitive use case that needs caching)."""
         key = (id(mesh), mesh.n_points)
         if self._uv_seam_cache is not None and self._uv_seam_cache[0] == key:
             return self._uv_seam_cache[1]
@@ -690,11 +689,11 @@ class AdaptiveRemesherWindow(QMainWindow):
         return seam_mask
 
     def show_mesh(self, mesh: pv.PolyData, is_original: bool, preserve_camera=None):
-        """Limpia el viewport y muestra `mesh`. Si `is_original` y el mapa
-        de curvatura esta activo, colorea por curvatura media en vez del
-        gris solido habitual. Reencuadra la camara salvo que se pase
-        `preserve_camera` (posicion previa a restaurar, para no perder el
-        zoom al solo cambiar de modo de visualizacion)."""
+        """Clears the viewport and displays `mesh`. If `is_original` and the
+        curvature map is on, colors by mean curvature instead of the usual
+        solid gray. Reframes the camera unless `preserve_camera` is passed
+        (a previous position to restore, so zoom isn't lost when just
+        switching display mode)."""
         self.plotter.clear()
         if is_original and self.curvature_cb.isChecked():
             curvature = self._curvature_for(mesh)
@@ -709,15 +708,15 @@ class AdaptiveRemesherWindow(QMainWindow):
         else:
             self.plotter.add_mesh(mesh, show_edges=True, color="#d8dadd", edge_color="#101114")
         if preserve_camera is not None:
-            # camera_position, como set_background/reset_camera, es un
-            # descriptor de pyvista que los stubs no reflejan bien.
+            # camera_position, like set_background/reset_camera, is a
+            # pyvista descriptor the type stubs don't reflect well.
             self.plotter.camera_position = preserve_camera  # type: ignore[call-arg]
         else:
             self.plotter.reset_camera()  # type: ignore[call-arg]
         self.protected_actor = None
 
     def _on_curvature_toggled(self, _checked: bool):
-        """Redibuja la malla actual (sin resetear la camara) al activar o desactivar el mapa de curvatura."""
+        """Redraws the current mesh (without resetting the camera) when the curvature map is turned on or off."""
         if self.original_mesh is None:
             return
         shown = self.decimated_mesh if self.decimated_mesh is not None else self.original_mesh
@@ -726,9 +725,9 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._refresh_protection_overlay()
 
     def _on_live_preview_toggled(self, checked: bool):
-        """Al activar la vista previa la calcula al momento; al
-        desactivarla, vuelve a mostrar el estado real (el resultado ya
-        aplicado, o la malla original si no se ha aplicado ninguno)."""
+        """When enabling live preview, computes it immediately; when
+        disabling it, goes back to showing the real state (the already
+        applied result, or the original mesh if none has been applied)."""
         if checked:
             self._update_live_preview()
         elif self.original_mesh is not None:
@@ -739,23 +738,22 @@ class AdaptiveRemesherWindow(QMainWindow):
             self.update_stats(shown)
 
     def _schedule_preview(self, *_args):
-        """Programa un refresco de la vista previa en tiempo real (con un
-        pequeno retardo para no recalcular en cada paso mientras se
-        arrastra un slider), si esta activa. Ignora el argumento que le
-        pasen las senales de Qt (valor del slider, indice del combo...),
-        ya que `_update_live_preview` vuelve a leer el estado actual de
-        los controles."""
+        """Schedules a live-preview refresh (with a short delay so it
+        doesn't recompute on every step while dragging a slider), if it's
+        active. Ignores whatever argument Qt's signals pass it (slider
+        value, combo index...), since `_update_live_preview` re-reads the
+        current state of the controls anyway."""
         if not self.live_preview_cb.isChecked() or self.original_mesh is None:
             return
         self._preview_timer.start()
 
     def _update_live_preview(self):
-        """Calcula y muestra una decimacion rapida (sin el refinamiento
-        iterativo por error, para que sea practicamente instantanea) con
-        los parametros actuales del panel, sin tocar el historial de
-        deshacer ni el resultado ya 'aplicado' (`self.decimated_mesh`
-        no se modifica: hace falta pulsar 'Aplicar decimacion' para
-        confirmar y poder exportar o comparar este resultado)."""
+        """Computes and displays a fast decimation (without the iterative
+        error-based refinement, so it's practically instant) with the
+        panel's current parameters, without touching the undo history or
+        the already-'applied' result (`self.decimated_mesh` is not
+        modified: 'Apply decimation' has to be pressed to confirm and be
+        able to export or compare this result)."""
         if not self.live_preview_cb.isChecked() or self.original_mesh is None:
             return
         source = self.original_mesh
@@ -777,21 +775,21 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.show_mesh(preview, is_original=False, preserve_camera=cam)
         self._refresh_protection_overlay()
         self.stats_label.setText(
-            f"Vista previa: {preview.n_cells} tris "
-            "(sin aplicar; sin auto-ajuste por error)"
+            f"Preview: {preview.n_cells} tris "
+            "(not applied; no error-based auto-refinement)"
         )
 
     def update_stats(self, mesh: pv.PolyData):
-        """Actualiza la etiqueta de estadisticas con el recuento de vertices/triangulos de `mesh`."""
+        """Updates the stats label with `mesh`'s vertex/triangle count."""
         self.stats_label.setText(
-            f"Vertices: {mesh.n_points}\nTriangulos: {mesh.n_cells}"
+            f"Vertices: {mesh.n_points}\nTriangles: {mesh.n_cells}"
         )
 
-    # --- decimacion ---
+    # --- decimation ---
 
     def _on_engine_changed(self, index: int):
-        """Habilita los controles propios de cada motor (angulo/topologia/
-        splitting para vtkDecimatePro, u opciones QEM) segun el elegido."""
+        """Enables each engine's own controls (angle/topology/splitting for
+        vtkDecimatePro, or QEM options) depending on the one chosen."""
         is_qem = index == ENGINE_QEM
         self.angle_slider.setEnabled(not is_qem)
         self.preserve_topology_cb.setEnabled(not is_qem)
@@ -799,7 +797,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.qem_group.setEnabled(is_qem)
 
     def _gather_clean_settings(self) -> CleanSettings:
-        """Recoge los parametros de limpieza previa configurados en el panel."""
+        """Gathers the pre-cleanup parameters configured in the panel."""
         return CleanSettings(
             min_component_pct=self.min_fragment_slider.value(),
             close_holes=self.close_holes_cb.isChecked(),
@@ -808,7 +806,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         )
 
     def _gather_decimation_settings(self) -> DecimationSettings:
-        """Recoge los parametros de decimacion (ambos motores) configurados en el panel."""
+        """Gathers the decimation parameters (both engines) configured in the panel."""
         return DecimationSettings(
             engine=self.engine_combo.currentIndex(),
             reduction_pct=self.reduction_slider.value(),
@@ -824,7 +822,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         )
 
     def _gather_protection_settings(self) -> ProtectionSettings:
-        """Recoge los parametros de proteccion automatica (costuras UV y validacion por error) del panel."""
+        """Gathers the automatic protection parameters (UV seams and error validation) from the panel."""
         return ProtectionSettings(
             protect_uv_seams=self.protect_uv_seams_cb.isChecked(),
             auto_error_protection=self.auto_error_cb.isChecked(),
@@ -833,12 +831,12 @@ class AdaptiveRemesherWindow(QMainWindow):
         )
 
     def apply_decimation(self):
-        """Decima la malla actual segun los parametros del panel: excluye
-        del colapso las zonas pintadas y las costuras UV, y si la
-        validacion por error esta activa, refina el resultado protegiendo
-        automaticamente donde la deformacion supera el umbral. Delega todo
-        el calculo en `run_decimation_pipeline` (remesh_core), el mismo
-        pipeline que usa el procesamiento por lotes."""
+        """Decimates the current mesh according to the panel's parameters:
+        excludes painted regions and UV seams from the collapse, and if
+        error validation is on, refines the result by automatically
+        protecting wherever the deformation exceeds the threshold. Delegates
+        all the computation to `run_decimation_pipeline` (remesh_core), the
+        same pipeline batch processing uses."""
         if self.original_mesh is None:
             return
 
@@ -851,48 +849,48 @@ class AdaptiveRemesherWindow(QMainWindow):
                     self.original_mesh, decimation, protection, manual_mask=self.protected_mask
                 )
         except ValueError as exc:
-            QMessageBox.warning(self, "Resultado vacio", str(exc))
+            QMessageBox.warning(self, "Empty result", str(exc))
             return
         except Exception as exc:
-            QMessageBox.critical(self, "Error al decimar", str(exc))
+            QMessageBox.critical(self, "Error decimating", str(exc))
             return
 
         self._push_undo()
         self.decimated_mesh = result.mesh
         self.show_mesh(result.mesh, is_original=False)
-        # Si alguna herramienta de proteccion ya estaba activa antes de
-        # decimar, desactivarla: a partir de ahora trabajaria contra el
-        # resultado decimado (vista actual) mientras compara posiciones
-        # con el KDTree/z-buffer de la malla original, lo que con el motor
-        # QEM (mueve vertices) marcaria puntos en el sitio equivocado sin
-        # avisar. Reactivarla vuelve a mostrar el original para seguir
-        # pintando (ver _on_brush_toggled), sin descartar este resultado.
+        # If any protection tool was already active before decimating,
+        # disable it: from now on it would work against the decimated
+        # result (the current view) while comparing positions with the
+        # original mesh's KDTree/z-buffer, which with the QEM engine
+        # (moves vertices) would mark points in the wrong place without
+        # warning. Reactivating it switches back to the original to keep
+        # painting (see _on_brush_toggled), without discarding this result.
         self.paint_btn.setChecked(False)
         self.erase_btn.setChecked(False)
         self.rect_btn.setChecked(False)
 
         notes = []
         if result.manual_protected_points:
-            notes.append("zonas pintadas excluidas")
+            notes.append("painted regions excluded")
         if result.uv_seam_protected_points:
-            notes.append(f"{result.uv_seam_protected_points} pts de costura UV protegidos")
+            notes.append(f"{result.uv_seam_protected_points} UV-seam points protected")
         note = f" ({', '.join(notes)})" if notes else ""
         if protection.auto_error_protection:
             error_note = (
-                f"\nError geometrico (post-ajuste): max {result.error_max:.4f}, "
-                f"medio {result.error_mean:.4f}, p95 {result.error_p95:.4f} "
-                f"({result.error_refine_iterations} pasada(s), "
-                f"+{result.error_refine_added_points} pts auto-protegidos)"
+                f"\nGeometric error (post-refinement): max {result.error_max:.4f}, "
+                f"mean {result.error_mean:.4f}, p95 {result.error_p95:.4f} "
+                f"({result.error_refine_iterations} pass(es), "
+                f"+{result.error_refine_added_points} points auto-protected)"
             )
         else:
             error_note = (
-                f"\nError geometrico: max {result.error_max:.4f}, "
-                f"medio {result.error_mean:.4f}, p95 {result.error_p95:.4f}"
+                f"\nGeometric error: max {result.error_max:.4f}, "
+                f"mean {result.error_mean:.4f}, p95 {result.error_p95:.4f}"
             )
         self.stats_label.setText(
             f"Original: {result.original_tris} tris\n"
-            f"Resultado: {result.result_tris} tris\n"
-            f"Reduccion real: {result.reduction_real_pct:.1f}%{note}{error_note}"
+            f"Result: {result.result_tris} tris\n"
+            f"Actual reduction: {result.reduction_real_pct:.1f}%{note}{error_note}"
         )
 
         self._last_run_info = {
@@ -917,7 +915,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             })
 
     def reset_mesh(self):
-        """Descarta el resultado decimado y vuelve a mostrar la malla original con sus marcas de proteccion."""
+        """Discards the decimated result and goes back to showing the original mesh with its protection marks."""
         if self.original_mesh is None:
             return
         self._push_undo()
@@ -927,27 +925,27 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._refresh_protection_overlay()
 
     def open_comparison(self):
-        """Abre el dialogo de comparacion lado a lado; requiere haber decimado ya."""
+        """Opens the side-by-side comparison dialog; requires a decimation to already have been applied."""
         if self.original_mesh is None or self.decimated_mesh is None:
             QMessageBox.information(
                 self,
-                "Comparar",
-                "Primero aplica una decimacion para poder comparar original y resultado.",
+                "Compare",
+                "Apply a decimation first to be able to compare the original and the result.",
             )
             return
         dialog = ComparisonDialog(self.original_mesh, self.decimated_mesh, self)
         dialog.exec()
 
     def export_mesh(self):
-        """Guarda en disco la malla decimada (o la original si no se ha
-        decimado) en el formato elegido. Si esta marcado y hay una
-        decimacion previa, escribe ademas un informe .json con las
-        estadisticas de esa decimacion junto al archivo de malla."""
+        """Saves the decimated mesh to disk (or the original if none has
+        been decimated) in the chosen format. If checked and a previous
+        decimation exists, also writes a .json report with that
+        decimation's statistics next to the mesh file."""
         mesh = self.decimated_mesh if self.decimated_mesh is not None else self.original_mesh
         if mesh is None:
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar malla", "", "OBJ (*.obj);;PLY (*.ply);;STL (*.stl)"
+            self, "Export mesh", "", "OBJ (*.obj);;PLY (*.ply);;STL (*.stl)"
         )
         if not path:
             return
@@ -958,19 +956,19 @@ class AdaptiveRemesherWindow(QMainWindow):
                 with open(report_path, "w", encoding="utf-8") as f:
                     json.dump(self._last_run_info, f, indent=2, ensure_ascii=False)
         except Exception as exc:
-            QMessageBox.critical(self, "Error al exportar", str(exc))
+            QMessageBox.critical(self, "Error exporting", str(exc))
 
-    # --- procesamiento por lotes ---
+    # --- batch processing ---
 
     def _process_one_batch_file(self, path: str) -> dict:
-        """Carga, limpia (si toca) y decima un unico archivo con los
-        ajustes actuales del panel, mediante el mismo `run_decimation_pipeline`
-        que usa `apply_decimation`, pero sin proteccion manual (no hay malla
-        abierta en el visor de la que leer marcas de pincel/rectangulo):
-        solo costuras UV y auto-ajuste por error, si estan activados.
-        Devuelve un diccionario con la malla resultante y las estadisticas,
-        listo para guardar. Lanza una excepcion si el archivo no es una
-        malla de superficie valida o si el resultado se queda sin caras."""
+        """Loads, cleans (if applicable) and decimates a single file with
+        the panel's current settings, via the same `run_decimation_pipeline`
+        `apply_decimation` uses, but without manual protection (there's no
+        mesh open in the viewer to read brush/rectangle marks from): only
+        UV seams and error-based auto-refinement, if enabled. Returns a
+        dict with the resulting mesh and the statistics, ready to save.
+        Raises an exception if the file isn't a valid surface mesh or if
+        the result ends up with no faces."""
         clean = self._gather_clean_settings() if self.auto_clean_cb.isChecked() else None
         mesh = load_and_prepare_mesh(path, clean)
 
@@ -1001,14 +999,14 @@ class AdaptiveRemesherWindow(QMainWindow):
         return {"mesh": result.mesh, "info": info}
 
     def run_batch(self):
-        """Aplica los ajustes actuales del panel a todos los archivos de
-        malla compatibles de una carpeta, sin pasar por el visor: por cada
-        archivo, limpia (si toca), decima con el motor y la proteccion
-        automatica configurados y guarda el resultado (mas un informe
-        .json, si esta marcado) en la carpeta de salida. Si un archivo
-        falla, se registra el error y se sigue con el resto; al terminar
-        se muestra un resumen de aciertos y fallos."""
-        input_dir = QFileDialog.getExistingDirectory(self, "Carpeta de entrada (mallas a procesar)")
+        """Applies the panel's current settings to every compatible mesh
+        file in a folder, without going through the viewer: for each file,
+        cleans (if applicable), decimates with the configured engine and
+        automatic protection, and saves the result (plus a .json report, if
+        checked) to the output folder. If a file fails, the error is logged
+        and processing continues with the rest; a summary of successes and
+        failures is shown at the end."""
+        input_dir = QFileDialog.getExistingDirectory(self, "Input folder (meshes to process)")
         if not input_dir:
             return
 
@@ -1019,18 +1017,17 @@ class AdaptiveRemesherWindow(QMainWindow):
         if not files:
             QMessageBox.information(
                 self,
-                "Procesar por lotes",
-                "No se ha encontrado ninguna malla compatible "
-                "(OBJ/STL/PLY/VTP/GLB/GLTF) en esa carpeta.",
+                "Batch processing",
+                "No compatible mesh (OBJ/STL/PLY/VTP/GLB/GLTF) was found in that folder.",
             )
             return
 
-        output_dir = QFileDialog.getExistingDirectory(self, "Carpeta de salida (resultados)")
+        output_dir = QFileDialog.getExistingDirectory(self, "Output folder (results)")
         if not output_dir:
             return
 
         ext, ok = QInputDialog.getItem(
-            self, "Formato de salida", "Guardar los resultados como:",
+            self, "Output format", "Save results as:",
             ["obj", "ply", "stl"], 0, False,
         )
         if not ok:
@@ -1039,25 +1036,25 @@ class AdaptiveRemesherWindow(QMainWindow):
         warning = ""
         if os.path.normcase(os.path.abspath(input_dir)) == os.path.normcase(os.path.abspath(output_dir)):
             warning = (
-                "\n\nOjo: la carpeta de salida es la misma que la de "
-                "entrada; un archivo con el mismo nombre y extension se "
-                "sobrescribiria."
+                "\n\nNote: the output folder is the same as the input "
+                "folder; a file with the same name and extension would be "
+                "overwritten."
             )
         reply = QMessageBox.question(
             self,
-            "Procesar por lotes",
-            f"Se van a procesar {len(files)} archivo(s) de \"{input_dir}\" "
-            f"con el motor {self.engine_combo.currentText()} al "
-            f"{self.reduction_slider.value()}% de agresividad, y guardar "
-            f"el resultado en \"{output_dir}\" como .{ext}. No se aplica "
-            "proteccion manual (pincel/rectangulo), solo la automatica "
-            f"configurada arriba.{warning}\n\n¿Continuar?",
+            "Batch processing",
+            f"{len(files)} file(s) from \"{input_dir}\" will be processed "
+            f"with the {self.engine_combo.currentText()} engine at "
+            f"{self.reduction_slider.value()}% aggressiveness, and the "
+            f"result saved to \"{output_dir}\" as .{ext}. Manual protection "
+            "(brush/rectangle) is not applied, only the automatic "
+            f"protection configured above.{warning}\n\nContinue?",
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply != QMessageBox.Yes:
             return
 
-        progress = QProgressDialog("Procesando...", "Cancelar", 0, len(files), self)
+        progress = QProgressDialog("Processing...", "Cancel", 0, len(files), self)
         progress.setWindowModality(Qt.WindowModal)
         progress.setMinimumDuration(0)
 
@@ -1066,7 +1063,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         for i, filename in enumerate(files):
             if progress.wasCanceled():
                 break
-            progress.setLabelText(f"Procesando {filename} ({i + 1}/{len(files)})")
+            progress.setLabelText(f"Processing {filename} ({i + 1}/{len(files)})")
             progress.setValue(i)
             src_path = os.path.join(input_dir, filename)
             try:
@@ -1086,22 +1083,21 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         progress.setValue(len(files))
 
-        summary = f"Procesados correctamente: {ok_count}/{len(files)}."
+        summary = f"Successfully processed: {ok_count}/{len(files)}."
         if failures:
             shown = failures[:20]
-            summary += "\n\nFallos:\n" + "\n".join(shown)
+            summary += "\n\nFailures:\n" + "\n".join(shown)
             if len(failures) > len(shown):
-                summary += f"\n... y {len(failures) - len(shown)} mas."
-        QMessageBox.information(self, "Procesamiento por lotes terminado", summary)
+                summary += f"\n... and {len(failures) - len(shown)} more."
+        QMessageBox.information(self, "Batch processing finished", summary)
 
-    # --- presets de configuracion ---
+    # --- configuration presets ---
 
     def _gather_preset(self) -> dict:
-        """Recoge en un diccionario serializable todos los parametros
-        configurables del panel (limpieza, visualizacion, proteccion
-        automatica, decimacion y validacion por error), para guardarlos
-        como preset. No incluye la malla ni las marcas de proteccion
-        manual, que son especificas de cada modelo."""
+        """Gathers every configurable panel parameter (cleanup, view,
+        automatic protection, decimation and error validation) into a
+        serializable dict, to save as a preset. Doesn't include the mesh or
+        the manual protection marks, which are specific to each model."""
         return {
             "auto_clean": self.auto_clean_cb.isChecked(),
             "min_fragment_pct": self.min_fragment_slider.value(),
@@ -1125,14 +1121,15 @@ class AdaptiveRemesherWindow(QMainWindow):
             "normals_weight": self.normals_weight_spin.value(),
             "auto_error_protection": self.auto_error_cb.isChecked(),
             "error_threshold_pct": self.error_threshold_spin.value(),
+            "error_max_iterations": self.error_max_iterations_spin.value(),
             "export_report": self.export_report_cb.isChecked(),
         }
 
     def _apply_preset(self, data: dict):
-        """Aplica al panel los valores de un preset cargado; cualquier
-        clave ausente conserva el valor actual del control correspondiente,
-        para seguir siendo compatible con presets guardados por una
-        version anterior de la app que no tuviera todavia algun campo."""
+        """Applies a loaded preset's values to the panel; any missing key
+        keeps the corresponding control's current value, to stay compatible
+        with presets saved by an earlier version of the app that didn't yet
+        have some field."""
         def get(key, current):
             return data[key] if key in data else current
 
@@ -1164,22 +1161,25 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.normals_weight_spin.setValue(get("normals_weight", self.normals_weight_spin.value()))
         self.auto_error_cb.setChecked(get("auto_error_protection", self.auto_error_cb.isChecked()))
         self.error_threshold_spin.setValue(get("error_threshold_pct", self.error_threshold_spin.value()))
+        self.error_max_iterations_spin.setValue(
+            get("error_max_iterations", self.error_max_iterations_spin.value())
+        )
         self.export_report_cb.setChecked(get("export_report", self.export_report_cb.isChecked()))
 
     def save_preset(self):
-        """Guarda la configuracion actual del panel en un archivo .json reutilizable para otras mallas del mismo tipo."""
-        path, _ = QFileDialog.getSaveFileName(self, "Guardar preset", "", "Preset (*.json)")
+        """Saves the panel's current configuration to a reusable .json file for other meshes of the same kind."""
+        path, _ = QFileDialog.getSaveFileName(self, "Save preset", "", "Preset (*.json)")
         if not path:
             return
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(self._gather_preset(), f, indent=2, ensure_ascii=False)
         except Exception as exc:
-            QMessageBox.critical(self, "Error al guardar preset", str(exc))
+            QMessageBox.critical(self, "Error saving preset", str(exc))
 
     def load_preset(self):
-        """Carga un preset guardado previamente y aplica sus valores a todos los controles del panel."""
-        path, _ = QFileDialog.getOpenFileName(self, "Cargar preset", "", "Preset (*.json)")
+        """Loads a previously saved preset and applies its values to every panel control."""
+        path, _ = QFileDialog.getOpenFileName(self, "Load preset", "", "Preset (*.json)")
         if not path:
             return
         try:
@@ -1187,14 +1187,14 @@ class AdaptiveRemesherWindow(QMainWindow):
                 data = json.load(f)
             self._apply_preset(data)
         except Exception as exc:
-            QMessageBox.critical(self, "Error al cargar preset", str(exc))
+            QMessageBox.critical(self, "Error loading preset", str(exc))
 
 
 def main():
-    """Punto de entrada: configura logging, crea la QApplication, aplica el
-    tema y muestra la ventana principal. `ADAPTIVE_REMESHER_DEBUG=1` sube
-    el nivel de la consola a DEBUG (el archivo de log siempre lo captura,
-    ver logging_config.py)."""
+    """Entry point: configures logging, creates the QApplication, applies
+    the theme, and shows the main window. `ADAPTIVE_REMESHER_DEBUG=1` raises
+    the console level to DEBUG (the log file always captures it, see
+    logging_config.py)."""
     configure_logging(verbose=bool(os.environ.get("ADAPTIVE_REMESHER_DEBUG")))
     app = QApplication(sys.argv)
     app.setStyleSheet(STYLESHEET)

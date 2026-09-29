@@ -1,9 +1,9 @@
-"""Tests de integracion de la UI con pytest-qt: instancian la ventana real
-(en el backend Qt "offscreen", ver conftest.py) y ejercitan botones,
-sliders y senales de verdad, en vez de solo la logica de dominio pura que
-ya cubre test_remesh_core.py. Cierran el hueco de cobertura que dejaba la
-division de app.py en ui/panels: aqui se prueba que el wiring entre
-paneles y `AdaptiveRemesherWindow` sigue intacto."""
+"""UI integration tests with pytest-qt: instantiate the real window (on the
+"offscreen" Qt backend, see conftest.py) and exercise real buttons, sliders
+and signals, instead of only the pure domain logic that
+test_remesh_core.py already covers. These close the coverage gap left by
+splitting app.py into ui/panels: here we verify that the wiring between
+the panels and `AdaptiveRemesherWindow` still works."""
 
 import pyvista as pv
 import pytest
@@ -20,8 +20,8 @@ def window(qtbot):
 
 @pytest.fixture
 def loaded_window(window):
-    """Ventana con una malla sintetica ya "cargada", sin pasar por el
-    QFileDialog real (no hay archivo ni interaccion de usuario que simular)."""
+    """Window with a synthetic mesh already "loaded", without going through
+    the real QFileDialog (there's no file or user interaction to simulate)."""
     mesh = pv.Sphere(theta_resolution=30, phi_resolution=30).triangulate()
     window.original_mesh = mesh
     window._reset_protection(rebuild_kdtree=True)
@@ -32,7 +32,7 @@ def loaded_window(window):
 
 def test_window_builds_with_expected_widgets(window):
     assert window.engine_combo.count() == 2
-    assert not window.qem_group.isEnabled()  # vtkDecimatePro es el motor por defecto
+    assert not window.qem_group.isEnabled()  # vtkDecimatePro is the default engine
     assert not window.undo_btn.isEnabled()
     assert not window.redo_btn.isEnabled()
 
@@ -75,7 +75,7 @@ def test_paint_brush_marks_protected_points(loaded_window):
     loaded_window._apply_brush(point)
 
     assert loaded_window.protected_mask.sum() > 0
-    assert loaded_window.protected_count_label.text() != "Puntos protegidos: 0"
+    assert loaded_window.protected_count_label.text() != "Protected points: 0"
 
 
 def test_clear_protection_resets_mask(loaded_window):
@@ -101,9 +101,9 @@ def test_apply_decimation_excludes_painted_points(loaded_window):
 
 
 def test_toggling_paint_after_decimation_preserves_result(loaded_window):
-    """Regresion: activar el pincel tras decimar solia descartar
-    `decimated_mesh` de golpe (via reset_mesh), obligando a repetir la
-    decimacion aunque el usuario solo quisiera revisar la proteccion."""
+    """Regression: enabling the brush after decimating used to discard
+    `decimated_mesh` outright (via reset_mesh), forcing the decimation to be
+    redone even if the user only wanted to review the protection."""
     loaded_window.apply_decimation()
     assert loaded_window.decimated_mesh is not None
 

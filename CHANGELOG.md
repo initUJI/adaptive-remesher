@@ -1,139 +1,140 @@
 # Changelog
 
-Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [No publicado]
+## [Unreleased]
 
 ### Added
-- `remesh_core._stitch_residual_boundary_gaps`: ultimo recurso tras
-  `_weld_seam_gaps` para la costura QEM en reducciones extremas (ver
-  "Fixed" mas abajo). Tras investigar a fondo por que `_weld_seam_gaps`
-  no cerraba del todo por encima de ~98% (probados sin exito:
-  `meshing_repair_non_manifold_vertices` con varios `vertdispratio`,
-  `meshing_snap_mismatched_borders` con varios `edgedistratio`,
-  `meshing_remove_t_vertices`, y combinarlos con `vtkFillHolesFilter`),
-  el diagnostico exacto resulto ser un vertice "bowtie": un punto donde
-  el contorno del hueco se toca a si mismo (4 aristas de borde en vez de
-  2), que ningun filtro de reparacion probado (PyMeshLab o VTK) sabe
-  resolver porque ninguno separa los dos bucles que se tocan ahi. Se
-  implemento un cierre a mano: reconstruye los bucles cerrados simples
-  del grafo de aristas de borde restantes (emparejando, en cada vertice
-  bowtie, cada arista con la mas opuesta en direccion para separar los
-  bucles) y tapa cada uno con un abanico de triangulos desde su
-  centroide. Reduce a un residuo de 0-2 aristas (antes 5-56) en un
-  barrido de 112 combinaciones de resolucion/mascara/agresividad; sigue
-  sin cerrar del todo en un ~10% de los casos mas extremos (>=99% con
-  mascaras concretas), documentado como limitacion conocida.
-- Numero de pasadas de auto-proteccion por error configurable ("Pasadas
-  maximas de auto-proteccion" en el panel, `ProtectionSettings.error_max_iterations`,
-  `refine_by_error(max_iterations=...)`): antes fijo a 3.
-- Prueba de humo automatica en `.github/workflows/release.yml`: arranca
-  cada ejecutable recien construido (Windows/macOS/Linux) con
-  `QT_QPA_PLATFORM=offscreen` y falla el build si termina solo antes de
-  unos segundos, el sintoma tipico de una dependencia nativa que no se
-  empaqueto bien. Antes solo el build de Windows se habia verificado
-  arrancando de verdad (ver BUILD.md).
-- README con instalacion, uso y estructura del proyecto.
-- `remesh_core.py`: logica de dominio (limpieza, ambos motores de
-  decimacion, proteccion de costuras UV, pipeline de decimacion +
-  validacion por error) extraida de `app.py`, sin dependencia de Qt.
-- Suite de tests unitarios (`tests/`) sobre `remesh_core.py` con mallas
-  sinteticas de PyVista.
-- CI en GitHub Actions (lint, tipos y tests en cada push/PR).
-- Chequeo de tipos con mypy (anotaciones de atributos en
-  `AdaptiveRemesherWindow`, sin `Optional` innecesarios en
-  `PipelineResult`).
-- `app.py` dividido en modulos de UI bajo `ui/` (uno por seccion del
-  panel de control), reduciendo el `__init__` de la ventana principal de
-  ~670 a unas pocas llamadas de orquestacion.
-- Empaquetado con PyInstaller para generar un ejecutable de escritorio
-  (ver [BUILD.md](BUILD.md)).
-- Ganchos de pre-commit (ruff, mypy, pytest) y Dependabot (pip y
-  GitHub Actions) para mantener dependencias y calidad al dia.
-- Licencia MIT.
-- `logging_config.py`: logging a consola (INFO, o DEBUG con
-  `ADAPTIVE_REMESHER_DEBUG=1`) y archivo rotativo, sustituyendo al flag
-  global `DEBUG`/`print` de antes.
-- Tests de integracion de la UI con pytest-qt (`tests/test_ui_integration.py`):
-  instancian la ventana real y pulsan botones/sliders, cerrando el hueco
-  de cobertura que dejaba `ui/` fuera de los tests automatizados.
-- Workflow de releases (`.github/workflows/release.yml`): construye el
-  ejecutable en Windows, macOS y Linux con PyInstaller y lo adjunta a una
-  GitHub Release al empujar un tag `vX.Y.Z`.
+- `remesh_core._stitch_residual_boundary_gaps`: a last resort after
+  `_weld_seam_gaps` for the QEM seam at extreme reduction levels (see
+  "Fixed" below). After thoroughly investigating why `_weld_seam_gaps`
+  didn't fully close the gap above ~98% (tried without success:
+  `meshing_repair_non_manifold_vertices` with several `vertdispratio`
+  values, `meshing_snap_mismatched_borders` with several `edgedistratio`
+  values, `meshing_remove_t_vertices`, and combining them with
+  `vtkFillHolesFilter`), the exact diagnosis turned out to be a "bowtie"
+  vertex: a point where the gap's boundary touches itself (4 boundary
+  edges instead of 2), which no repair filter tried (PyMeshLab or VTK)
+  knows how to resolve, because none of them separate the two loops that
+  meet there. A manual closing step was implemented: it reconstructs the
+  simple closed loops from the remaining boundary-edge graph (at each
+  bowtie vertex, pairing each edge with the one most opposite in
+  direction to separate the loops) and caps each one with a fan of
+  triangles from its centroid. Reduces the residual to 0-2 edges (down
+  from 5-56) across a sweep of 112 resolution/mask/aggressiveness
+  combinations; still doesn't fully close in about 10% of the most
+  extreme cases (>=99% with specific masks), documented as a known
+  limitation.
+- Configurable number of error-based auto-protection passes ("Max
+  auto-protection passes" in the panel,
+  `ProtectionSettings.error_max_iterations`,
+  `refine_by_error(max_iterations=...)`): previously fixed at 3.
+- Automatic smoke test in `.github/workflows/release.yml`: starts each
+  freshly built executable (Windows/macOS/Linux) with
+  `QT_QPA_PLATFORM=offscreen` and fails the build if it exits on its own
+  within a few seconds — the typical symptom of a native dependency that
+  didn't package correctly. Previously only the Windows build had been
+  verified to actually start (see BUILD.md).
+- README with installation, usage and project-structure instructions.
+- `remesh_core.py`: domain logic (cleanup, both decimation engines,
+  UV-seam protection, decimation + error-validation pipeline) extracted
+  from `app.py`, with no Qt dependency.
+- Unit test suite (`tests/`) for `remesh_core.py` using synthetic PyVista
+  meshes.
+- CI on GitHub Actions (lint, type checks and tests on every push/PR).
+- Type checking with mypy (attribute annotations on
+  `AdaptiveRemesherWindow`, no unnecessary `Optional` in `PipelineResult`).
+- `app.py` split into UI modules under `ui/` (one per control-panel
+  section), shrinking the main window's `__init__` from ~670 lines to a
+  handful of orchestration calls.
+- Packaging with PyInstaller to produce a desktop executable (see
+  [BUILD.md](BUILD.md)).
+- Pre-commit hooks (ruff, mypy, pytest) and Dependabot (pip and GitHub
+  Actions) to keep dependencies and code quality current.
+- MIT license.
+- `logging_config.py`: console logging (INFO, or DEBUG with
+  `ADAPTIVE_REMESHER_DEBUG=1`) plus a rotating file, replacing the old
+  global `DEBUG`/`print` flag.
+- UI integration tests with pytest-qt (`tests/test_ui_integration.py`):
+  instantiate the real window and press real buttons/sliders, closing
+  the coverage gap that left `ui/` out of automated testing.
+- Release workflow (`.github/workflows/release.yml`): builds the
+  executable on Windows, macOS and Linux with PyInstaller and attaches
+  it to a GitHub Release when a `vX.Y.Z` tag is pushed.
 
 ### Changed
-- Dependencias fijadas a versiones concretas en `requirements.txt` en
-  vez de minimos abiertos (`>=`).
-- `apply_decimation` y el procesamiento por lotes comparten ahora el
-  mismo pipeline (`run_decimation_pipeline`), eliminando la logica
-  duplicada que tenian antes.
-- **Validacion por error ahora bidireccional** (`remesh_core.measure_bidirectional_error`):
-  antes solo se media la distancia de cada cara del resultado a la
-  superficie original, lo que no detecta un detalle saliente del
-  original eliminado por completo (ninguna cara del resultado cae cerca
-  de la zona ausente, asi que el error medido seguia siendo ~0).
-  Confirmado con un caso sintetico: la direccion original reportaba error
-  0.0 con un "bulto" entero desaparecido, la nueva direccion inversa
-  (original -> resultado) lo detecta correctamente. `refine_by_error`
-  ahora protege vertices detectados por cualquiera de las dos
-  direcciones, y las estadisticas de error (max/medio/p95) mostradas y
-  exportadas combinan ambas.
-- Las herramientas de proteccion (pincel, rectangulo) ya no descartan el
-  resultado decimado al reactivarse: solo cambian la vista de vuelta a la
-  malla original para poder seguir pintando contra ella
-  (`_on_brush_toggled`). Antes, tocar cualquiera de esas herramientas tras
-  decimar obligaba a repetir la decimacion desde cero aunque el usuario
-  solo quisiera revisar o anadir proteccion sin llegar a pintar nada.
+- Dependencies pinned to exact versions in `requirements.txt` instead of
+  open minimums (`>=`).
+- `apply_decimation` and batch processing now share the same pipeline
+  (`run_decimation_pipeline`), removing the duplicated logic they used
+  to have.
+- **Error validation is now bidirectional**
+  (`remesh_core.measure_bidirectional_error`): previously only the
+  distance from each face of the result to the original surface was
+  measured, which fails to detect a protruding original detail that was
+  removed entirely (no face of the result lands near the missing area,
+  so the measured error stayed ~0). Confirmed with a synthetic case: the
+  original direction reported 0.0 error with an entire "bump" gone
+  missing, the new reverse direction (original -> result) correctly
+  detects it. `refine_by_error` now protects vertices flagged by either
+  direction, and the displayed/exported error statistics (max/mean/p95)
+  combine both.
+- The protection tools (brush, rectangle) no longer discard the
+  decimated result when reactivated: they only switch the view back to
+  the original mesh so painting can continue against it
+  (`_on_brush_toggled`). Previously, touching any of these tools after
+  decimating forced starting the decimation over from scratch even if
+  the user only wanted to review or add protection without painting
+  anything.
 
 ### Fixed
-- **Seleccion por rectangulo sin test de profundidad.** Marcaba tambien
-  puntos ocultos detras de otra parte de la malla. Ahora, tras el filtro
-  barato de proyeccion a pantalla, se usa `vtk.vtkSelectVisiblePoints`
-  contra el z-buffer ya renderizado para descartar los puntos no
-  visibles desde la camara actual (`_apply_rect_selection`).
-- **Huecos residuales en la costura QEM a partir de ~95% de reduccion.**
-  Tras la subida de peso de borde (ver mas abajo), quedaba un margen de
-  fallo por el que la costura no llegaba a soldar del todo en
-  reducciones muy agresivas: no eran aristas no-manifold (una reparacion
-  estandar no cambiaba nada, comprobado empiricamente) sino un
-  T-junction real -distinto numero de segmentos de arista a cada lado
-  tras decimar-, que tampoco se resolvia subiendo la tolerancia de
-  `merge_points` (con tolerancia alta ademas empeoraba, soldando puntos
-  no relacionados). La solucion que si funciono: cerrar esos huecos
-  pequenos con `pymeshlab.meshing_close_holes` justo despues del merge
-  (`remesh_core._weld_seam_gaps`, usada por `decimate_with_mask`),
-  limitando el tamano de agujero a rellenar para no tocar aperturas
-  grandes que sean parte real de la malla. Comprobado con un barrido de
-  resoluciones/mascaras/agresividad: cierra el hueco por completo hasta
-  ~98% de reduccion (antes ~90%); por encima, `_stitch_residual_boundary_gaps`
-  (ver "Added") cierra casi todo lo que quede.
-- **`_weld_seam_gaps` podia lanzar una excepcion y romper todo el pipeline
-  de decimacion.** En un puñado de combinaciones de resolucion/mascara, la
-  malla resultante del merge tiene aristas genuinamente no-manifold (3+
-  caras), no solo el T-junction habitual, y PyMeshLab rechazaba
-  `meshing_close_holes` con `PyMeshLabException` en vez de repararla.
-  Ahora se captura esa excepcion y se devuelve la malla sin reparar en
-  ese paso, en vez de dejar que la excepcion se propague y cancele toda
-  la decimacion.
-- **Motor QEM: costura protegida no soldaba a partir de ~70% de
-  reduccion.** `vtkQuadricDecimation` solo *penalizaba* el coste de
-  tocar el borde compartido con una zona protegida (`SetBoundaryWeightFactor`),
-  a diferencia de vtkDecimatePro, que puede bloquearlo del todo; con
-  reducciones agresivas acababa colapsando vertices de esa costura,
-  dejando decenas de aristas no-manifold tras recomponer el resultado
-  (grietas invisibles en el viewport pero reales en la malla exportada).
-  Subido el peso de 1000 a 1e10 (`remesh_core.decimate_qem`): la costura
-  queda soldada de forma fiable hasta ~90% de reduccion, comprobado con
-  un barrido de resoluciones y mascaras de proteccion distintas. Persiste
-  un margen de fallo por encima de ese punto (~95-99%): es una limitacion
-  del propio `vtkQuadricDecimation`, que no expone un bloqueo topologico
-  absoluto como vtkDecimatePro.
+- **Rectangle selection with no depth test.** It also marked points
+  hidden behind another part of the mesh. Now, after the cheap
+  screen-projection prefilter, `vtk.vtkSelectVisiblePoints` is used
+  against the already-rendered z-buffer to discard points not visible
+  from the current camera (`_apply_rect_selection`).
+- **Residual gaps in the QEM seam above ~95% reduction.** After raising
+  the boundary weight (see below), a failure margin remained where the
+  seam wouldn't fully weld at very aggressive reduction levels: these
+  weren't non-manifold edges (a standard repair changed nothing, verified
+  empirically) but a genuine T-junction — a different number of edge
+  segments on each side after decimation — which also wasn't resolved by
+  raising `merge_points`'s tolerance (a high tolerance made things worse,
+  welding unrelated points together). The fix that did work: closing
+  those small gaps with `pymeshlab.meshing_close_holes` right after the
+  merge (`remesh_core._weld_seam_gaps`, used by `decimate_with_mask`),
+  capping the hole size to fill so it never touches large openings that
+  are a genuine part of the mesh. Verified with a sweep of
+  resolutions/masks/aggressiveness: fully closes the gap up to ~98%
+  reduction (previously ~90%); above that, `_stitch_residual_boundary_gaps`
+  (see "Added") closes almost everything that's left.
+- **`_weld_seam_gaps` could raise an exception and break the whole
+  decimation pipeline.** In a handful of resolution/mask combinations,
+  the mesh resulting from the merge has genuinely non-manifold edges (3+
+  faces), not just the usual T-junction, and PyMeshLab rejected
+  `meshing_close_holes` with a `PyMeshLabException` instead of repairing
+  it. This exception is now caught, returning the unrepaired mesh from
+  that step instead of letting the exception propagate and cancel the
+  whole decimation.
+- **QEM engine: protected seam wouldn't weld above ~70% reduction.**
+  `vtkQuadricDecimation` only *penalized* the cost of touching the
+  boundary shared with a protected region (`SetBoundaryWeightFactor`),
+  unlike vtkDecimatePro, which can lock it completely; at aggressive
+  reduction levels it ended up collapsing vertices on that seam, leaving
+  dozens of non-manifold edges after recombining the result (cracks
+  invisible in the viewport but real in the exported mesh). Raised the
+  weight from 1000 to 1e10 (`remesh_core.decimate_qem`): the seam now
+  welds reliably up to ~90% reduction, verified with a sweep of
+  resolutions and different protection masks. A failure margin persists
+  above that point (~95-99%): it's a limitation of `vtkQuadricDecimation`
+  itself, which doesn't expose an absolute topological lock the way
+  vtkDecimatePro does.
 
 ## [0.1.0] - 2026-09-21
 
 ### Added
-- Prototipo inicial: remesher adaptativo con vtkDecimatePro y Quadric
-  Error Metric, limpieza con PyMeshLab, proteccion manual (pincel/
-  rectangulo), proteccion automatica de costuras UV, validacion por
-  error geometrico, undo/redo, presets, vista previa en tiempo real,
-  comparacion lado a lado y procesamiento por lotes.
+- Initial prototype: adaptive remesher with vtkDecimatePro and Quadric
+  Error Metric, cleanup with PyMeshLab, manual protection (brush/
+  rectangle), automatic UV-seam protection, geometric error validation,
+  undo/redo, presets, live preview, side-by-side comparison, and batch
+  processing.

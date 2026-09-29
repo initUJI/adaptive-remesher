@@ -2,42 +2,50 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Prototipo de escritorio para **simplificar (decimar) mallas 3D generadas por
-IA de forma selectiva**, reduciendo poligonos solo donde no hacen falta y
-preservando detalle, texturas y zonas marcadas manualmente como
-importantes (caras, logos, dedos...).
+Desktop prototype for **selectively simplifying (decimating) AI-generated 3D
+meshes**, reducing polygons only where they aren't needed while preserving
+detail, textures and regions manually marked as important (faces, logos,
+fingers...).
 
-## Que hace
+## What it does
 
-- **Dos motores de decimacion** intercambiables:
-  - `vtkDecimatePro`: colapsa vertices en zonas planas segun un angulo de
-    caracteristica fijo.
-  - **Quadric Error Metric (QEM)**: coste de colapso continuo ponderado
-    por curvatura, con penalizacion opcional de distorsion UV y de
-    normales.
-- **Limpieza previa** con PyMeshLab: vertices duplicados/no referenciados,
-  aristas y vertices no-manifold, fragmentos flotantes, relleno opcional
-  de agujeros y reorientacion de caras (defectos tipicos de mallas
-  generadas por IA).
-- **Proteccion manual**: pincel de pintar/borrar y seleccion por
-  rectangulo sobre el viewport 3D, para marcar zonas que nunca se deben
-  simplificar.
-- **Proteccion automatica de costuras UV**: detecta y protege los
-  vertices duplicados que forman una costura de textura.
-- **Validacion por error geometrico**: mide la desviacion de la malla
-  decimada frente a la original (aproxima Hausdorff) y auto-protege
-  iterativamente las zonas donde el error supera un umbral.
-- Undo/redo, presets de configuracion (.json), vista previa en tiempo
-  real, comparacion lado a lado original/decimado y **procesamiento por
-  lotes** de carpetas enteras.
+- **Two interchangeable decimation engines**:
+  - `vtkDecimatePro`: collapses vertices in flat regions according to a fixed
+    feature angle.
+  - **Quadric Error Metric (QEM)**: continuous collapse cost weighted by
+    curvature, with optional penalties for UV and normal distortion.
+- **Pre-cleanup** with PyMeshLab: duplicate/unreferenced vertices,
+  non-manifold edges and vertices, floating fragments, optional hole
+  filling, and face reorientation (typical defects of AI-generated meshes).
+- **Manual protection**: paint/erase brush and rectangle selection over the
+  3D viewport, to mark regions that must never be simplified.
+- **Automatic UV-seam protection**: detects and protects the duplicated
+  vertices that form a texture seam.
+- **Geometric error validation**: measures how far the decimated mesh has
+  drifted from the original (approximates Hausdorff distance) and
+  iteratively auto-protects regions where the error exceeds a threshold.
+- Undo/redo, configuration presets (`.json`), live preview, side-by-side
+  original/decimated comparison, and **batch processing** of entire folders.
 
-## Requisitos
+> **A note on "for AI-generated meshes":** none of the techniques above
+> detect or reason about mesh origin — they are generic topological
+> cleanup, curvature-based decimation, UV-seam detection and geometric
+> validation, the same techniques any mesh-processing tool would use. The
+> name comes from the fact that this particular combination of problems
+> (uniform density unrelated to visual importance, topological defects,
+> loose fragments) is unusually common in AI-generated output, but the tool
+> works equally well on any mesh that has them, whether it came from a scan,
+> a careless CAD export, or careless manual modeling.
 
-- Python 3.11 (las versiones fijadas en `requirements.txt` se han
-  comprobado con esta version).
-- Windows, macOS o Linux con soporte para Qt (PySide6) y VTK.
+## Requirements
 
-## Instalacion
+- Python 3.11 or newer (the minimums in `requirements.txt` were set against
+  3.11, but the project has also been verified on 3.14: PySide6 6.11.2,
+  PyVista 0.49.0, pyvistaqt 0.13.1, VTK 9.7.0, PyMeshLab 2025.7.post1,
+  NumPy 2.5.3, SciPy 1.18.1).
+- Windows, macOS or Linux with Qt (PySide6) and VTK support.
+
+## Installation
 
 ```bash
 python -m venv .venv
@@ -47,75 +55,75 @@ source .venv/bin/activate       # macOS / Linux
 pip install -r requirements.txt
 ```
 
-## Uso
+## Usage
 
 ```bash
 python app.py
 ```
 
-1. **Cargar malla...**: abre un archivo OBJ, STL, PLY, VTP, GLB o GLTF.
-   Si "Limpiar automaticamente al cargar" esta marcado, se limpia antes
-   de mostrarla.
-2. Opcionalmente, pinta zonas protegidas con **Pintar** / **Rectangulo**
-   sobre el viewport.
-3. Ajusta el motor de decimacion, la agresividad y las opciones de
-   proteccion automatica (costuras UV, validacion por error).
-4. **Aplicar decimacion** y, si quieres, **Comparar original/decimado**.
-5. **Exportar malla...** guarda el resultado (y, si esta marcado, un
-   informe `.json` con las estadisticas de la decimacion).
+1. **Load mesh...**: opens an OBJ, STL, PLY, VTP, GLB or GLTF file. If
+   "Clean automatically on load" is checked, it is cleaned before being
+   displayed.
+2. Optionally, paint protected regions with **Paint** / **Rectangle** over
+   the viewport.
+3. Adjust the decimation engine, the aggressiveness, and the automatic
+   protection options (UV seams, error validation).
+4. **Apply decimation** and, if you like, **Compare original/decimated**.
+5. **Export mesh...** saves the result (and, if checked, a `.json` report
+   with the decimation statistics).
 
-### Procesamiento por lotes
+### Batch processing
 
-"Procesar carpeta..." aplica los ajustes actuales del panel a todos los
-archivos compatibles de una carpeta de entrada, sin pasar por el visor.
-No incluye proteccion manual (pincel/rectangulo): solo la limpieza,
-motor de decimacion y proteccion automatica configurados.
+"Process folder..." applies the panel's current settings to every
+compatible file in an input folder, without going through the viewer. It
+does not include manual protection (brush/rectangle): only the configured
+cleanup, decimation engine, and automatic protection.
 
 ### Presets
 
-"Guardar preset..." / "Cargar preset..." guardan y restauran todos los
-parametros del panel (sin la malla ni las marcas de proteccion manual)
-en un `.json` reutilizable entre sesiones o entre mallas similares.
+"Save preset..." / "Load preset..." save and restore every panel parameter
+(excluding the mesh and manual protection marks) to a reusable `.json`,
+shared across sessions or similar meshes.
 
-## Estructura del proyecto
+## Project structure
 
 ```
-app.py               Ventana principal Qt: estado de la malla/proteccion,
-                     undo/redo, presets, procesamiento por lotes. La
-                     construccion de cada seccion del panel vive en ui/.
-remesh_core.py       Logica de dominio pura, independiente de Qt: limpieza,
-                     ambos motores de decimacion, proteccion de costuras UV
-                     y el pipeline de decimacion+validacion por error
-                     compartido entre el flujo interactivo y el batch.
-logging_config.py    Logging a consola + archivo rotativo (ver mas abajo).
+app.py               Main Qt window: mesh/protection state, undo/redo,
+                     presets, batch processing. Each panel section is
+                     built by a function under ui/.
+remesh_core.py       Pure domain logic, independent of Qt: cleanup, both
+                     decimation engines, UV-seam protection, and the
+                     decimation+error-validation pipeline shared between
+                     the interactive flow and batch processing.
+logging_config.py    Console + rotating file logging (see below).
 ui/
-  common.py          Estilos, dialogos y widgets reutilizables (tooltip,
-                     cursor de espera, panel plegable, comparacion lado a
-                     lado).
-  panels/            Una funcion build_xxx_panel(window, layout) por cada
-                     seccion del panel de control (limpieza, proteccion,
-                     decimacion, validacion por error, batch...).
-tests/               Tests de remesh_core.py (mallas sinteticas, sin Qt) y
-                     de la UI con pytest-qt (botones/sliders reales).
+  common.py          Shared styles, dialogs and widgets (tooltip helper,
+                     busy cursor, collapsible panel, side-by-side
+                     comparison).
+  panels/            One build_xxx_panel(window, layout) function per
+                     control-panel section (cleanup, protection,
+                     decimation, error validation, batch...).
+tests/               Tests for remesh_core.py (synthetic meshes, no Qt)
+                     and for the UI with pytest-qt (real buttons/sliders).
 ```
 
-## Desarrollo
+## Development
 
 ```bash
 pip install -r requirements-dev.txt
-pytest              # tests unitarios + de integracion de UI (pytest-qt)
+pytest              # unit tests + UI integration tests (pytest-qt)
 ruff check .        # lint
-mypy remesh_core.py app.py logging_config.py ui tests   # tipos
+mypy remesh_core.py app.py logging_config.py ui tests   # type checking
 ```
 
-`tests/test_remesh_core.py` cubre `remesh_core.py` (limpieza, ambos
-motores de decimacion, proteccion por mascara, costuras UV y el pipeline
-completo) con mallas sinteticas; no requiere interfaz grafica.
-`tests/test_ui_integration.py` instancia la ventana real y pulsa botones/
-sliders de verdad con pytest-qt, en el backend Qt "offscreen" (sin
-necesitar pantalla, tambien en CI).
+`tests/test_remesh_core.py` covers `remesh_core.py` (cleanup, both
+decimation engines, mask-based protection, UV seams, and the full
+pipeline) with synthetic meshes; it needs no graphical interface.
+`tests/test_ui_integration.py` instantiates the real window and presses
+real buttons/sliders with pytest-qt, on the "offscreen" Qt backend (no
+display needed, also works in CI).
 
-Para que ruff/mypy/pytest se ejecuten solos en cada commit:
+To have ruff/mypy/pytest run automatically on every commit:
 
 ```bash
 pre-commit install
@@ -123,37 +131,36 @@ pre-commit install
 
 ## Logging
 
-La consola muestra INFO y superior; `ADAPTIVE_REMESHER_DEBUG=1 python
-app.py` sube la consola a DEBUG. Un archivo rotativo junto al script
-(`adaptive_remesher.log`, hasta 3 de 1MB) siempre captura DEBUG, para
-poder diagnosticar un fallo reportado por alguien sin volver a
-reproducirlo (ver `logging_config.py`).
+The console shows INFO and above; `ADAPTIVE_REMESHER_DEBUG=1 python app.py`
+raises the console to DEBUG. A rotating file next to the script
+(`adaptive_remesher.log`, up to 3 files of 1MB) always captures DEBUG, so a
+bug someone reports can be diagnosed without having to reproduce it live
+(see `logging_config.py`).
 
-## Build y releases
+## Build and releases
 
-Ver [BUILD.md](BUILD.md) para generar un ejecutable de escritorio con
-PyInstaller (manual, o automatico en Windows/macOS/Linux al empujar un
-tag `vX.Y.Z`), y [CHANGELOG.md](CHANGELOG.md) para el historial de
-cambios.
+See [BUILD.md](BUILD.md) to build a desktop executable with PyInstaller
+(manually, or automatically on Windows/macOS/Linux when pushing a `vX.Y.Z`
+tag), and [CHANGELOG.md](CHANGELOG.md) for the change history.
 
-## Limitaciones conocidas
+## Known limitations
 
-- El motor QEM con proteccion puede, en un ~10% de combinaciones de
-  resolucion/mascara probadas, dejar 1-2 aristas de costura sin soldar en
-  reducciones extremas (>=99%), incluso tras las dos pasadas automaticas
-  de reparacion (ver CHANGELOG). Es un caso raro, con agresividad muy por
-  encima de lo habitual, y el residuo que puede quedar es minimo.
-- Las herramientas de proteccion (pincel, rectangulo) se desactivan
-  automaticamente tras decimar y, al reactivarlas, vuelven a mostrar la
-  malla original: trabajan contra su KDTree/z-buffer, y con el motor QEM
-  (que si mueve vertices) el resultado decimado ya no coincidiria con lo
-  mostrado. El resultado decimado no se pierde por esto, solo cambia la
-  vista para poder seguir pintando.
-- El build de PyInstaller (ver BUILD.md) se ha probado interactivamente
-  solo en Windows; el workflow de releases incluye una prueba de humo
-  automatica (arranca sin errores) en las tres plataformas.
+- The QEM engine with protection can, in about 10% of tested
+  resolution/mask combinations, leave 1-2 seam edges unwelded at extreme
+  reduction levels (>=99%), even after the two automatic repair passes
+  (see CHANGELOG). This is a rare case, at aggressiveness far above typical
+  use, and any residual gap is minimal.
+- The protection tools (brush, rectangle) automatically disable after
+  decimating and, when reactivated, switch back to showing the original
+  mesh: they work against its KDTree/z-buffer, and with the QEM engine
+  (which does move vertices) the decimated result would no longer match
+  what's displayed. The decimated result isn't lost by this — only the
+  view changes so painting can continue.
+- The PyInstaller build (see BUILD.md) has been tested interactively only
+  on Windows; the release workflow includes an automatic smoke test
+  (starts without errors) on all three platforms.
 
-## Licencia
+## License
 
-[MIT](LICENSE) © 2026 CEVI. Libre para usar, modificar y redistribuir
-(incluso comercialmente), manteniendo el aviso de copyright.
+[MIT](LICENSE) © 2026 CEVI. Free to use, modify and redistribute (including
+commercially), while keeping the copyright notice.

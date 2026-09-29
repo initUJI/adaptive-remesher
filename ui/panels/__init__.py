@@ -1,7 +1,7 @@
-"""Funciones `build_xxx_panel(window, panel_layout)`, una por seccion del
-panel de control. Cada una crea sus widgets, los deja accesibles como
-atributos de `window` y conecta sus senales a los metodos que ya existen en
-`AdaptiveRemesherWindow` (en `app.py`)."""
+"""`build_xxx_panel(window, panel_layout)` functions, one per section of
+the control panel. Each one creates its widgets, exposes them as
+attributes of `window` and connects their signals to the methods that
+already exist in `AdaptiveRemesherWindow` (in `app.py`)."""
 
 from .actions import build_action_buttons
 from .batch import build_batch_panel

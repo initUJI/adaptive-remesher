@@ -1,9 +1,9 @@
-"""Configuracion de logging de la app: consola + archivo rotativo junto al
-script. Sustituye al antiguo flag global `DEBUG` + `print`, para poder
-diagnosticar un fallo reportado fuera de la maquina de desarrollo sin
-tener que reproducirlo con un depurador. Cada modulo obtiene su logger con
-`logging.getLogger(__name__)`; basta llamar a `configure_logging()` una
-vez, al arrancar la app, para que todos hereden consola+archivo."""
+"""App logging configuration: console + rotating file alongside the
+script. Replaces the old global `DEBUG` flag + `print`, so a failure
+reported outside the development machine can be diagnosed without
+having to reproduce it with a debugger. Each module gets its logger with
+`logging.getLogger(__name__)`; it's enough to call `configure_logging()`
+once, at app startup, for all of them to inherit console+file."""
 
 import logging
 import os
@@ -13,10 +13,10 @@ LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "adaptive_re
 
 
 def configure_logging(verbose: bool = False) -> None:
-    """Anade a la raiz un handler de consola (INFO, o DEBUG si `verbose`) y
-    uno de archivo rotativo (siempre DEBUG, hasta 3 archivos de 1MB) en
-    `LOG_PATH`. No hace nada si ya se habia llamado antes (evita duplicar
-    handlers si se invoca mas de una vez, p.ej. en tests)."""
+    """Adds a console handler to the root logger (INFO, or DEBUG if
+    `verbose`) and a rotating file handler (always DEBUG, up to 3 files
+    of 1MB) at `LOG_PATH`. Does nothing if already called before (avoids
+    duplicating handlers if invoked more than once, e.g. in tests)."""
     root = logging.getLogger()
     if root.handlers:
         return
@@ -35,6 +35,6 @@ def configure_logging(verbose: bool = False) -> None:
         file_handler.setFormatter(fmt)
         root.addHandler(file_handler)
     except OSError:
-        # Sin permisos de escritura junto al script (p.ej. instalado en una
-        # carpeta de solo lectura): seguir solo con la consola.
+        # No write permission next to the script (e.g. installed in a
+        # read-only folder): continue with console only.
         pass

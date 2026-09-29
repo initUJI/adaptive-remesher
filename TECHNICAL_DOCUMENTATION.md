@@ -1,10 +1,9 @@
 # Technical Documentation — Adaptive Remesher
 
-This document is the English, more detailed companion to
-[DOCUMENTACION_TECNICA.md](DOCUMENTACION_TECNICA.md) (Spanish). It explains what
-the software is and who it is for, how it is built internally down to the
-algorithm level, and which concrete problems were found in the mesh-processing
-code during development, with the reasoning and evidence behind each fix.
+This document explains what the software is and who it is for, how it is
+built internally down to the algorithm level, and which concrete problems
+were found in the mesh-processing code during development, with the
+reasoning and evidence behind each fix.
 
 ---
 
@@ -45,6 +44,43 @@ Someone who receives meshes from an AI generation pipeline and needs to prepare
 them for a downstream use (game engine, 3D printing, web viewer) without giving
 up manual control over what gets simplified and what doesn't.
 
+### How AI-specific is this, really?
+
+Worth being precise about, since the framing above is easy to over-read:
+**nothing in the codebase detects or reasons about mesh origin.** Every
+technique — cleanup (§3.1), UV-seam protection (§3.2), both decimation
+engines (§3.3), bidirectional error validation (§3.5), and the seam-gap
+topology repair (§5.1) — is a generic mesh-processing technique that works
+identically on a photogrammetry scan, a careless CAD export, or a hand-modeled
+asset. None of them inspect where the mesh came from, and there is no
+heuristic tuned to a specific generator's characteristic artifacts (e.g. no
+detection of marching-cubes stair-stepping or diffusion-model surface noise).
+"For AI-generated meshes" describes the *motivating use case* — this
+particular combination of problems (uniform density unrelated to visual
+importance, topological defects, floating fragments) is unusually common in
+that pipeline — not a claim that the algorithms are origin-aware. Two
+specific things worth calling out because they'd be reasonable to *assume*
+otherwise:
+
+- **Error-driven auto-protection (§3.5) does not account for the original
+  mesh's density.** It only measures geometric deviation (a Hausdorff-style
+  distance), with one global threshold scaled by the bounding-box diagonal —
+  not local vertex density. A flat region that happens to have unusually high
+  original density (common in AI output, since density there is arbitrary)
+  gets decimated just as aggressively as any other flat region; there's no
+  signal that says "this area used to be dense, be more careful here." What
+  *does* end up protected more, as a side effect of measuring geometric
+  error rather than by design, is high-curvature detail — decimating a curved
+  region produces more positional deviation than decimating a flat one, so it
+  crosses the error threshold sooner.
+- **Floating-fragment removal (§3.1) is exactly the generic filter.**
+  `clean_mesh` calls PyMeshLab's `meshing_remove_connected_component_by_diameter`
+  with a single size-relative-to-whole-mesh threshold — the same operation any
+  general-purpose mesh cleaner offers. There's no shape analysis or
+  classification distinguishing "generation noise" from "a legitimately
+  separate small object"; it's a pure size cutoff, exposed to the user as a
+  slider rather than hidden behind an "AI cleanup" label.
+
 ---
 
 ## 2. High-level architecture
@@ -76,13 +112,13 @@ works headless in CI.
 `app.py`'s `AdaptiveRemesherWindow` acts purely as an **orchestrator**: it owns
 UI state (loaded mesh, protection mask, undo/redo stack) and reacts to Qt
 events, but delegates *all* heavy domain work to `remesh_core.py`. For example,
-`AdaptiveRemesherWindow.apply_decimation()` ([app.py:814](app.py:814)) reduces to
+`AdaptiveRemesherWindow.apply_decimation()` ([app.py:833](app.py:833)) reduces to
 gathering the current panel configuration (`_gather_clean_settings`,
 `_gather_decimation_settings`, `_gather_protection_settings`) and calling
 `run_decimation_pipeline(...)` — the entire mesh-processing logic lives outside
 the class.
 
-Batch processing (`run_batch` / `_process_one_batch_file`, [app.py:942](app.py:942))
+Batch processing (`run_batch` / `_process_one_batch_file`, [app.py:963](app.py:963))
 and the interactive "Apply decimation" button **share the exact same pipeline**
 function, `run_decimation_pipeline`. Before this was refactored, the codebase
 had two near-identical copies of this logic — one for the interactive path, one
@@ -122,7 +158,7 @@ viewport (optional side-by-side comparison) / export to disk (+ optional .json r
 
 ### 3.1. Loading and cleaning
 
-`load_and_prepare_mesh` ([remesh_core.py:278](remesh_core.py:278)) normalizes any
+`load_and_prepare_mesh` ([remesh_core.py:283](remesh_core.py:283)) normalizes any
 supported input format to a pure triangulated surface mesh via
 `pyvista.read()` → `extract_surface(algorithm="dataset_surface")` →
 `triangulate()`. It raises `ValueError` if the result has no points or cells
@@ -138,7 +174,7 @@ not raise, not warn, just quietly skip a feature the user thinks is active. The
 function scans `point_data` for a 2-column float array whose name contains
 `"uv"`, `"tex"`, or `"tcoord"` (case-insensitive) and promotes the first match.
 
-`clean_mesh` ([remesh_core.py:46](remesh_core.py:46)) delegates to **PyMeshLab**,
+`clean_mesh` ([remesh_core.py:47](remesh_core.py:47)) delegates to **PyMeshLab**,
 building a `pymeshlab.MeshSet` from the PyVista vertex/face arrays and running,
 in order:
 
@@ -173,7 +209,7 @@ There are two independent sources of protection, both resolved into a single
   mesh, and after a QEM pass the surviving vertices may no longer sit at those
   same tree-indexed positions.
 - **Automatic UV-seam protection** (`uv_seam_point_mask`,
-  [remesh_core.py:84](remesh_core.py:84)): detects vertices that occupy the same
+  [remesh_core.py:85](remesh_core.py:85)): detects vertices that occupy the same
   3D position but carry different UV coordinates — the standard way OBJ/GLTF
   represent a texture seam (the surface is geometrically continuous, but the
   texture "unwrap" had to cut it there). If decimation collapses these
@@ -192,7 +228,7 @@ There are two independent sources of protection, both resolved into a single
 
 ### 3.3. The two decimation engines
 
-`decimate_pro` ([remesh_core.py:113](remesh_core.py:113)) wraps
+`decimate_pro` ([remesh_core.py:114](remesh_core.py:114)) wraps
 **`vtk.vtkDecimatePro`**: it collapses vertices in flat regions according to a
 **fixed feature angle** (`SetFeatureAngle`) — below the angle a region is
 considered flat and eligible for simplification, above it the edge is treated
@@ -202,7 +238,7 @@ as a hard feature/corner and preserved as-is. It also exposes
 predictable, but binary: there is no gradation between "fully preserved" and
 "fully collapsed" — a region is either above or below the angle threshold.
 
-`decimate_qem` ([remesh_core.py:138](remesh_core.py:138)) wraps
+`decimate_qem` ([remesh_core.py:139](remesh_core.py:139)) wraps
 **`vtk.vtkQuadricDecimation`** (Garland-Heckbert *Quadric Error Metric*): the
 cost of each edge collapse is a continuous quadratic error that already
 encodes local curvature — a nearly flat area has low error and collapses
@@ -230,7 +266,7 @@ error terms into the same cost function via `SetAttributeErrorMetric(True)`:
 
 VTK has no parameter meaning "leave these specific vertices untouched during
 decimation" for either engine. `decimate_with_mask`
-([remesh_core.py:330](remesh_core.py:330)) works around this purely
+([remesh_core.py:336](remesh_core.py:336)) works around this purely
 geometrically, in three steps:
 
 1. **Split** the mesh into two independent `PolyData` objects with
@@ -255,7 +291,7 @@ edges. This is exactly the failure mode analyzed in section 4.1, because
 `vtkDecimatePro` can enforce that "exactly" as a hard constraint while
 `vtkQuadricDecimation` can only discourage it with a cost penalty.
 
-`decimate()` ([remesh_core.py:303](remesh_core.py:303)) is the small dispatcher
+`decimate()` ([remesh_core.py:308](remesh_core.py:308)) is the small dispatcher
 between the two engines that `decimate_with_mask` calls for the unprotected
 piece; it resolves `lock_boundary` against the user's own
 `boundary_vertex_deletion` setting so a genuinely open mesh boundary (not a
@@ -264,7 +300,7 @@ protection mask in play at all.
 
 ### 3.5. Geometric error validation
 
-`measure_error` ([remesh_core.py:354](remesh_core.py:354)) approximates
+`measure_error` ([remesh_core.py:530](remesh_core.py:530)) approximates
 one-directional Hausdorff distance: for every face centroid of a mesh, its
 absolute distance to a reference surface represented as a
 `vtk.vtkImplicitPolyDataDistance`. Two implementation details matter:
@@ -280,21 +316,21 @@ absolute distance to a reference surface represented as a
   locator against an unchanging `source` mesh on every one of its up-to-3
   passes.
 
-`error_summary` ([remesh_core.py:372](remesh_core.py:372)) reduces a raw error
+`error_summary` ([remesh_core.py:548](remesh_core.py:548)) reduces a raw error
 array to three numbers: **max** (worst single point — the only number shown
 before this work), **mean** (overall quality), and **95th percentile** (how bad
 the worst *band* of the mesh is without a single outlier pixel dominating the
 number — more informative than the max on large meshes where one degenerate
 triangle can otherwise make the whole result look worse than it is).
 
-`measure_bidirectional_error` ([remesh_core.py:384](remesh_core.py:384)) measures
+`measure_bidirectional_error` ([remesh_core.py:560](remesh_core.py:560)) measures
 **both** directions — `result → source` (the original one) and
 `source → result` (added in this session; see section 4.2 for why the first
 direction alone is insufficient) — and returns all four arrays
 `(forward_errors, forward_centroids, reverse_errors, reverse_centroids)` so the
 caller can localize a problem in whichever mesh it was actually detected in.
 
-`refine_by_error` ([remesh_core.py:422](remesh_core.py:422)) closes the loop:
+`refine_by_error` ([remesh_core.py:597](remesh_core.py:597)) closes the loop:
 given a threshold (`error_threshold_pct`, expressed as a percentage of the
 mesh's bounding-box diagonal, so it scales with mesh size), it:
 
@@ -319,7 +355,7 @@ error arrays through `error_summary` — deliberately pooled rather than kept
 separate, so the UI and the exported report show one coherent set of
 max/mean/p95 numbers per run.
 
-`run_decimation_pipeline` ([remesh_core.py:477](remesh_core.py:477)) is the
+`run_decimation_pipeline` ([remesh_core.py:653](remesh_core.py:653)) is the
 single public entry point used by both the interactive button and batch
 processing: it builds the mask (manual ∪ UV-seam), calls `decimate_with_mask`,
 raises `ValueError` if that leaves zero cells, and then either calls
@@ -336,7 +372,7 @@ how far the result deviates from the source.
 - `protected_mask`: the per-vertex boolean protection mask edited by
   brush/rectangle tools.
 - An **undo/redo stack** built from full state snapshots
-  (`_snapshot`/`_push_undo`/`_restore_snapshot`, [app.py:264](app.py:264)):
+  (`_snapshot`/`_push_undo`/`_restore_snapshot`, [app.py:265](app.py:265)):
   every destructive operation (decimate, reset, clear protection, import mask)
   pushes a snapshot of `{mesh state, protection mask}` *before* it runs, so
   undo/redo simply swaps to a previously captured snapshot rather than
@@ -345,7 +381,7 @@ how far the result deviates from the source.
   `.panel_layout.json` next to the script.
 
 Class-level type annotations (e.g. `undo_btn: QPushButton`,
-`auto_error_cb: QCheckBox`, [app.py:92-125](app.py:92)) declare every widget
+`auto_error_cb: QCheckBox`, [app.py:92-126](app.py:92)) declare every widget
 that a `build_xxx_panel()` function in `ui/panels/` will attach to `self` at
 construction time — the assignment itself happens inside those functions, not
 in `__init__`; the annotations exist purely so `mypy` can type-check code that
@@ -360,7 +396,7 @@ widgets and wires their signals to methods on `window`. This is what shrank
 `AdaptiveRemesherWindow.__init__` from roughly 670 lines of inline widget
 construction to a short sequence of `build_xxx_panel(self, layout)` calls.
 
-`apply_decimation()` ([app.py:814](app.py:814)) is the main interactive
+`apply_decimation()` ([app.py:833](app.py:833)) is the main interactive
 entry point: gather settings → `run_decimation_pipeline` inside a
 `busy_cursor()` context manager → on success, push undo, swap in the new mesh,
 disable the paint/erase buttons (see below), and format both the on-screen
@@ -368,23 +404,23 @@ stats label and a `_last_run_info` dict that becomes the exported `.json`
 report if the user checked "export report" at export time.
 
 The brush is force-disabled right after a successful decimation
-(`self.paint_btn.setChecked(False)`, [app.py:848](app.py:848)) because it paints
+(`self.paint_btn.setChecked(False)`, [app.py:868](app.py:868)) because it paints
 against the *original* mesh's `cKDTree`, and after a QEM pass the unprotected
 vertices have moved — painting immediately after decimating would silently
 mark the wrong points as protected against a stale coordinate mapping.
 
-`export_mesh()` ([app.py:918](app.py:918)) writes the current mesh to disk
+`export_mesh()` ([app.py:939](app.py:939)) writes the current mesh to disk
 (`mesh.save(path)`, format inferred from the chosen extension via VTK/PyVista's
 writers) and, if "export report" is checked and a decimation has already run,
 writes a sibling `<name>_report.json` with the `_last_run_info` dict.
 
 ### 3.7. Batch processing
 
-`run_batch()` ([app.py:980](app.py:980)) lets the same configured pipeline run
+`run_batch()` ([app.py:1001](app.py:1001)) lets the same configured pipeline run
 over every compatible file (`.obj/.stl/.ply/.vtp/.glb/.gltf`) in an input
 folder, writing results (and optional per-file `.json` reports) to an output
 folder, without ever loading anything into the viewport. Per file,
-`_process_one_batch_file()` ([app.py:942](app.py:942)) calls
+`_process_one_batch_file()` ([app.py:963](app.py:963)) calls
 `load_and_prepare_mesh` → `run_decimation_pipeline(..., manual_mask=None)` —
 **manual protection never applies in batch mode**, since there's no open
 viewport to have painted on; only UV-seam protection and error-based
@@ -396,7 +432,7 @@ would be silently overwritten.
 
 ### 3.8. Presets
 
-`_gather_preset()` / `_apply_preset()` ([app.py:1076](app.py:1076)/[app.py:1108](app.py:1108))
+`_gather_preset()` / `_apply_preset()` ([app.py:1096](app.py:1096)/[app.py:1128](app.py:1128))
 serialize/restore every panel parameter (engine choice, reduction target,
 feature angle, QEM weights, protection toggles, error threshold, etc.) to and
 from a `.json` file — deliberately **excluding** the loaded mesh and the manual
@@ -486,7 +522,7 @@ prototyped in a scratch script but deliberately **not** ported into
 `remesh_core.py`, since it doesn't reliably address the underlying topological
 mismatch and would add complexity for inconsistent benefit.
 
-**Fix** ([remesh_core.py:202](remesh_core.py:202), inside `decimate_qem`): raise
+**Fix** ([remesh_core.py:203](remesh_core.py:203), inside `decimate_qem`): raise
 the boundary weight from `1000.0` to `1e10`. Verified with a manual sweep
 across mesh resolutions and protection masks: the seam now stays reliably
 welded up to ~90% reduction. A residual failure margin remains above that
@@ -532,7 +568,7 @@ decimation pass that flattens the bump away entirely).
 **Fix:**
 
 - `measure_bidirectional_error` (new function in `remesh_core.py`,
-  [remesh_core.py:384](remesh_core.py:384)): measures both `result → source`
+  [remesh_core.py:560](remesh_core.py:560)): measures both `result → source`
   (the original direction) and `source → result` (the new one), reusing the
   `source`-side spatial locator across refinement passes for efficiency (see
   3.5).
@@ -627,7 +663,7 @@ this is why neither PyMeshLab's `meshing_repair_non_manifold_vertices` (any
 `meshing_remove_t_vertices`, nor VTK's own `vtkFillHolesFilter`, could close
 it: none of them separate the two loops that meet at that one point. A
 targeted post-process, `_stitch_residual_boundary_gaps`
-([remesh_core.py:430](remesh_core.py:430)), now runs after `_weld_seam_gaps`:
+([remesh_core.py:435](remesh_core.py:435)), now runs after `_weld_seam_gaps`:
 it rebuilds the simple closed loops hiding in the residual boundary-edge
 graph — at each bowtie vertex, pairing each incident edge with the one most
 opposite in direction (`_pair_seam_branch_neighbors`, the pairing that best
@@ -649,7 +685,7 @@ and
 
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
-`_apply_rect_selection()` ([app.py:519](app.py:519)) kept its cheap
+`_apply_rect_selection()` ([app.py:522](app.py:522)) kept its cheap
 screen-projection prefilter (`_project_points_to_qt`, to narrow the whole mesh
 down to the handful of vertices inside the rectangle), but now runs
 `vtk.vtkSelectVisiblePoints` on those candidates against the renderer's actual

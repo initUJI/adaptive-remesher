@@ -1,4 +1,4 @@
-"""Panel de validacion por error geometrico de superficie."""
+"""Surface geometric error-based validation panel."""
 
 from typing import TYPE_CHECKING
 
@@ -18,29 +18,30 @@ if TYPE_CHECKING:
 
 
 def build_validation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout) -> None:
-    error_group = window._add_collapsible_group("error", "Validacion por error de superficie")
+    error_group = window._add_collapsible_group("error", "Surface error-based validation")
     error_grid = QGridLayout(error_group)
 
-    window.auto_error_cb = QCheckBox("Auto-proteger zonas con error alto")
+    window.auto_error_cb = QCheckBox("Auto-protect high-error areas")
     window.auto_error_cb.setChecked(True)
     window.auto_error_cb.setToolTip(tip(
-        "Tras decimar, mide en las dos direcciones cuanto se aleja el "
-        "resultado del original (aproxima la distancia de Hausdorff): "
-        "tanto zonas del resultado desviadas del original como detalles "
-        "del original que el resultado haya eliminado por completo. "
-        "Donde el error supera el umbral, protege esos vertices en la "
-        "malla original y vuelve a decimar (hasta el numero de pasadas "
-        "de abajo), en vez de fiarlo todo al angulo de deteccion fijo."
+        "After decimating, measures in both directions how far the "
+        "result strays from the original (approximates the Hausdorff "
+        "distance): both areas of the result deviated from the "
+        "original and original details the result has removed "
+        "entirely. Where the error exceeds the threshold, protects "
+        "those vertices in the original mesh and decimates again (up "
+        "to the number of passes below), instead of relying entirely "
+        "on the fixed detection angle."
     ))
     error_grid.addWidget(window.auto_error_cb, 0, 0, 1, 2)
 
-    error_threshold_label = QLabel("Error maximo permitido (% diagonal)")
+    error_threshold_label = QLabel("Maximum allowed error (% diagonal)")
     error_threshold_tip = tip(
-        "Umbral de error, como porcentaje de la diagonal del bounding "
-        "box, a partir del cual una zona decimada se considera "
-        "demasiado deformada y se protege automaticamente. Bajalo para "
-        "exigir mas fidelidad (mas zonas se auto-protegen, menos "
-        "reduccion real); subelo para permitir mas deformacion."
+        "Error threshold, as a percentage of the bounding-box "
+        "diagonal, above which a decimated area is considered too "
+        "deformed and gets protected automatically. Lower it to "
+        "demand more fidelity (more areas get auto-protected, less "
+        "actual reduction); raise it to allow more deformation."
     )
     error_threshold_label.setToolTip(error_threshold_tip)
     error_grid.addWidget(error_threshold_label, 1, 0, 1, 2)
@@ -52,13 +53,14 @@ def build_validation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     window.error_threshold_spin.setToolTip(error_threshold_tip)
     error_grid.addWidget(window.error_threshold_spin, 2, 0, 1, 2)
 
-    error_max_iterations_label = QLabel("Pasadas maximas de auto-proteccion")
+    error_max_iterations_label = QLabel("Maximum auto-protection passes")
     error_max_iterations_tip = tip(
-        "Numero maximo de veces que se repite el ciclo de medir error y "
-        "volver a decimar protegiendo las zonas peores. Con un umbral "
-        "muy exigente, mas pasadas acercan mas el resultado al umbral a "
-        "costa de mas tiempo de calculo; menos pasadas cortan antes "
-        "aunque el error siga por encima."
+        "Maximum number of times the cycle of measuring error and "
+        "decimating again while protecting the worst areas is "
+        "repeated. With a very demanding threshold, more passes bring "
+        "the result closer to the threshold at the cost of more "
+        "computation time; fewer passes stop earlier even if the "
+        "error is still above it."
     )
     error_max_iterations_label.setToolTip(error_max_iterations_tip)
     error_grid.addWidget(error_max_iterations_label, 3, 0, 1, 2)
