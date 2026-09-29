@@ -19,6 +19,7 @@ import logging
 import os
 import sys
 from datetime import datetime
+from typing import cast
 
 import numpy as np
 import pyvista as pv
@@ -45,9 +46,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from PySide6.QtCore import QEvent, QPoint, QRect, Qt, QTimer
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QMouseEvent
 from pyvistaqt import QtInteractor
-from scipy.spatial import cKDTree
+from scipy.spatial import cKDTree  # type: ignore[attr-defined]
 
 from remesh_core import (
     ENGINE_QEM,
@@ -62,7 +63,7 @@ from remesh_core import (
     uv_seam_point_mask,
 )
 from logging_config import configure_logging
-from ui.common import STYLESHEET, CollapsibleGroupBox, ComparisonDialog, busy_cursor
+from ui.common import STYLESHEET, CollapsibleGroupBox, ComparisonDialog, busy_cursor, tip
 from ui.panels import (
     build_action_buttons,
     build_batch_panel,
@@ -167,6 +168,10 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._curvature_cache: tuple | None = None
         self._uv_seam_cache: tuple | None = None
         self._last_brush_point: np.ndarray | None = None
+        # Tracks what show_mesh most recently drew, so the curvature-map
+        # checkbox can be disabled while it wouldn't have any visible effect
+        # (see _update_curvature_availability).
+        self._viewing_original = False
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -232,6 +237,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         build_batch_panel(self, panel_layout)
 
         panel_layout.addStretch(1)
+        self._update_curvature_availability()
 
     # --- collapsible sections ---
 
@@ -434,41 +440,45 @@ class AdaptiveRemesherWindow(QMainWindow):
             return super().eventFilter(obj, event)
 
         et = event.type()
+        # Only reached for actual mouse events: the `et ==` checks below only
+        # ever pass for MouseButtonPress/Move/Release, and non-mouse events
+        # fall through to super().eventFilter() without touching `mouse_event`.
+        mouse_event = cast(QMouseEvent, event)
         brush_active = self.paint_btn.isChecked() or self.erase_btn.isChecked()
         if brush_active:
-            if et == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+            if et == QEvent.Type.MouseButtonPress and mouse_event.button() == Qt.MouseButton.LeftButton:
                 self._push_undo()  # one undo step per stroke, not per movement
                 self._is_painting = True
                 self._last_brush_point = None
-                self._apply_brush_at_qt_pos(event.position())
+                self._apply_brush_at_qt_pos(mouse_event.position())
                 return True
             if et == QEvent.Type.MouseMove and self._is_painting:
-                self._apply_brush_at_qt_pos(event.position())
+                self._apply_brush_at_qt_pos(mouse_event.position())
                 return True
-            if et == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton:
+            if et == QEvent.Type.MouseButtonRelease and mouse_event.button() == Qt.MouseButton.LeftButton:
                 self._is_painting = False
                 return True
             return super().eventFilter(obj, event)
 
         if self.rect_btn.isChecked():
-            if et == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+            if et == QEvent.Type.MouseButtonPress and mouse_event.button() == Qt.MouseButton.LeftButton:
                 self._push_undo()  # one undo step per rectangle
-                self._rect_origin = event.position().toPoint()
-                self._rect_erase = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                self._rect_origin = mouse_event.position().toPoint()
+                self._rect_erase = bool(mouse_event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
                 self._rubber_band.setGeometry(QRect(self._rect_origin, self._rect_origin))
                 self._rubber_band.show()
                 return True
             if et == QEvent.Type.MouseMove and self._rubber_band.isVisible() and self._rect_origin is not None:
-                rect = QRect(self._rect_origin, event.position().toPoint()).normalized()
+                rect = QRect(self._rect_origin, mouse_event.position().toPoint()).normalized()
                 self._rubber_band.setGeometry(rect)
                 return True
             if (
                 et == QEvent.Type.MouseButtonRelease
-                and event.button() == Qt.MouseButton.LeftButton
+                and mouse_event.button() == Qt.MouseButton.LeftButton
                 and self._rubber_band.isVisible()
                 and self._rect_origin is not None
             ):
-                rect = QRect(self._rect_origin, event.position().toPoint()).normalized()
+                rect = QRect(self._rect_origin, mouse_event.position().toPoint()).normalized()
                 self._rubber_band.hide()
                 self._apply_rect_selection(rect)
                 return True
@@ -492,6 +502,12 @@ class AdaptiveRemesherWindow(QMainWindow):
         points, and on large meshes repeating the KDTree query and the
         overlay redraw on every micro-movement of the mouse (several times
         a second while dragging) is an unnecessary cost."""
+        # Only called (via _apply_brush_at_qt_pos) from eventFilter while a
+        # brush tool is active, which requires a loaded mesh and therefore a
+        # built point_kdtree (see _reset_protection).
+        assert self.original_mesh is not None
+        assert self.point_kdtree is not None
+        assert self.protected_mask is not None
         radius = (self.brush_slider.value() / 100.0) * self.original_mesh.length
         point = np.asarray(point, dtype=float)
         if (
@@ -599,6 +615,8 @@ class AdaptiveRemesherWindow(QMainWindow):
             self.protected_actor = None
         count = int(self.protected_mask.sum()) if self.protected_mask is not None else 0
         if count:
+            assert self.original_mesh is not None
+            assert self.protected_mask is not None
             pts = self.original_mesh.points[self.protected_mask]
             cloud = pv.PolyData(pts)
             self.protected_actor = self.plotter.add_mesh(
@@ -728,6 +746,38 @@ class AdaptiveRemesherWindow(QMainWindow):
         else:
             self.plotter.reset_camera()  # type: ignore[call-arg]
         self.protected_actor = None
+        self._viewing_original = is_original
+        self._update_curvature_availability()
+
+    def _update_curvature_availability(self):
+        """Enables the curvature-map checkbox only while the original mesh
+        is actually what's on screen: coloring by curvature has no visible
+        effect while Live preview is on (it keeps redrawing the preview
+        mesh) or after 'Apply decimation' (the applied result is shown
+        instead), until 'Restore original' or a protection brush switches
+        the view back — both cases previously left the checkbox checked
+        but silently inert, which was confusing. Disabling it also makes
+        the incompatibility with those other options visible instead of
+        a no-op."""
+        can_apply = self.original_mesh is not None and self._viewing_original
+        self.curvature_cb.setEnabled(can_apply)
+        if can_apply:
+            reason = (
+                "Colors the original mesh according to its mean curvature "
+                "(blue/red = flat/curved areas), to see at a glance where it "
+                "makes sense to paint protected zones before decimating."
+            )
+        elif self.original_mesh is None:
+            reason = "Load a mesh first."
+        elif self.live_preview_cb.isChecked():
+            reason = "Not available while \"Live preview\" is on."
+        else:
+            reason = (
+                "Not available while viewing the decimated result. "
+                "Use \"Restore original\" or a protection brush to view "
+                "the original mesh again."
+            )
+        self.curvature_cb.setToolTip(tip(reason))
 
     def _on_curvature_toggled(self, _checked: bool):
         """Redraws the current mesh (without resetting the camera) when the curvature map is turned on or off."""

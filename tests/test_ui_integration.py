@@ -132,6 +132,29 @@ def test_collapsible_group_hides_children_when_collapsed(loaded_window):
     assert child.isVisibleTo(group)
 
 
+def test_curvature_map_disabled_while_incompatible(loaded_window):
+    """Regression: the curvature map only colors show_mesh's `is_original`
+    call, so it silently did nothing while Live preview was on or after
+    applying a decimation, even though the checkbox stayed checked."""
+    assert loaded_window.curvature_cb.isEnabled()
+
+    loaded_window.live_preview_cb.setChecked(True)
+    assert not loaded_window.curvature_cb.isEnabled()
+
+    loaded_window.live_preview_cb.setChecked(False)
+    assert loaded_window.curvature_cb.isEnabled()
+
+    loaded_window.apply_decimation()
+    assert not loaded_window.curvature_cb.isEnabled()
+
+    loaded_window.reset_mesh()
+    assert loaded_window.curvature_cb.isEnabled()
+
+    loaded_window.apply_decimation()
+    loaded_window.paint_btn.setChecked(True)  # switches the view back to the original mesh
+    assert loaded_window.curvature_cb.isEnabled()
+
+
 def test_preset_roundtrip_restores_controls(loaded_window):
     loaded_window.reduction_slider.setValue(77)
     loaded_window.engine_combo.setCurrentIndex(1)

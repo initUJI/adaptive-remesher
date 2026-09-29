@@ -16,12 +16,10 @@ def build_view_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout
 
     window.curvature_cb = QCheckBox("Curvature map (original mesh)")
     window.curvature_cb.setChecked(False)
-    window.curvature_cb.setToolTip(tip(
-        "Colors the original mesh according to its mean curvature "
-        "(blue/red = flat/curved areas), to see at a glance where it "
-        "makes sense to paint protected zones before decimating. Only "
-        "applies while viewing the original mesh, not the decimated result."
-    ))
+    # Tooltip and enabled state are kept up to date dynamically by
+    # window._update_curvature_availability(): it only works while the
+    # original mesh is actually on screen, which "Live preview" and an
+    # applied decimation both temporarily override.
     window.curvature_cb.toggled.connect(window._on_curvature_toggled)
     view_grid.addWidget(window.curvature_cb, 0, 0)
 

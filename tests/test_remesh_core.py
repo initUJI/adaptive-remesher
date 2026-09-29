@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import pyvista as pv
-from scipy.spatial import cKDTree
+from scipy.spatial import cKDTree  # type: ignore[attr-defined]
 
 from remesh_core import (
     ENGINE_DECIMATE_PRO,

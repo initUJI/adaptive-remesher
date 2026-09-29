@@ -4,6 +4,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- The curvature-map checkbox stayed checked but silently had no visible
+  effect while "Live preview" was on, or after "Apply decimation" until
+  "Restore original" was pressed — both redraw the viewport with the
+  decimated/preview mesh (`show_mesh(is_original=False)`), and curvature
+  coloring only ever applies to the original mesh. Now
+  `_update_curvature_availability` disables the checkbox and updates its
+  tooltip whenever the original mesh isn't what's actually on screen, so
+  the incompatibility is visible instead of a silent no-op.
+
 ### Added
 - App icon (`assets/icon.png`/`assets/icon.ico`), set as the window/taskbar
   icon at runtime and as the packaged executable's icon on Windows.

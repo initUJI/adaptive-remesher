@@ -16,7 +16,7 @@ import numpy as np
 import pymeshlab
 import pyvista as pv
 import vtk
-from scipy.spatial import cKDTree
+from scipy.spatial import cKDTree  # type: ignore[attr-defined]
 
 ENGINE_DECIMATE_PRO = 0
 ENGINE_QEM = 1
