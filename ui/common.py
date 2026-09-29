@@ -128,7 +128,7 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none;
 def busy_cursor():
     """Shows the wait cursor during a potentially long operation (cleanup
     or decimation), so the interface doesn't appear frozen."""
-    QApplication.setOverrideCursor(Qt.WaitCursor)
+    QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
     QApplication.processEvents()
     try:
         yield

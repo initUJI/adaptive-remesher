@@ -5,6 +5,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- App icon (`assets/icon.png`/`assets/icon.ico`), set as the window/taskbar
+  icon at runtime and as the packaged executable's icon on Windows.
 - `remesh_core._stitch_residual_boundary_gaps`: a last resort after
   `_weld_seam_gaps` for the QEM seam at extreme reduction levels (see
   "Fixed" below). After thoroughly investigating why `_weld_seam_gaps`

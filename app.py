@@ -44,7 +44,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PySide6.QtCore import QEvent, QRect, Qt, QTimer
+from PySide6.QtCore import QEvent, QPoint, QRect, Qt, QTimer
+from PySide6.QtGui import QIcon
 from pyvistaqt import QtInteractor
 from scipy.spatial import cKDTree
 
@@ -74,7 +75,15 @@ from ui.panels import (
     build_view_panel,
 )
 
+def _resource_path(*parts):
+    """Resolves a path next to the source tree, or inside the PyInstaller
+    bundle (`sys._MEIPASS`) when frozen."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, *parts)
+
+
 PANEL_STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".panel_layout.json")
+ICON_PATH = _resource_path("assets", "icon.png")
 
 BATCH_INPUT_EXTENSIONS = (".obj", ".stl", ".ply", ".vtp", ".glb", ".gltf")
 
@@ -145,7 +154,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._redo_stack: list[dict] = []
         self._max_history = 15
         self._last_run_info: dict | None = None
-        self._rect_origin = None
+        self._rect_origin: QPoint | None = None
         self._rect_erase = False
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
@@ -427,7 +436,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         et = event.type()
         brush_active = self.paint_btn.isChecked() or self.erase_btn.isChecked()
         if brush_active:
-            if et == QEvent.Type.MouseButtonPress and event.button() == Qt.LeftButton:
+            if et == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
                 self._push_undo()  # one undo step per stroke, not per movement
                 self._is_painting = True
                 self._last_brush_point = None
@@ -436,24 +445,29 @@ class AdaptiveRemesherWindow(QMainWindow):
             if et == QEvent.Type.MouseMove and self._is_painting:
                 self._apply_brush_at_qt_pos(event.position())
                 return True
-            if et == QEvent.Type.MouseButtonRelease and event.button() == Qt.LeftButton:
+            if et == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton:
                 self._is_painting = False
                 return True
             return super().eventFilter(obj, event)
 
         if self.rect_btn.isChecked():
-            if et == QEvent.Type.MouseButtonPress and event.button() == Qt.LeftButton:
+            if et == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
                 self._push_undo()  # one undo step per rectangle
                 self._rect_origin = event.position().toPoint()
-                self._rect_erase = bool(event.modifiers() & Qt.ShiftModifier)
+                self._rect_erase = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
                 self._rubber_band.setGeometry(QRect(self._rect_origin, self._rect_origin))
                 self._rubber_band.show()
                 return True
-            if et == QEvent.Type.MouseMove and self._rubber_band.isVisible():
+            if et == QEvent.Type.MouseMove and self._rubber_band.isVisible() and self._rect_origin is not None:
                 rect = QRect(self._rect_origin, event.position().toPoint()).normalized()
                 self._rubber_band.setGeometry(rect)
                 return True
-            if et == QEvent.Type.MouseButtonRelease and event.button() == Qt.LeftButton and self._rubber_band.isVisible():
+            if (
+                et == QEvent.Type.MouseButtonRelease
+                and event.button() == Qt.MouseButton.LeftButton
+                and self._rubber_band.isVisible()
+                and self._rect_origin is not None
+            ):
                 rect = QRect(self._rect_origin, event.position().toPoint()).normalized()
                 self._rubber_band.hide()
                 self._apply_rect_selection(rect)
@@ -1049,13 +1063,13 @@ class AdaptiveRemesherWindow(QMainWindow):
             f"result saved to \"{output_dir}\" as .{ext}. Manual protection "
             "(brush/rectangle) is not applied, only the automatic "
             f"protection configured above.{warning}\n\nContinue?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
 
         progress = QProgressDialog("Processing...", "Cancel", 0, len(files), self)
-        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
 
         ok_count = 0
@@ -1197,6 +1211,7 @@ def main():
     logging_config.py)."""
     configure_logging(verbose=bool(os.environ.get("ADAPTIVE_REMESHER_DEBUG")))
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(ICON_PATH))
     app.setStyleSheet(STYLESHEET)
     window = AdaptiveRemesherWindow()
     window.show()
