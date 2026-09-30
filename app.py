@@ -63,7 +63,14 @@ from remesh_core import (
     uv_seam_point_mask,
 )
 from logging_config import configure_logging
-from ui.common import STYLESHEET, CollapsibleGroupBox, ComparisonDialog, busy_cursor, tip
+from ui.common import (
+    STYLESHEET,
+    VIEWPORT_BACKGROUND_PRESETS,
+    CollapsibleGroupBox,
+    ComparisonDialog,
+    busy_cursor,
+    tip,
+)
 from ui.panels import (
     build_action_buttons,
     build_batch_panel,
@@ -109,6 +116,7 @@ class AdaptiveRemesherWindow(QMainWindow):
     fix_orientation_cb: QCheckBox
     curvature_cb: QCheckBox
     live_preview_cb: QCheckBox
+    viewport_bg_combo: QComboBox
     paint_btn: QPushButton
     erase_btn: QPushButton
     rect_btn: QPushButton
@@ -788,6 +796,13 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.show_mesh(shown, is_original=self.decimated_mesh is None, preserve_camera=cam)
         self._refresh_protection_overlay()
 
+    def _on_viewport_bg_changed(self, index: int):
+        """Applies the chosen background preset to the 3D viewport and
+        redraws immediately, without touching the camera or the mesh."""
+        _, color = VIEWPORT_BACKGROUND_PRESETS[index]
+        self.plotter.set_background(color)  # type: ignore[arg-type]
+        self.plotter.render()
+
     def _on_live_preview_toggled(self, checked: bool):
         """When enabling live preview, computes it immediately; when
         disabling it, goes back to showing the real state (the already
@@ -939,22 +954,30 @@ class AdaptiveRemesherWindow(QMainWindow):
         if result.uv_seam_protected_points:
             notes.append(f"{result.uv_seam_protected_points} UV-seam points protected")
         note = f" ({', '.join(notes)})" if notes else ""
+        error_direction_note = (
+            f"\n  result→original: max {result.error_max_fwd:.4f} "
+            f"| original→result: max {result.error_max_rev:.4f}"
+        )
         if protection.auto_error_protection:
             error_note = (
                 f"\nGeometric error (post-refinement): max {result.error_max:.4f}, "
                 f"mean {result.error_mean:.4f}, p95 {result.error_p95:.4f} "
                 f"({result.error_refine_iterations} pass(es), "
                 f"+{result.error_refine_added_points} points auto-protected)"
+                f"{error_direction_note}"
             )
         else:
             error_note = (
                 f"\nGeometric error: max {result.error_max:.4f}, "
                 f"mean {result.error_mean:.4f}, p95 {result.error_p95:.4f}"
+                f"{error_direction_note}"
             )
         self.stats_label.setText(
             f"Original: {result.original_tris} tris\n"
             f"Result: {result.result_tris} tris\n"
-            f"Actual reduction: {result.reduction_real_pct:.1f}%{note}{error_note}"
+            f"Actual reduction: {result.reduction_real_pct:.1f}% overall, "
+            f"{result.unprotected_zone_reduction_pct:.1f}% in the unprotected zone"
+            f"{note}{error_note}"
         )
 
         self._last_run_info = {
@@ -964,12 +987,21 @@ class AdaptiveRemesherWindow(QMainWindow):
             "result_tris": result.result_tris,
             "reduction_target_pct": self.reduction_slider.value(),
             "reduction_real_pct": result.reduction_real_pct,
+            "unprotected_zone_tris_before": result.unprotected_zone_tris_before,
+            "unprotected_zone_tris_after": result.unprotected_zone_tris_after,
+            "unprotected_zone_reduction_pct": result.unprotected_zone_reduction_pct,
             "manual_protected_points": result.manual_protected_points,
             "uv_seam_protected_points": result.uv_seam_protected_points,
             "auto_error_protection_enabled": protection.auto_error_protection,
             "error_max": round(result.error_max, 6),
             "error_mean": round(result.error_mean, 6),
             "error_p95": round(result.error_p95, 6),
+            "error_max_fwd": round(result.error_max_fwd, 6),
+            "error_mean_fwd": round(result.error_mean_fwd, 6),
+            "error_p95_fwd": round(result.error_p95_fwd, 6),
+            "error_max_rev": round(result.error_max_rev, 6),
+            "error_mean_rev": round(result.error_mean_rev, 6),
+            "error_p95_rev": round(result.error_p95_rev, 6),
         }
         if protection.auto_error_protection:
             self._last_run_info.update({
@@ -997,7 +1029,8 @@ class AdaptiveRemesherWindow(QMainWindow):
                 "Apply a decimation first to be able to compare the original and the result.",
             )
             return
-        dialog = ComparisonDialog(self.original_mesh, self.decimated_mesh, self)
+        _, bg_color = VIEWPORT_BACKGROUND_PRESETS[self.viewport_bg_combo.currentIndex()]
+        dialog = ComparisonDialog(self.original_mesh, self.decimated_mesh, self, background=bg_color)
         dialog.exec()
 
     def export_mesh(self):
@@ -1048,11 +1081,20 @@ class AdaptiveRemesherWindow(QMainWindow):
             "result_tris": result.result_tris,
             "reduction_target_pct": self.reduction_slider.value(),
             "reduction_real_pct": result.reduction_real_pct,
+            "unprotected_zone_tris_before": result.unprotected_zone_tris_before,
+            "unprotected_zone_tris_after": result.unprotected_zone_tris_after,
+            "unprotected_zone_reduction_pct": result.unprotected_zone_reduction_pct,
             "uv_seam_protected_points": result.uv_seam_protected_points,
             "auto_error_protection_enabled": protection.auto_error_protection,
             "error_max": round(result.error_max, 6),
             "error_mean": round(result.error_mean, 6),
             "error_p95": round(result.error_p95, 6),
+            "error_max_fwd": round(result.error_max_fwd, 6),
+            "error_mean_fwd": round(result.error_mean_fwd, 6),
+            "error_p95_fwd": round(result.error_p95_fwd, 6),
+            "error_max_rev": round(result.error_max_rev, 6),
+            "error_mean_rev": round(result.error_mean_rev, 6),
+            "error_p95_rev": round(result.error_p95_rev, 6),
         }
         if protection.auto_error_protection:
             info.update({
@@ -1170,6 +1212,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             "fix_orientation": self.fix_orientation_cb.isChecked(),
             "curvature_view": self.curvature_cb.isChecked(),
             "live_preview": self.live_preview_cb.isChecked(),
+            "viewport_bg_index": self.viewport_bg_combo.currentIndex(),
             "brush_radius_pct": self.brush_slider.value(),
             "protect_uv_seams": self.protect_uv_seams_cb.isChecked(),
             "engine_index": self.engine_combo.currentIndex(),
@@ -1204,6 +1247,9 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.fix_orientation_cb.setChecked(get("fix_orientation", self.fix_orientation_cb.isChecked()))
         self.curvature_cb.setChecked(get("curvature_view", self.curvature_cb.isChecked()))
         self.live_preview_cb.setChecked(get("live_preview", self.live_preview_cb.isChecked()))
+        self.viewport_bg_combo.setCurrentIndex(
+            get("viewport_bg_index", self.viewport_bg_combo.currentIndex())
+        )
         self.brush_slider.setValue(get("brush_radius_pct", self.brush_slider.value()))
         self.protect_uv_seams_cb.setChecked(get("protect_uv_seams", self.protect_uv_seams_cb.isChecked()))
         self.engine_combo.setCurrentIndex(get("engine_index", self.engine_combo.currentIndex()))

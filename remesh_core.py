@@ -258,6 +258,31 @@ class ProtectionSettings:
 
 
 @dataclass
+class ErrorStats:
+    """Bidirectional geometric error summary (see
+    `measure_bidirectional_error`): the plain fields pool both directions
+    together (result<->source concatenated), matching the single number
+    this app always showed before; `_fwd` (result->source) and `_rev`
+    (source->result) break it down per direction, because each one
+    signals a different failure mode that the pooled number alone can't
+    tell apart — a high `_fwd` error means the decimation deviated from
+    the original surface (e.g. a collapsed edge bulging out), while a
+    high `_rev` error means a whole feature of the original disappeared
+    in the result (nothing left nearby to measure against). The true
+    one-sided Hausdorff-style maximum is `max(max_fwd, max_rev)`."""
+
+    max: float
+    mean: float
+    p95: float
+    max_fwd: float
+    mean_fwd: float
+    p95_fwd: float
+    max_rev: float
+    mean_rev: float
+    p95_rev: float
+
+
+@dataclass
 class PipelineResult:
     """Result of `run_decimation_pipeline`, with the decimated mesh and
     the statistics needed both to update the UI and for the exportable
@@ -268,6 +293,16 @@ class PipelineResult:
     original_tris: int
     result_tris: int
     reduction_real_pct: float
+    # Triangle count of the unprotected zone alone, before/after
+    # decimation, and the reduction that represents: `reduction_real_pct`
+    # above is a whole-mesh ratio, but the target reduction the user sets
+    # only ever applies to this zone (the protected part is never fed to
+    # the decimator, see decimate_with_mask) — with a large protected
+    # region, the whole-mesh ratio can look much lower than the target
+    # even though the unprotected zone hit it exactly.
+    unprotected_zone_tris_before: int
+    unprotected_zone_tris_after: int
+    unprotected_zone_reduction_pct: float
     manual_protected_points: int
     uv_seam_protected_points: int
     # Always populated by run_decimation_pipeline (with or without
@@ -276,6 +311,12 @@ class PipelineResult:
     error_max: float
     error_mean: float
     error_p95: float
+    error_max_fwd: float
+    error_mean_fwd: float
+    error_p95_fwd: float
+    error_max_rev: float
+    error_mean_rev: float
+    error_p95_rev: float
     error_refine_iterations: int
     error_refine_added_points: int
 
@@ -334,7 +375,10 @@ def decimate(mesh: pv.PolyData, settings: DecimationSettings, lock_boundary: boo
 
 
 def decimate_with_mask(
-    source: pv.PolyData, mask: np.ndarray, settings: DecimationSettings
+    source: pv.PolyData,
+    mask: np.ndarray,
+    settings: DecimationSettings,
+    zone_stats: Optional[dict] = None,
 ) -> pv.PolyData:
     """Decimates `source` leaving the points marked in `mask` untouched
     (protected): splits them off, decimates only the rest, and
@@ -342,9 +386,20 @@ def decimate_with_mask(
     seam (`_weld_seam_gaps`, and `_stitch_residual_boundary_gaps` as a
     last resort on whatever is still left) before returning it. If
     `mask` is empty, decimates the whole mesh (there's no seam to
-    repair)."""
+    repair). If `zone_stats` is passed, it's filled in-place with
+    `unprotected_tris_before`/`unprotected_tris_after`: the actual
+    reduction target (`settings.reduction_pct`) only ever applies to this
+    zone, never to `source` as a whole, so a caller that wants to report
+    the reduction actually achieved there (as opposed to the diluted
+    whole-mesh ratio) needs these counts from before the merge/weld/stitch
+    steps, which can themselves add or remove a handful of faces at the
+    seam."""
     if not mask.any():
-        return decimate(source, settings, lock_boundary=False)
+        decimated = decimate(source, settings, lock_boundary=False)
+        if zone_stats is not None:
+            zone_stats["unprotected_tris_before"] = source.n_cells
+            zone_stats["unprotected_tris_after"] = decimated.n_cells
+        return decimated
 
     protected_ids = np.where(mask)[0]
     unprotected_ids = np.where(~mask)[0]
@@ -352,12 +407,18 @@ def decimate_with_mask(
         protected_ids, adjacent_cells=True
     ).extract_surface(algorithm="dataset_surface")
     if unprotected_ids.size == 0:
+        if zone_stats is not None:
+            zone_stats["unprotected_tris_before"] = 0
+            zone_stats["unprotected_tris_after"] = 0
         return protected_group
 
     unprotected_group = source.extract_points(
         unprotected_ids, adjacent_cells=False
     ).extract_surface(algorithm="dataset_surface")
     decimated_part = decimate(unprotected_group, settings, lock_boundary=True)
+    if zone_stats is not None:
+        zone_stats["unprotected_tris_before"] = unprotected_group.n_cells
+        zone_stats["unprotected_tris_after"] = decimated_part.n_cells
     merged = protected_group.merge(decimated_part, merge_points=True)
     return _stitch_residual_boundary_gaps(_weld_seam_gaps(merged))
 
@@ -557,6 +618,21 @@ def error_summary(errors: np.ndarray):
     return float(errors.max()), float(errors.mean()), float(np.percentile(errors, 95))
 
 
+def bidirectional_error_summary(fwd_errors: np.ndarray, rev_errors: np.ndarray) -> ErrorStats:
+    """Summarizes a pair of directional error arrays (see
+    `measure_bidirectional_error`) both pooled (both directions
+    concatenated, the single number this app always showed before) and
+    split per direction, as an `ErrorStats`."""
+    max_e, mean_e, p95_e = error_summary(np.concatenate([fwd_errors, rev_errors]))
+    max_fwd, mean_fwd, p95_fwd = error_summary(fwd_errors)
+    max_rev, mean_rev, p95_rev = error_summary(rev_errors)
+    return ErrorStats(
+        max=max_e, mean=mean_e, p95=p95_e,
+        max_fwd=max_fwd, mean_fwd=mean_fwd, p95_fwd=p95_fwd,
+        max_rev=max_rev, mean_rev=mean_rev, p95_rev=p95_rev,
+    )
+
+
 def measure_bidirectional_error(
     source: pv.PolyData,
     result: pv.PolyData,
@@ -601,6 +677,7 @@ def refine_by_error(
     settings: DecimationSettings,
     error_threshold_pct: float,
     max_iterations: int = 3,
+    zone_stats: Optional[dict] = None,
 ):
     """Measures the bidirectional geometric error between `source` and
     `result` (see `measure_bidirectional_error`) and, wherever either
@@ -611,9 +688,11 @@ def refine_by_error(
     to `source` vertices by nearest neighbor (approximate: `result`
     centers don't coincide with any `source` vertex); those detected
     directly in `source` (new direction) are translated exactly, using
-    the marked face's own vertices. Returns (result, updated mask, final
-    max error, final mean error, final 95th percentile error, number of
-    passes, points added)."""
+    the marked face's own vertices. `zone_stats`, if passed, is forwarded
+    to every internal `decimate_with_mask` call (see there), ending up
+    with the unprotected-zone counts from the last pass actually run.
+    Returns (result, updated mask, final ErrorStats, number of passes,
+    points added)."""
     threshold = (error_threshold_pct / 100.0) * source.length
     source_tree = cKDTree(source.points)
     source_faces = source.regular_faces
@@ -642,12 +721,12 @@ def refine_by_error(
             break
         mask[newly] = True
         added_total += int(newly.size)
-        result = decimate_with_mask(source, mask, settings)
+        result = decimate_with_mask(source, mask, settings, zone_stats=zone_stats)
         fwd_errors, fwd_centroids, rev_errors, _ = measure_bidirectional_error(
             source, result, distance_to_source
         )
-    max_error, mean_error, p95_error = error_summary(np.concatenate([fwd_errors, rev_errors]))
-    return result, mask, max_error, mean_error, p95_error, iterations, added_total
+    stats = bidirectional_error_summary(fwd_errors, rev_errors)
+    return result, mask, stats, iterations, added_total
 
 
 def run_decimation_pipeline(
@@ -677,7 +756,14 @@ def run_decimation_pipeline(
         uv_locked = int((seam_mask & ~mask).sum())
         mask |= seam_mask
 
-    result = decimate_with_mask(mesh, mask, decimation)
+    # Filled in-place by decimate_with_mask/refine_by_error with the
+    # unprotected zone's triangle count before/after decimation (from
+    # whichever pass ends up being the last one run): the target
+    # reduction only ever applies to that zone, never to the whole mesh
+    # (see decimate_with_mask), so it's tracked separately from
+    # original_tris/result_tris below.
+    zone_stats: dict = {}
+    result = decimate_with_mask(mesh, mask, decimation, zone_stats=zone_stats)
     if result.n_cells == 0:
         raise ValueError(
             "Decimation left the mesh with no faces. Try a lower "
@@ -686,9 +772,9 @@ def run_decimation_pipeline(
 
     iterations = added = 0
     if protection.auto_error_protection:
-        result, mask, error_max, error_mean, error_p95, iterations, added = refine_by_error(
+        result, mask, error_stats, iterations, added = refine_by_error(
             mesh, result, mask, decimation, protection.error_threshold_pct,
-            protection.error_max_iterations,
+            protection.error_max_iterations, zone_stats=zone_stats,
         )
         if result.n_cells == 0:
             raise ValueError(
@@ -702,12 +788,17 @@ def run_decimation_pipeline(
         # refine_by_error: the original direction (result->mesh) wouldn't
         # detect a detail from the original that was completely removed.
         fwd_errors, _, rev_errors, _ = measure_bidirectional_error(mesh, result)
-        error_max, error_mean, error_p95 = error_summary(np.concatenate([fwd_errors, rev_errors]))
+        error_stats = bidirectional_error_summary(fwd_errors, rev_errors)
 
     original_tris = mesh.n_cells
     result_tris = result.n_cells
     reduction_real_pct = round(
         100.0 * (1 - result_tris / original_tris) if original_tris else 0, 2
+    )
+    zone_before = zone_stats.get("unprotected_tris_before", 0)
+    zone_after = zone_stats.get("unprotected_tris_after", 0)
+    zone_reduction_pct = round(
+        100.0 * (1 - zone_after / zone_before) if zone_before else 0, 2
     )
 
     return PipelineResult(
@@ -716,11 +807,20 @@ def run_decimation_pipeline(
         original_tris=original_tris,
         result_tris=result_tris,
         reduction_real_pct=reduction_real_pct,
+        unprotected_zone_tris_before=zone_before,
+        unprotected_zone_tris_after=zone_after,
+        unprotected_zone_reduction_pct=zone_reduction_pct,
         manual_protected_points=manual_count,
         uv_seam_protected_points=uv_locked,
-        error_max=error_max,
-        error_mean=error_mean,
-        error_p95=error_p95,
+        error_max=error_stats.max,
+        error_mean=error_stats.mean,
+        error_p95=error_stats.p95,
+        error_max_fwd=error_stats.max_fwd,
+        error_mean_fwd=error_stats.mean_fwd,
+        error_p95_fwd=error_stats.p95_fwd,
+        error_max_rev=error_stats.max_rev,
+        error_mean_rev=error_stats.mean_rev,
+        error_p95_rev=error_stats.p95_rev,
         error_refine_iterations=iterations,
         error_refine_added_points=added,
     )

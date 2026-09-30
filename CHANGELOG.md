@@ -4,6 +4,26 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (report/diagnostics)
+- Per-direction geometric error, alongside the existing pooled max/mean/p95:
+  `ErrorStats`/`bidirectional_error_summary` (`remesh_core.py`) now also
+  compute `_fwd` (result→original) and `_rev` (original→result) separately,
+  since a high value in one direction means the decimation deviated from
+  the original surface while a high value in the other means a whole
+  feature of the original disappeared in the result — two different
+  failure modes the pooled number alone couldn't distinguish. Surfaced in
+  the on-screen stats after "Apply decimation" and in the exported/batch
+  `.json` reports (`error_max_fwd`/`_rev`, etc.).
+- Reduction achieved within the unprotected zone specifically
+  (`PipelineResult.unprotected_zone_reduction_pct`), alongside the existing
+  whole-mesh `reduction_real_pct`: the target reduction percentage only
+  ever applies to the unprotected zone (the protected part is never fed to
+  the decimator), so with a large protected region the whole-mesh ratio
+  can look much lower than the target even though the unprotected zone hit
+  it exactly. `decimate_with_mask` gained an optional `zone_stats`
+  out-parameter to recover the before/after triangle counts of that zone
+  without duplicating its split logic elsewhere.
+
 ### Fixed
 - The curvature-map checkbox stayed checked but silently had no visible
   effect while "Live preview" was on, or after "Apply decimation" until
@@ -15,6 +35,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the incompatibility is visible instead of a silent no-op.
 
 ### Added
+- Viewport background color presets (Visualization panel): "Graphite"
+  (default), "Onyx", "Slate" and "Steel", all sourced from the app's own
+  dark palette so the 3D view stays consistent with the rest of the UI
+  regardless of which is picked. Persisted in presets
+  (`viewport_bg_index`); the comparison dialog inherits whichever one is
+  currently selected instead of always resetting to the default.
 - App icon (`assets/icon.png`/`assets/icon.ico`), set as the window/taskbar
   icon at runtime and as the packaged executable's icon on Windows.
 - `remesh_core._stitch_residual_boundary_gaps`: a last resort after

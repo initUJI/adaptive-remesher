@@ -112,13 +112,13 @@ works headless in CI.
 `app.py`'s `AdaptiveRemesherWindow` acts purely as an **orchestrator**: it owns
 UI state (loaded mesh, protection mask, undo/redo stack) and reacts to Qt
 events, but delegates *all* heavy domain work to `remesh_core.py`. For example,
-`AdaptiveRemesherWindow.apply_decimation()` ([app.py:833](app.py:833)) reduces to
+`AdaptiveRemesherWindow.apply_decimation()` ([app.py:912](app.py:912)) reduces to
 gathering the current panel configuration (`_gather_clean_settings`,
 `_gather_decimation_settings`, `_gather_protection_settings`) and calling
 `run_decimation_pipeline(...)` — the entire mesh-processing logic lives outside
 the class.
 
-Batch processing (`run_batch` / `_process_one_batch_file`, [app.py:963](app.py:963))
+Batch processing (`run_batch` / `_process_one_batch_file`, [app.py:1060](app.py:1060))
 and the interactive "Apply decimation" button **share the exact same pipeline**
 function, `run_decimation_pipeline`. Before this was refactored, the codebase
 had two near-identical copies of this logic — one for the interactive path, one
@@ -158,7 +158,7 @@ viewport (optional side-by-side comparison) / export to disk (+ optional .json r
 
 ### 3.1. Loading and cleaning
 
-`load_and_prepare_mesh` ([remesh_core.py:283](remesh_core.py:283)) normalizes any
+`load_and_prepare_mesh` ([remesh_core.py:324](remesh_core.py:324)) normalizes any
 supported input format to a pure triangulated surface mesh via
 `pyvista.read()` → `extract_surface(algorithm="dataset_surface")` →
 `triangulate()`. It raises `ValueError` if the result has no points or cells
@@ -266,7 +266,7 @@ error terms into the same cost function via `SetAttributeErrorMetric(True)`:
 
 VTK has no parameter meaning "leave these specific vertices untouched during
 decimation" for either engine. `decimate_with_mask`
-([remesh_core.py:336](remesh_core.py:336)) works around this purely
+([remesh_core.py:377](remesh_core.py:377)) works around this purely
 geometrically, in three steps:
 
 1. **Split** the mesh into two independent `PolyData` objects with
@@ -291,7 +291,25 @@ edges. This is exactly the failure mode analyzed in section 4.1, because
 `vtkDecimatePro` can enforce that "exactly" as a hard constraint while
 `vtkQuadricDecimation` can only discourage it with a cost penalty.
 
-`decimate()` ([remesh_core.py:308](remesh_core.py:308)) is the small dispatcher
+Note that `SetTargetReduction`/`settings.reduction_pct` (step 2) is passed to
+`decimate()` as the reduction target for the **unprotected piece only** — the
+protected piece is never given to the decimator at all, so the requested
+percentage is never a fraction of the whole original mesh. `PipelineResult`
+reports both: `reduction_real_pct` (`1 - result_tris/original_tris`, the whole
+merged mesh) and `unprotected_zone_reduction_pct` (the same ratio, but of just
+the unprotected piece's triangle count before/after step 2 — what the target
+percentage actually applies to). With a large protected region these two can
+diverge substantially: requesting 50% with most of the mesh protected can
+still report a low whole-mesh `reduction_real_pct` even though the unprotected
+zone hit its 50% target exactly, and without the second number that looked
+like the reduction wasn't applying at all. `decimate_with_mask`'s optional
+`zone_stats` out-parameter (a plain dict, filled in place) is how
+`run_decimation_pipeline` recovers these two counts from whichever
+`decimate_with_mask` call ends up being the last one run (either the initial
+call, or the last iteration of `refine_by_error` if auto-error-protection
+added more protected vertices afterward).
+
+`decimate()` ([remesh_core.py:349](remesh_core.py:349)) is the small dispatcher
 between the two engines that `decimate_with_mask` calls for the unprotected
 piece; it resolves `lock_boundary` against the user's own
 `boundary_vertex_deletion` setting so a genuinely open mesh boundary (not a
@@ -300,7 +318,7 @@ protection mask in play at all.
 
 ### 3.5. Geometric error validation
 
-`measure_error` ([remesh_core.py:530](remesh_core.py:530)) approximates
+`measure_error` ([remesh_core.py:591](remesh_core.py:591)) approximates
 one-directional Hausdorff distance: for every face centroid of a mesh, its
 absolute distance to a reference surface represented as a
 `vtk.vtkImplicitPolyDataDistance`. Two implementation details matter:
@@ -316,21 +334,21 @@ absolute distance to a reference surface represented as a
   locator against an unchanging `source` mesh on every one of its up-to-3
   passes.
 
-`error_summary` ([remesh_core.py:548](remesh_core.py:548)) reduces a raw error
+`error_summary` ([remesh_core.py:609](remesh_core.py:609)) reduces a raw error
 array to three numbers: **max** (worst single point — the only number shown
 before this work), **mean** (overall quality), and **95th percentile** (how bad
 the worst *band* of the mesh is without a single outlier pixel dominating the
 number — more informative than the max on large meshes where one degenerate
 triangle can otherwise make the whole result look worse than it is).
 
-`measure_bidirectional_error` ([remesh_core.py:560](remesh_core.py:560)) measures
+`measure_bidirectional_error` ([remesh_core.py:636](remesh_core.py:636)) measures
 **both** directions — `result → source` (the original one) and
 `source → result` (added in this session; see section 4.2 for why the first
 direction alone is insufficient) — and returns all four arrays
 `(forward_errors, forward_centroids, reverse_errors, reverse_centroids)` so the
 caller can localize a problem in whichever mesh it was actually detected in.
 
-`refine_by_error` ([remesh_core.py:597](remesh_core.py:597)) closes the loop:
+`refine_by_error` ([remesh_core.py:673](remesh_core.py:673)) closes the loop:
 given a threshold (`error_threshold_pct`, expressed as a percentage of the
 mesh's bounding-box diagonal, so it scales with mesh size), it:
 
@@ -350,12 +368,23 @@ mesh's bounding-box diagonal, so it scales with mesh size), it:
    within threshold, or stops if a pass adds zero new protected vertices
    (guards against a threshold so strict it can never be satisfied).
 
-Final combined statistics are computed by concatenating both directions'
-error arrays through `error_summary` — deliberately pooled rather than kept
-separate, so the UI and the exported report show one coherent set of
-max/mean/p95 numbers per run.
+Final statistics are computed by `bidirectional_error_summary`
+([remesh_core.py:621](remesh_core.py:621)) as an `ErrorStats`
+([remesh_core.py:261](remesh_core.py:261)): it calls `error_summary` three
+times — once on both directions' error arrays concatenated together (`max`,
+`mean`, `p95`, the single pooled numbers this app always showed before), and
+once each on `fwd_errors` alone (`max_fwd`/`mean_fwd`/`p95_fwd`,
+result→source) and `rev_errors` alone (`max_rev`/`mean_rev`/`p95_rev`,
+source→result). The pooled number alone can't distinguish *why* a run scored
+badly; the split can, because the two directions signal different failure
+modes: a high `_fwd` error means the decimation itself deviated from the
+original surface (e.g. an edge collapse bulging out), while a high `_rev`
+error means a whole feature of the original disappeared in the result with
+nothing left nearby to measure against (see the "fully removed feature" case
+above). Both the pooled and the per-direction numbers end up in
+`PipelineResult` and the exported `.json` report, not just the pooled ones.
 
-`run_decimation_pipeline` ([remesh_core.py:653](remesh_core.py:653)) is the
+`run_decimation_pipeline` ([remesh_core.py:732](remesh_core.py:732)) is the
 single public entry point used by both the interactive button and batch
 processing: it builds the mask (manual ∪ UV-seam), calls `decimate_with_mask`,
 raises `ValueError` if that leaves zero cells, and then either calls
@@ -366,13 +395,13 @@ how far the result deviates from the source.
 
 ### 3.6. UI layer (`app.py`, `ui/`)
 
-`AdaptiveRemesherWindow` ([app.py:84](app.py:84)) owns:
+`AdaptiveRemesherWindow` ([app.py:101](app.py:101)) owns:
 
 - `original_mesh` / `decimated_mesh`: the two `pv.PolyData` currently held.
 - `protected_mask`: the per-vertex boolean protection mask edited by
   brush/rectangle tools.
 - An **undo/redo stack** built from full state snapshots
-  (`_snapshot`/`_push_undo`/`_restore_snapshot`, [app.py:265](app.py:265)):
+  (`_snapshot`/`_push_undo`/`_restore_snapshot`, [app.py:288](app.py:288)):
   every destructive operation (decimate, reset, clear protection, import mask)
   pushes a snapshot of `{mesh state, protection mask}` *before* it runs, so
   undo/redo simply swaps to a previously captured snapshot rather than
@@ -381,7 +410,7 @@ how far the result deviates from the source.
   `.panel_layout.json` next to the script.
 
 Class-level type annotations (e.g. `undo_btn: QPushButton`,
-`auto_error_cb: QCheckBox`, [app.py:92-126](app.py:92)) declare every widget
+`auto_error_cb: QCheckBox`, [app.py:109-144](app.py:109)) declare every widget
 that a `build_xxx_panel()` function in `ui/panels/` will attach to `self` at
 construction time — the assignment itself happens inside those functions, not
 in `__init__`; the annotations exist purely so `mypy` can type-check code that
@@ -396,7 +425,7 @@ widgets and wires their signals to methods on `window`. This is what shrank
 `AdaptiveRemesherWindow.__init__` from roughly 670 lines of inline widget
 construction to a short sequence of `build_xxx_panel(self, layout)` calls.
 
-`apply_decimation()` ([app.py:833](app.py:833)) is the main interactive
+`apply_decimation()` ([app.py:912](app.py:912)) is the main interactive
 entry point: gather settings → `run_decimation_pipeline` inside a
 `busy_cursor()` context manager → on success, push undo, swap in the new mesh,
 disable the paint/erase buttons (see below), and format both the on-screen
@@ -404,23 +433,23 @@ stats label and a `_last_run_info` dict that becomes the exported `.json`
 report if the user checked "export report" at export time.
 
 The brush is force-disabled right after a successful decimation
-(`self.paint_btn.setChecked(False)`, [app.py:868](app.py:868)) because it paints
+(`self.paint_btn.setChecked(False)`, [app.py:947](app.py:947)) because it paints
 against the *original* mesh's `cKDTree`, and after a QEM pass the unprotected
 vertices have moved — painting immediately after decimating would silently
 mark the wrong points as protected against a stale coordinate mapping.
 
-`export_mesh()` ([app.py:939](app.py:939)) writes the current mesh to disk
+`export_mesh()` ([app.py:1036](app.py:1036)) writes the current mesh to disk
 (`mesh.save(path)`, format inferred from the chosen extension via VTK/PyVista's
 writers) and, if "export report" is checked and a decimation has already run,
 writes a sibling `<name>_report.json` with the `_last_run_info` dict.
 
 ### 3.7. Batch processing
 
-`run_batch()` ([app.py:1001](app.py:1001)) lets the same configured pipeline run
+`run_batch()` ([app.py:1107](app.py:1107)) lets the same configured pipeline run
 over every compatible file (`.obj/.stl/.ply/.vtp/.glb/.gltf`) in an input
 folder, writing results (and optional per-file `.json` reports) to an output
 folder, without ever loading anything into the viewport. Per file,
-`_process_one_batch_file()` ([app.py:963](app.py:963)) calls
+`_process_one_batch_file()` ([app.py:1060](app.py:1060)) calls
 `load_and_prepare_mesh` → `run_decimation_pipeline(..., manual_mask=None)` —
 **manual protection never applies in batch mode**, since there's no open
 viewport to have painted on; only UV-seam protection and error-based
@@ -432,7 +461,7 @@ would be silently overwritten.
 
 ### 3.8. Presets
 
-`_gather_preset()` / `_apply_preset()` ([app.py:1096](app.py:1096)/[app.py:1128](app.py:1128))
+`_gather_preset()` / `_apply_preset()` ([app.py:1202](app.py:1202)/[app.py:1235](app.py:1235))
 serialize/restore every panel parameter (engine choice, reduction target,
 feature angle, QEM weights, protection toggles, error threshold, etc.) to and
 from a `.json` file — deliberately **excluding** the loaded mesh and the manual
@@ -568,7 +597,7 @@ decimation pass that flattens the bump away entirely).
 **Fix:**
 
 - `measure_bidirectional_error` (new function in `remesh_core.py`,
-  [remesh_core.py:560](remesh_core.py:560)): measures both `result → source`
+  [remesh_core.py:636](remesh_core.py:636)): measures both `result → source`
   (the original direction) and `source → result` (the new one), reusing the
   `source`-side spatial locator across refinement passes for efficiency (see
   3.5).
@@ -663,7 +692,7 @@ this is why neither PyMeshLab's `meshing_repair_non_manifold_vertices` (any
 `meshing_remove_t_vertices`, nor VTK's own `vtkFillHolesFilter`, could close
 it: none of them separate the two loops that meet at that one point. A
 targeted post-process, `_stitch_residual_boundary_gaps`
-([remesh_core.py:435](remesh_core.py:435)), now runs after `_weld_seam_gaps`:
+([remesh_core.py:496](remesh_core.py:496)), now runs after `_weld_seam_gaps`:
 it rebuilds the simple closed loops hiding in the residual boundary-edge
 graph — at each bowtie vertex, pairing each incident edge with the one most
 opposite in direction (`_pair_seam_branch_neighbors`, the pairing that best
@@ -685,7 +714,7 @@ and
 
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
-`_apply_rect_selection()` ([app.py:522](app.py:522)) kept its cheap
+`_apply_rect_selection()` ([app.py:560](app.py:560)) kept its cheap
 screen-projection prefilter (`_project_points_to_qt`, to narrow the whole mesh
 down to the handful of vertices inside the rectangle), but now runs
 `vtk.vtkSelectVisiblePoints` on those candidates against the renderer's actual

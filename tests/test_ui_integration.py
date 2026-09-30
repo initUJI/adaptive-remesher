@@ -167,3 +167,23 @@ def test_preset_roundtrip_restores_controls(loaded_window):
 
     assert loaded_window.reduction_slider.value() == 77
     assert loaded_window.engine_combo.currentIndex() == 1
+
+
+def test_viewport_background_presets(loaded_window):
+    from ui.common import VIEWPORT_BACKGROUND_PRESETS
+
+    assert loaded_window.viewport_bg_combo.count() == len(VIEWPORT_BACKGROUND_PRESETS)
+
+    for index, (_label, hex_color) in enumerate(VIEWPORT_BACKGROUND_PRESETS):
+        loaded_window.viewport_bg_combo.setCurrentIndex(index)
+        assert loaded_window.plotter.background_color.hex_rgb == hex_color
+
+
+def test_viewport_background_persists_through_preset_roundtrip(loaded_window):
+    loaded_window.viewport_bg_combo.setCurrentIndex(2)
+    preset = loaded_window._gather_preset()
+
+    loaded_window.viewport_bg_combo.setCurrentIndex(0)
+    loaded_window._apply_preset(preset)
+
+    assert loaded_window.viewport_bg_combo.currentIndex() == 2

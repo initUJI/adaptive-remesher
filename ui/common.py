@@ -123,6 +123,18 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
 """
 
+# 3D-viewport background presets offered in the Visualization panel
+# ("Background" combo box), as (label, hex) pairs. Colors are taken
+# straight from the palette above (app background, panel background,
+# border tones) instead of arbitrary ones, so the viewport always looks
+# consistent with the rest of the dark theme regardless of which is picked.
+VIEWPORT_BACKGROUND_PRESETS = [
+    ("Graphite (default)", "#24262c"),
+    ("Onyx", "#1c1d22"),
+    ("Slate", "#2a2c33"),
+    ("Steel", "#3d3f48"),
+]
+
 
 @contextmanager
 def busy_cursor():
@@ -174,8 +186,17 @@ class ComparisonDialog(QDialog):
     result on the right, with both viewport cameras synchronized (orbiting/
     zooming in one moves the other the same way)."""
 
-    def __init__(self, original: pv.PolyData, decimated: pv.PolyData, parent=None):
-        """Builds the dialog with two sub-views of the same QtInteractor and frames the camera on the original."""
+    def __init__(
+        self,
+        original: pv.PolyData,
+        decimated: pv.PolyData,
+        parent=None,
+        background: str = VIEWPORT_BACKGROUND_PRESETS[0][1],
+    ):
+        """Builds the dialog with two sub-views of the same QtInteractor and
+        frames the camera on the original. `background` matches the main
+        window's currently chosen viewport background, so the comparison
+        doesn't unexpectedly switch back to the default color."""
         super().__init__(parent)
         self.setWindowTitle("Compare original vs. decimated")
         self.resize(1100, 650)
@@ -187,7 +208,7 @@ class ComparisonDialog(QDialog):
         # pyvista wraps these BasePlotter methods with a decorator that the
         # type stubs don't reflect well: mypy sees them as if they expected
         # a positional BasePlotter instead of already being bound to self.plotter.
-        self.plotter.set_background("#24262c")  # type: ignore[arg-type]
+        self.plotter.set_background(background)  # type: ignore[arg-type]
         layout.addWidget(self.plotter.interactor)
 
         self.plotter.subplot(0, 0)

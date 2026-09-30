@@ -9,6 +9,7 @@ from remesh_core import (
     CleanSettings,
     DecimationSettings,
     ProtectionSettings,
+    bidirectional_error_summary,
     clean_mesh,
     decimate_pro,
     decimate_qem,
@@ -271,6 +272,19 @@ def test_measure_bidirectional_error_detects_fully_removed_feature():
     assert rev_max > 1.0
 
 
+def test_bidirectional_error_summary_pools_and_splits_by_direction():
+    fwd_errors = np.array([0.0, 1.0, 2.0])
+    rev_errors = np.array([0.0, 10.0])
+
+    stats = bidirectional_error_summary(fwd_errors, rev_errors)
+
+    assert stats.max_fwd == 2.0
+    assert stats.max_rev == 10.0
+    assert stats.max == 10.0 == max(stats.max_fwd, stats.max_rev)
+    pooled_max, pooled_mean, pooled_p95 = error_summary(np.concatenate([fwd_errors, rev_errors]))
+    assert (stats.max, stats.mean, stats.p95) == (pooled_max, pooled_mean, pooled_p95)
+
+
 def test_refine_by_error_respects_max_iterations(sphere_mesh):
     """`max_iterations` caps how many times `refine_by_error` can decimate
     again; with a threshold so strict it's never fully satisfied, it must
@@ -280,7 +294,7 @@ def test_refine_by_error_respects_max_iterations(sphere_mesh):
     settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=90)
     result = decimate_with_mask(sphere_mesh, mask, settings)
 
-    _, _, _, _, _, iterations, _ = refine_by_error(
+    _, _, _, iterations, _ = refine_by_error(
         sphere_mesh, result, mask, settings, error_threshold_pct=0.001, max_iterations=1
     )
 
@@ -302,6 +316,29 @@ def test_run_decimation_pipeline_reduces_triangle_count(sphere_mesh):
     assert result.error_max is not None
     assert result.manual_protected_points == 0
     assert result.uv_seam_protected_points == 0
+    # With no protected region, the unprotected zone IS the whole mesh, so
+    # the zone-relative and whole-mesh reduction ratios should match.
+    assert result.unprotected_zone_tris_before == sphere_mesh.n_cells
+    assert result.unprotected_zone_reduction_pct == pytest.approx(result.reduction_real_pct, abs=0.5)
+    assert result.error_max == pytest.approx(max(result.error_max_fwd, result.error_max_rev))
+
+
+def test_pipeline_zone_reduction_diverges_from_global_with_large_protection(sphere_mesh):
+    """Regression: reduction_real_pct is a whole-mesh ratio, diluted by
+    however much of the mesh is protected (never fed to the decimator),
+    while unprotected_zone_reduction_pct tracks what SetTargetReduction
+    actually applies to. A large protected region should make the two
+    numbers diverge noticeably."""
+    manual_mask = np.zeros(sphere_mesh.n_points, dtype=bool)
+    manual_mask[: sphere_mesh.n_points * 3 // 4] = True  # protect ~75% of the mesh
+    decimation = DecimationSettings(engine=ENGINE_QEM, reduction_pct=90)
+    protection = ProtectionSettings(protect_uv_seams=False, auto_error_protection=False)
+
+    result = run_decimation_pipeline(
+        sphere_mesh, decimation, protection, manual_mask=manual_mask
+    )
+
+    assert result.unprotected_zone_reduction_pct > result.reduction_real_pct + 10
 
 
 def test_run_decimation_pipeline_respects_manual_mask(sphere_mesh):
