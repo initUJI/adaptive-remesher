@@ -1,0 +1,252 @@
+[
+  {
+    "model": "Carrot Cake",
+    "requested_reduction_pct": 50.0,
+    "source_tris": 13790,
+    "result_tris": 6894,
+    "unprotected_tris_before": 13790,
+    "unprotected_tris_after": 6894,
+    "error_max": 0.00131,
+    "iterations": 1
+  },
+  {
+    "model": "Carrot Cake",
+    "requested_reduction_pct": 70.0,
+    "source_tris": 13790,
+    "result_tris": 6700,
+    "unprotected_tris_before": 12766,
+    "unprotected_tris_after": 3829,
+    "error_max": 0.003314,
+    "iterations": 3
+  },
+  {
+    "model": "Carrot Cake",
+    "requested_reduction_pct": 80.0,
+    "source_tris": 13790,
+    "result_tris": 6644,
+    "unprotected_tris_before": 12042,
+    "unprotected_tris_after": 2408,
+    "error_max": 0.003296,
+    "iterations": 2
+  },
+  {
+    "model": "Carrot Cake",
+    "requested_reduction_pct": 90.0,
+    "source_tris": 13790,
+    "result_tris": 5093,
+    "unprotected_tris_before": 11279,
+    "unprotected_tris_after": 1127,
+    "error_max": 0.006917,
+    "iterations": 3
+  },
+  {
+    "model": "Carrot Cake",
+    "requested_reduction_pct": 95.0,
+    "source_tris": 13790,
+    "result_tris": 6698,
+    "unprotected_tris_before": 9639,
+    "unprotected_tris_after": 481,
+    "error_max": 0.023932,
+    "iterations": 3
+  },
+  {
+    "model": "Trilobite: Agnostid",
+    "requested_reduction_pct": 50.0,
+    "source_tris": 211874,
+    "result_tris": 105936,
+    "unprotected_tris_before": 211874,
+    "unprotected_tris_after": 105936,
+    "error_max": 0.007433,
+    "iterations": 1
+  },
+  {
+    "model": "Trilobite: Agnostid",
+    "requested_reduction_pct": 70.0,
+    "source_tris": 211874,
+    "result_tris": 63562,
+    "unprotected_tris_before": 211874,
+    "unprotected_tris_after": 63562,
+    "error_max": 0.007447,
+    "iterations": 1
+  },
+  {
+    "model": "Trilobite: Agnostid",
+    "requested_reduction_pct": 80.0,
+    "source_tris": 211874,
+    "result_tris": 42374,
+    "unprotected_tris_before": 211874,
+    "unprotected_tris_after": 42374,
+    "error_max": 0.007856,
+    "iterations": 1
+  },
+  {
+    "model": "Trilobite: Agnostid",
+    "requested_reduction_pct": 90.0,
+    "source_tris": 211874,
+    "result_tris": 44530,
+    "unprotected_tris_before": 201697,
+    "unprotected_tris_after": 20169,
+    "error_max": 0.05889,
+    "iterations": 3
+  },
+  {
+    "model": "Trilobite: Agnostid",
+    "requested_reduction_pct": 95.0,
+    "source_tris": 211874,
+    "result_tris": 35315,
+    "unprotected_tris_before": 197445,
+    "unprotected_tris_after": 9872,
+    "error_max": 0.166793,
+    "iterations": 3
+  },
+  {
+    "model": "Loewe (lion)",
+    "requested_reduction_pct": 50.0,
+    "source_tris": 405680,
+    "result_tris": 202840,
+    "unprotected_tris_before": 405680,
+    "unprotected_tris_after": 202840,
+    "error_max": 0.003247,
+    "iterations": 1
+  },
+  {
+    "model": "Loewe (lion)",
+    "requested_reduction_pct": 70.0,
+    "source_tris": 405680,
+    "result_tris": 121704,
+    "unprotected_tris_before": 405680,
+    "unprotected_tris_after": 121704,
+    "error_max": 0.041449,
+    "iterations": 1
+  },
+  {
+    "model": "Loewe (lion)",
+    "requested_reduction_pct": 80.0,
+    "source_tris": 405680,
+    "result_tris": 81136,
+    "unprotected_tris_before": 405680,
+    "unprotected_tris_after": 81136,
+    "error_max": 0.045513,
+    "iterations": 1
+  },
+  {
+    "model": "Loewe (lion)",
+    "requested_reduction_pct": 90.0,
+    "source_tris": 405680,
+    "result_tris": 90425,
+    "unprotected_tris_before": 395213,
+    "unprotected_tris_after": 39521,
+    "error_max": 0.385636,
+    "iterations": 3
+  },
+  {
+    "model": "Loewe (lion)",
+    "requested_reduction_pct": 95.0,
+    "source_tris": 405680,
+    "result_tris": 51200,
+    "unprotected_tris_before": 400258,
+    "unprotected_tris_after": 20012,
+    "error_max": 0.19997,
+    "iterations": 3
+  },
+  {
+    "model": "Stanford Bunny (reconstruction)",
+    "requested_reduction_pct": 50.0,
+    "source_tris": 69451,
+    "result_tris": 34725,
+    "unprotected_tris_before": 69451,
+    "unprotected_tris_after": 34725,
+    "error_max": 6.9e-05,
+    "iterations": 1
+  },
+  {
+    "model": "Stanford Bunny (reconstruction)",
+    "requested_reduction_pct": 70.0,
+    "source_tris": 69451,
+    "result_tris": 20835,
+    "unprotected_tris_before": 69451,
+    "unprotected_tris_after": 20835,
+    "error_max": 0.000131,
+    "iterations": 1
+  },
+  {
+    "model": "Stanford Bunny (reconstruction)",
+    "requested_reduction_pct": 80.0,
+    "source_tris": 69451,
+    "result_tris": 13890,
+    "unprotected_tris_before": 69451,
+    "unprotected_tris_after": 13890,
+    "error_max": 0.000213,
+    "iterations": 1
+  },
+  {
+    "model": "Stanford Bunny (reconstruction)",
+    "requested_reduction_pct": 90.0,
+    "source_tris": 69451,
+    "result_tris": 6945,
+    "unprotected_tris_before": 69451,
+    "unprotected_tris_after": 6945,
+    "error_max": 0.000418,
+    "iterations": 1
+  },
+  {
+    "model": "Stanford Bunny (reconstruction)",
+    "requested_reduction_pct": 95.0,
+    "source_tris": 69451,
+    "result_tris": 3472,
+    "unprotected_tris_before": 69451,
+    "unprotected_tris_after": 3472,
+    "error_max": 0.000706,
+    "iterations": 1
+  },
+  {
+    "model": "Electrocardiograph Machine (AI-generated)",
+    "requested_reduction_pct": 50.0,
+    "source_tris": 1869988,
+    "result_tris": 934994,
+    "unprotected_tris_before": 1869988,
+    "unprotected_tris_after": 934994,
+    "error_max": 0.006574,
+    "iterations": 1
+  },
+  {
+    "model": "Electrocardiograph Machine (AI-generated)",
+    "requested_reduction_pct": 70.0,
+    "source_tris": 1869988,
+    "result_tris": 560996,
+    "unprotected_tris_before": 1869988,
+    "unprotected_tris_after": 560996,
+    "error_max": 0.009695,
+    "iterations": 1
+  },
+  {
+    "model": "Electrocardiograph Machine (AI-generated)",
+    "requested_reduction_pct": 80.0,
+    "source_tris": 1869988,
+    "result_tris": 373997,
+    "unprotected_tris_before": 1869988,
+    "unprotected_tris_after": 373997,
+    "error_max": 0.012197,
+    "iterations": 1
+  },
+  {
+    "model": "Electrocardiograph Machine (AI-generated)",
+    "requested_reduction_pct": 90.0,
+    "source_tris": 1869988,
+    "result_tris": 186998,
+    "unprotected_tris_before": 1869988,
+    "unprotected_tris_after": 186998,
+    "error_max": 0.0188,
+    "iterations": 1
+  },
+  {
+    "model": "Electrocardiograph Machine (AI-generated)",
+    "requested_reduction_pct": 95.0,
+    "source_tris": 1869988,
+    "result_tris": 281484,
+    "unprotected_tris_before": 1869984,
+    "unprotected_tris_after": 93499,
+    "error_max": 0.023574,
+    "iterations": 2
+  }
+]

@@ -185,6 +185,84 @@ def test_decimate_with_mask_qem_seam_is_watertight_at_extreme_reduction(sphere_m
     assert problem_edges.n_cells == 0
 
 
+def _fully_disconnected_grid(rows: int = 4, cols: int = 4) -> pv.PolyData:
+    """A flat grid where every triangle has its own private 3 vertices -
+    no two triangles share a vertex index at all, even though many of
+    them are at the same 3D position. Reproduces the real-world export
+    pattern (found on 4 of 19 models in the evaluation dataset) that used
+    to make `vtkDecimatePro` a silent no-op: it collapses edges via
+    triangle adjacency, and this mesh has none."""
+    points = []
+    faces = []
+    for r in range(rows - 1):
+        for c in range(cols - 1):
+            p00 = (c, r, 0.0)
+            p01 = (c + 1, r, 0.0)
+            p10 = (c, r + 1, 0.0)
+            p11 = (c + 1, r + 1, 0.0)
+            base = len(points)
+            points.extend([p00, p10, p11, p00, p11, p01])
+            faces.append([3, base, base + 1, base + 2])
+            faces.append([3, base + 3, base + 4, base + 5])
+    return pv.PolyData(np.array(points), np.array(faces, dtype=np.int64).ravel())
+
+
+def test_decimate_pro_welds_fully_disconnected_mesh():
+    """Regression: `vtkDecimatePro` used to achieve exactly 0% reduction
+    on a mesh with no shared edges between triangles (see
+    `_weld_if_fully_disconnected`) - it has nothing to collapse. It now
+    detects this case and welds coincident points first."""
+    mesh = _fully_disconnected_grid()
+    settings = DecimationSettings(engine=ENGINE_DECIMATE_PRO, reduction_pct=50, preserve_topology=False)
+
+    result = decimate_pro(
+        mesh, settings.reduction, settings.feature_angle,
+        settings.preserve_topology, settings.boundary_vertex_deletion, settings.splitting,
+    )
+
+    assert result.n_cells < mesh.n_cells
+
+
+def test_decimate_with_mask_repairs_non_manifold_edge():
+    """Regression: `decimate_with_mask`'s unmasked path could return a
+    non-manifold edge introduced by `vtkDecimatePro` itself, with no
+    masking/merging involved at all (found on real scans - Stanford
+    Armadillo, Stanford Bunny; `vtkQuadricDecimation` didn't reproduce
+    it). `_repair_non_manifold_edges_if_any` now runs on every
+    `decimate_with_mask` call, including this unmasked path. Uses a
+    hand-built textbook non-manifold edge (3 faces fanned around one
+    shared edge) directly, decimated at 0% reduction so the input passes
+    through materially unchanged and only the repair step can be
+    responsible for the result being clean."""
+    points = np.array([
+        [0.0, 0.0, 0.0],  # A
+        [1.0, 0.0, 0.0],  # B - edge AB shared by all 3 faces below
+        [0.0, 1.0, 0.0],  # C
+        [0.0, -1.0, 0.0],  # D
+        [0.0, 0.0, 1.0],  # E
+    ])
+    faces = np.array([
+        [3, 0, 1, 2],
+        [3, 0, 1, 3],
+        [3, 0, 1, 4],
+    ], dtype=np.int64)
+    mesh = pv.PolyData(points, faces.ravel())
+    problem_edges_before = mesh.extract_feature_edges(
+        boundary_edges=False, non_manifold_edges=True, feature_edges=False, manifold_edges=False
+    )
+    assert problem_edges_before.n_cells == 1  # sanity check on the hand-built input itself
+
+    mask = np.zeros(mesh.n_points, dtype=bool)
+    settings = DecimationSettings(engine=ENGINE_DECIMATE_PRO, reduction_pct=0)
+
+    result = decimate_with_mask(mesh, mask, settings)
+
+    problem_edges_after = result.extract_feature_edges(
+        boundary_edges=False, non_manifold_edges=True, feature_edges=False, manifold_edges=False
+    )
+    assert problem_edges_after.n_cells == 0
+
+
 def test_decimate_with_mask_qem_seam_closed_by_residual_gap_stitcher():
     """Regression for `_stitch_residual_boundary_gaps`: at this resolution,
     mask and reduction level (deliberately different from the `sphere_mesh`
@@ -224,6 +302,35 @@ def test_decimate_with_mask_never_raises_when_pymeshlab_repair_rejects_mesh():
     result = decimate_with_mask(sphere, mask, settings)  # must not raise
 
     assert result.n_cells > 0
+
+
+def test_decimate_with_mask_stitch_bowtie_does_not_leave_non_manifold_edge():
+    """Regression: found by a 117-combo sweep (13 resolutions x 3 mask
+    shapes x reduction in {99, 99.5, 99.9}) checking the known limitation
+    from TECHNICAL_DOCUMENTATION.md section 6 - 16 combos (13.7%) still
+    had a non-manifold edge even after `_repair_non_manifold_edges_if_any`
+    (section 5.6). Root cause, confirmed by instrumenting each stage:
+    `_stitch_residual_boundary_gaps`'s own fan triangulation at a bowtie
+    vertex can itself introduce a genuinely non-manifold edge (not just a
+    non-manifold vertex, which its docstring already anticipated as
+    acceptable) - the earlier repair pass can't have caught this since it
+    runs before the stitch step exists to introduce it. A second repair
+    pass at the very end of `decimate_with_mask` (guarded by the same
+    cheap check, so a no-op everywhere else - confirmed 0/19 real models
+    needed it) fixes every one of the 16 failing combos, at the cost of a
+    handful of new boundary edges where it fires (4-12, vs. dozens+
+    before `_weld_seam_gaps`/`_stitch_residual_boundary_gaps` existed at
+    all) - a deliberate trade, not a full close of this limitation."""
+    sphere = pv.Sphere(theta_resolution=55, phi_resolution=55).triangulate()
+    mask = sphere.points[:, 0] > 0  # "hemisphere" mask from the sweep
+    settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=99.5, volume_preservation=False)
+
+    result = decimate_with_mask(sphere, mask, settings)
+
+    non_manifold = result.extract_feature_edges(
+        boundary_edges=False, non_manifold_edges=True, feature_edges=False, manifold_edges=False
+    )
+    assert non_manifold.n_cells == 0
 
 
 def test_decimate_with_mask_no_mask_decimates_everything(sphere_mesh):

@@ -1,0 +1,5 @@
+case,description,config,source_tris,result_tris,error_max_fwd,error_mean_fwd,error_p95_fwd,error_max_rev,error_mean_rev,error_p95_rev,error_max_pooled,error_mean_pooled,error_p95_pooled
+case1_removed_bump,Disconnected satellite region completely removed from the result.,handcrafted (no decimation engine involved),3280,3040,0.0,0.0,0.0,4.841481,0.343734,4.639699,4.841481,0.178394,0.0
+case2_partial_detail,"Connected raised bump, only its outer ring flattened (partial removal).",handcrafted (no decimation engine involved),6960,6960,0.060573,0.002538,0.029117,0.057543,0.002273,0.01859,0.060573,0.002406,0.018591
+case3_surface_relief,"Small, localized bump on an otherwise continuous surface (no handcrafted result).","unprotected decimation, engine=QEM, reduction=90.0%",6960,696,0.004793,0.001964,0.00323,0.005657,0.001213,0.002728,0.005657,0.001282,0.002783
+case4_multi_region,Three raised details of decreasing size/prominence at different locations.,"unprotected decimation, engine=QEM, reduction=90.0%",9520,952,0.00444,0.001526,0.002685,0.005764,0.001035,0.002439,0.005764,0.00108,0.002487

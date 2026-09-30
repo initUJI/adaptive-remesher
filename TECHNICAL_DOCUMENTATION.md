@@ -158,7 +158,7 @@ viewport (optional side-by-side comparison) / export to disk (+ optional .json r
 
 ### 3.1. Loading and cleaning
 
-`load_and_prepare_mesh` ([remesh_core.py:324](remesh_core.py:324)) normalizes any
+`load_and_prepare_mesh` ([remesh_core.py:351](remesh_core.py:351)) normalizes any
 supported input format to a pure triangulated surface mesh via
 `pyvista.read()` → `extract_surface(algorithm="dataset_surface")` →
 `triangulate()`. It raises `ValueError` if the result has no points or cells
@@ -228,7 +228,7 @@ There are two independent sources of protection, both resolved into a single
 
 ### 3.3. The two decimation engines
 
-`decimate_pro` ([remesh_core.py:114](remesh_core.py:114)) wraps
+`decimate_pro` ([remesh_core.py:140](remesh_core.py:140)) wraps
 **`vtk.vtkDecimatePro`**: it collapses vertices in flat regions according to a
 **fixed feature angle** (`SetFeatureAngle`) — below the angle a region is
 considered flat and eligible for simplification, above it the edge is treated
@@ -238,7 +238,7 @@ as a hard feature/corner and preserved as-is. It also exposes
 predictable, but binary: there is no gradation between "fully preserved" and
 "fully collapsed" — a region is either above or below the angle threshold.
 
-`decimate_qem` ([remesh_core.py:139](remesh_core.py:139)) wraps
+`decimate_qem` ([remesh_core.py:166](remesh_core.py:166)) wraps
 **`vtk.vtkQuadricDecimation`** (Garland-Heckbert *Quadric Error Metric*): the
 cost of each edge collapse is a continuous quadratic error that already
 encodes local curvature — a nearly flat area has low error and collapses
@@ -266,7 +266,7 @@ error terms into the same cost function via `SetAttributeErrorMetric(True)`:
 
 VTK has no parameter meaning "leave these specific vertices untouched during
 decimation" for either engine. `decimate_with_mask`
-([remesh_core.py:377](remesh_core.py:377)) works around this purely
+([remesh_core.py:404](remesh_core.py:404)) works around this purely
 geometrically, in three steps:
 
 1. **Split** the mesh into two independent `PolyData` objects with
@@ -309,7 +309,7 @@ like the reduction wasn't applying at all. `decimate_with_mask`'s optional
 call, or the last iteration of `refine_by_error` if auto-error-protection
 added more protected vertices afterward).
 
-`decimate()` ([remesh_core.py:349](remesh_core.py:349)) is the small dispatcher
+`decimate()` ([remesh_core.py:376](remesh_core.py:376)) is the small dispatcher
 between the two engines that `decimate_with_mask` calls for the unprotected
 piece; it resolves `lock_boundary` against the user's own
 `boundary_vertex_deletion` setting so a genuinely open mesh boundary (not a
@@ -318,7 +318,7 @@ protection mask in play at all.
 
 ### 3.5. Geometric error validation
 
-`measure_error` ([remesh_core.py:591](remesh_core.py:591)) approximates
+`measure_error` ([remesh_core.py:679](remesh_core.py:679)) approximates
 one-directional Hausdorff distance: for every face centroid of a mesh, its
 absolute distance to a reference surface represented as a
 `vtk.vtkImplicitPolyDataDistance`. Two implementation details matter:
@@ -334,21 +334,21 @@ absolute distance to a reference surface represented as a
   locator against an unchanging `source` mesh on every one of its up-to-3
   passes.
 
-`error_summary` ([remesh_core.py:609](remesh_core.py:609)) reduces a raw error
+`error_summary` ([remesh_core.py:697](remesh_core.py:697)) reduces a raw error
 array to three numbers: **max** (worst single point — the only number shown
 before this work), **mean** (overall quality), and **95th percentile** (how bad
 the worst *band* of the mesh is without a single outlier pixel dominating the
 number — more informative than the max on large meshes where one degenerate
 triangle can otherwise make the whole result look worse than it is).
 
-`measure_bidirectional_error` ([remesh_core.py:636](remesh_core.py:636)) measures
+`measure_bidirectional_error` ([remesh_core.py:724](remesh_core.py:724)) measures
 **both** directions — `result → source` (the original one) and
 `source → result` (added in this session; see section 4.2 for why the first
 direction alone is insufficient) — and returns all four arrays
 `(forward_errors, forward_centroids, reverse_errors, reverse_centroids)` so the
 caller can localize a problem in whichever mesh it was actually detected in.
 
-`refine_by_error` ([remesh_core.py:673](remesh_core.py:673)) closes the loop:
+`refine_by_error` ([remesh_core.py:761](remesh_core.py:761)) closes the loop:
 given a threshold (`error_threshold_pct`, expressed as a percentage of the
 mesh's bounding-box diagonal, so it scales with mesh size), it:
 
@@ -369,8 +369,8 @@ mesh's bounding-box diagonal, so it scales with mesh size), it:
    (guards against a threshold so strict it can never be satisfied).
 
 Final statistics are computed by `bidirectional_error_summary`
-([remesh_core.py:621](remesh_core.py:621)) as an `ErrorStats`
-([remesh_core.py:261](remesh_core.py:261)): it calls `error_summary` three
+([remesh_core.py:709](remesh_core.py:709)) as an `ErrorStats`
+([remesh_core.py:288](remesh_core.py:288)): it calls `error_summary` three
 times — once on both directions' error arrays concatenated together (`max`,
 `mean`, `p95`, the single pooled numbers this app always showed before), and
 once each on `fwd_errors` alone (`max_fwd`/`mean_fwd`/`p95_fwd`,
@@ -384,7 +384,7 @@ nothing left nearby to measure against (see the "fully removed feature" case
 above). Both the pooled and the per-direction numbers end up in
 `PipelineResult` and the exported `.json` report, not just the pooled ones.
 
-`run_decimation_pipeline` ([remesh_core.py:732](remesh_core.py:732)) is the
+`run_decimation_pipeline` ([remesh_core.py:820](remesh_core.py:820)) is the
 single public entry point used by both the interactive button and batch
 processing: it builds the mask (manual ∪ UV-seam), calls `decimate_with_mask`,
 raises `ValueError` if that leaves zero cells, and then either calls
@@ -551,7 +551,7 @@ prototyped in a scratch script but deliberately **not** ported into
 `remesh_core.py`, since it doesn't reliably address the underlying topological
 mismatch and would add complexity for inconsistent benefit.
 
-**Fix** ([remesh_core.py:203](remesh_core.py:203), inside `decimate_qem`): raise
+**Fix** ([remesh_core.py:230](remesh_core.py:230), inside `decimate_qem`): raise
 the boundary weight from `1000.0` to `1e10`. Verified with a manual sweep
 across mesh resolutions and protection masks: the seam now stays reliably
 welded up to ~90% reduction. A residual failure margin remains above that
@@ -597,7 +597,7 @@ decimation pass that flattens the bump away entirely).
 **Fix:**
 
 - `measure_bidirectional_error` (new function in `remesh_core.py`,
-  [remesh_core.py:636](remesh_core.py:636)): measures both `result → source`
+  [remesh_core.py:724](remesh_core.py:724)): measures both `result → source`
   (the original direction) and `source → result` (the new one), reusing the
   `source`-side spatial locator across refinement passes for efficiency (see
   3.5).
@@ -692,7 +692,7 @@ this is why neither PyMeshLab's `meshing_repair_non_manifold_vertices` (any
 `meshing_remove_t_vertices`, nor VTK's own `vtkFillHolesFilter`, could close
 it: none of them separate the two loops that meet at that one point. A
 targeted post-process, `_stitch_residual_boundary_gaps`
-([remesh_core.py:496](remesh_core.py:496)), now runs after `_weld_seam_gaps`:
+([remesh_core.py:584](remesh_core.py:584)), now runs after `_weld_seam_gaps`:
 it rebuilds the simple closed loops hiding in the residual boundary-edge
 graph — at each bowtie vertex, pairing each incident edge with the one most
 opposite in direction (`_pair_seam_branch_neighbors`, the pairing that best
@@ -774,17 +774,124 @@ a PyInstaller build missing a native dependency or hitting a broken import at
 startup. This doesn't replace clicking through the actual UI, but it catches
 the most common way a cross-platform packaged build silently fails.
 
+### 5.6. Non-manifold edges (two distinct causes) and a silent DecimatePro no-op — fixed
+
+Found via the evaluation harness built for the paper's Evaluation section
+(`evaluation/`, independent of the shipped app), not the synthetic sphere
+sweeps used elsewhere in this document — running the default pipeline over a
+19-model real dataset (`evaluation/experiment_validity_checks.py`,
+`experiment_engine_comparison.py`) surfaced two problems the synthetic test
+suite hadn't hit.
+
+**Symptom 1 — silent no-op:** `vtkDecimatePro` achieved exactly 0% reduction
+on 4 of the 19 real models, with no error or warning.
+
+**Root cause:** those 4 models are exported with duplicated per-face vertices
+— no two triangles share a vertex index at all (confirmed: their "connected
+component" count equals their triangle count). `vtkDecimatePro` collapses
+edges via triangle adjacency, so a mesh with no shared edges anywhere gives it
+nothing to collapse. `vtkQuadricDecimation` wasn't affected on the same
+inputs — it clusters by spatial proximity instead of walking triangle
+adjacency.
+
+**Fix** (`_weld_if_fully_disconnected`, [remesh_core.py:114](remesh_core.py:114),
+called from `decimate_pro`): detects the pathological case cheaply (every
+edge is a boundary edge — `boundary.n_cells == 3 * n_cells`, which only
+happens when literally nothing is shared) and welds coincident points
+(`PolyData.clean()`) only in that case, before decimating. Verified: all 4
+previously-stuck models now reduce normally (31–90%, engine/mesh-dependent);
+an already-connected control mesh (Stanford Bunny) was unaffected.
+
+**Symptom 2 — non-manifold edges in the result**, from (it turned out) three
+distinct causes, the third found only after being asked to check this section
+more carefully (see the Update below):
+
+1. `vtkDecimatePro` on its own, even on the plain unmasked path with **no**
+   masking or merging involved at all (Stanford Armadillo: 0 → 7 edges,
+   Stanford Bunny: 0 → 1, both from an otherwise clean, watertight source).
+   `vtkQuadricDecimation` didn't reproduce this on the same inputs.
+2. `.merge(protected_group, decimated_part, merge_points=True)` on the masked
+   path (e.g. Bolt Cutters: 0 → 12 edges) — confirmed by instrumenting each
+   stage of `decimate_with_mask` in isolation: the count appeared immediately
+   after this merge call and was completely unchanged by the subsequent
+   `_weld_seam_gaps`/`_stitch_residual_boundary_gaps` calls, so neither of
+   those was the source.
+3. `_stitch_residual_boundary_gaps`'s own bowtie-vertex fan triangulation, in
+   more extreme cases than 1-2 hit — see the Update below.
+
+This isn't a contradiction of 5.1's "`meshing_repair_non_manifold_edges` had
+no effect whatsoever" finding — that sweep used synthetic spheres, which
+apparently never produced a genuinely non-manifold edge to repair in the
+first place, so the filter had nothing to do there. On messy real-world scan
+geometry, it does.
+
+**Fix:** `_repair_non_manifold_edges` ([remesh_core.py:497](remesh_core.py:497))
+runs `pymeshlab.meshing_repair_non_manifold_edges()` (splitting the offending
+vertices to detach the extra fan), wrapped by a cheap pre-check
+(`_repair_non_manifold_edges_if_any`, [remesh_core.py:530](remesh_core.py:530))
+so the PyMeshLab round-trip is only paid for when `extract_feature_edges`
+actually finds a non-manifold edge. Called on **both** paths of
+`decimate_with_mask`: unconditionally at the end of the unmasked branch (for
+cause 1), and between `_weld_seam_gaps` and `_stitch_residual_boundary_gaps`
+on the masked branch (for cause 2) — that specific ordering was tested
+against the alternatives and is the only one that fully closes the gap:
+repairing *before* `_weld_seam_gaps` gets undone by it (`meshing_close_holes`
+recreates the same non-manifold pattern), and repairing *after*
+`_stitch_residual_boundary_gaps` leaves the new boundary edges this repair
+necessarily opens (splitting an edge shared by 3+ faces can only ever produce
+more boundary, never fewer) unclosed for good.
+
+**Verified** across all 19 real models at the pipeline's default settings:
+non-manifold edges → 0 in every case that had any (a handful of triangles
+lost in the process, no new open boundary left behind in this ordering), and
+spot-checked at 99% requested reduction on the three previously-affected
+models above with the same clean result.
+
+**Update — a third cause, found by finally re-running an equivalent of 5.1's
+original sweep.** Asked to check whether this also closed the "1-2 problem
+edges above ~99%" limitation from section 6, a 117-combo sweep (13
+resolutions 15-75, 3 mask shapes - polar cap, equatorial band, hemisphere -
+reduction in {99%, 99.5%, 99.9%}) found it didn't, fully: 16 combos (13.7%)
+still had a non-manifold edge, though — cleanly separating the two failure
+modes this time by checking `boundary_edges` and `non_manifold_edges`
+independently rather than together — **zero** combos had a leftover boundary
+edge (5.1's original limitation, ordinary unmatched boundary edges, is now
+fully closed). Instrumenting each stage again pinned down a **third** cause:
+`_stitch_residual_boundary_gaps`'s own fan triangulation at a bowtie vertex
+can itself produce a genuinely non-manifold edge in these more extreme
+cases, not just the non-manifold *vertex* its docstring already anticipated
+as an acceptable side effect — the earlier repair pass can't have caught this
+since it runs *before* the stitch step exists to introduce it. Fixed with one
+more `_repair_non_manifold_edges_if_any` call, now at the very end of
+`decimate_with_mask`'s masked branch (still a no-op everywhere else, confirmed
+0/19 real models trigger it even at 99%). Verified: all 16 previously-failing
+sweep combos now show 0 non-manifold edges, at the cost of a handful of new
+boundary edges where it fires (4-12, tiny relative to mesh size, and far
+fewer than the "dozens" 5.1 measured before `_weld_seam_gaps`/
+`_stitch_residual_boundary_gaps` existed at all) — a deliberate trade, judged
+better than leaving genuinely non-manifold topology in the result (see
+section 6 for why this is described as narrowing, not eliminating, that
+limitation). New regression test:
+[`test_decimate_with_mask_stitch_bowtie_does_not_leave_non_manifold_edge`](tests/test_remesh_core.py).
+
 ---
 
 ## 6. Known limitations (still open)
 
-- The QEM seam-gap fix in 5.1, even after the custom stitcher, is not
-  completely airtight at the most extreme reduction levels (>=99%): about
-  10% of tested resolution/mask combinations still leave 1-2 problem edges.
-  The remaining cases involve loop topologies the greedy direction-pairing
-  heuristic can't decompose cleanly, or a merge that was already non-manifold
-  before any repair ran. Full closure in every case would require a proper
-  boundary-constrained decimation implementation, judged disproportionate for
-  a defect this rare and this small.
+- The QEM seam-gap fix in 5.1, even after the custom stitcher and 5.6's
+  non-manifold repairs, is not completely airtight at the most extreme
+  reduction levels (>=99%): a 117-combo re-sweep (13 resolutions, 3 mask
+  shapes, reduction in {99%, 99.5%, 99.9%}) found 16 combos (13.7%) still
+  leave a handful of problem edges - but, unlike when this was last
+  measured, they're now boundary edges (4-12, never more), not non-manifold
+  ones: 5.6's fixes bring that count to zero across the entire sweep,
+  including these extreme cases. What's left is a purely topological
+  T-junction/loop-decomposition issue the greedy direction-pairing heuristic
+  can't fully close - the same nature of limitation as originally described,
+  just with the non-manifold-edge escape hatch removed rather than left in
+  as an unmeasured "narrows but might not close" caveat. Full closure in
+  every case would require a proper boundary-constrained decimation
+  implementation, judged disproportionate for a defect this rare and this
+  small.
 - The PyInstaller builds for macOS/Linux are smoke-tested (process starts and
   survives a few seconds) but not interactively verified — see 5.5.

@@ -1,0 +1,98 @@
+[
+  {
+    "model": "grid_no_seam_control",
+    "expected_seam_vertices": 0,
+    "detected_seam_vertices": 0,
+    "uv_protection_on": "No",
+    "seam_vertices_collapsed": "No",
+    "uv_data_preserved_after_merge": "Yes"
+  },
+  {
+    "model": "grid_no_seam_control",
+    "expected_seam_vertices": 0,
+    "detected_seam_vertices": 0,
+    "uv_protection_on": "Yes",
+    "seam_vertices_collapsed": "No",
+    "uv_data_preserved_after_merge": "Yes"
+  },
+  {
+    "model": "grid_1seam_small",
+    "expected_seam_vertices": 12,
+    "detected_seam_vertices": 12,
+    "uv_protection_on": "No",
+    "seam_vertices_collapsed": "No",
+    "uv_data_preserved_after_merge": "Yes"
+  },
+  {
+    "model": "grid_1seam_small",
+    "expected_seam_vertices": 12,
+    "detected_seam_vertices": 12,
+    "uv_protection_on": "Yes",
+    "seam_vertices_collapsed": "No",
+    "uv_data_preserved_after_merge": "No"
+  },
+  {
+    "model": "grid_1seam_medium",
+    "expected_seam_vertices": 20,
+    "detected_seam_vertices": 20,
+    "uv_protection_on": "No",
+    "seam_vertices_collapsed": "Yes",
+    "uv_data_preserved_after_merge": "Yes"
+  },
+  {
+    "model": "grid_1seam_medium",
+    "expected_seam_vertices": 20,
+    "detected_seam_vertices": 20,
+    "uv_protection_on": "Yes",
+    "seam_vertices_collapsed": "No",
+    "uv_data_preserved_after_merge": "No"
+  },
+  {
+    "model": "grid_1seam_large",
+    "expected_seam_vertices": 32,
+    "detected_seam_vertices": 32,
+    "uv_protection_on": "No",
+    "seam_vertices_collapsed": "Yes",
+    "uv_data_preserved_after_merge": "Yes"
+  },
+  {
+    "model": "grid_1seam_large",
+    "expected_seam_vertices": 32,
+    "detected_seam_vertices": 32,
+    "uv_protection_on": "Yes",
+    "seam_vertices_collapsed": "No",
+    "uv_data_preserved_after_merge": "No"
+  },
+  {
+    "model": "grid_2seams_multi",
+    "expected_seam_vertices": 32,
+    "detected_seam_vertices": 32,
+    "uv_protection_on": "No",
+    "seam_vertices_collapsed": "No",
+    "uv_data_preserved_after_merge": "Yes"
+  },
+  {
+    "model": "grid_2seams_multi",
+    "expected_seam_vertices": 32,
+    "detected_seam_vertices": 32,
+    "uv_protection_on": "Yes",
+    "seam_vertices_collapsed": "No",
+    "uv_data_preserved_after_merge": "No"
+  },
+  {
+    "model": "grid_1seam_thin_strip",
+    "expected_seam_vertices": 40,
+    "detected_seam_vertices": 40,
+    "uv_protection_on": "No",
+    "seam_vertices_collapsed": "Yes",
+    "uv_data_preserved_after_merge": "Yes"
+  },
+  {
+    "model": "grid_1seam_thin_strip",
+    "expected_seam_vertices": 40,
+    "detected_seam_vertices": 40,
+    "uv_protection_on": "Yes",
+    "seam_vertices_collapsed": "No",
+    "uv_data_preserved_after_merge": "No"
+  }
+]

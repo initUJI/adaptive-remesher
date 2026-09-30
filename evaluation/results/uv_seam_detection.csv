@@ -1,0 +1,13 @@
+model,expected_seam_vertices,detected_seam_vertices,uv_protection_on,seam_vertices_collapsed,uv_data_preserved_after_merge
+grid_no_seam_control,0,0,No,No,Yes
+grid_no_seam_control,0,0,Yes,No,Yes
+grid_1seam_small,12,12,No,No,Yes
+grid_1seam_small,12,12,Yes,No,No
+grid_1seam_medium,20,20,No,Yes,Yes
+grid_1seam_medium,20,20,Yes,No,No
+grid_1seam_large,32,32,No,Yes,Yes
+grid_1seam_large,32,32,Yes,No,No
+grid_2seams_multi,32,32,No,No,Yes
+grid_2seams_multi,32,32,Yes,No,No
+grid_1seam_thin_strip,40,40,No,Yes,Yes
+grid_1seam_thin_strip,40,40,Yes,No,No

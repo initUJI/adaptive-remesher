@@ -1,0 +1,39 @@
+model,category,config,faces,vertices,duplicate_vertices,boundary_edges,non_manifold_edges,degenerate_faces,connected_components
+Sculpture of man and woman (Egyptian excavation),Characters,Before (raw load),59996,32175,4284,4286,0,0,34
+Sculpture of man and woman (Egyptian excavation),Characters,"After (default pipeline, 90%)",20228,10116,0,0,0,0,1
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,Before (raw load),15000,7856,704,704,0,0,4
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,"After (default pipeline, 90%)",6312,3158,0,0,0,0,1
+Statuette of a Woman in Hunting Clothes,Characters,Before (raw load),130504,69037,7457,7466,0,0,67
+Statuette of a Woman in Hunting Clothes,Characters,"After (default pipeline, 90%)",36140,18063,0,0,0,0,1
+Barrel 03,Objects,Before (raw load),1473,1126,730,749,0,0,17
+Barrel 03,Objects,"After (default pipeline, 90%)",1386,697,0,0,0,0,2
+Carrot Cake,Objects,Before (raw load),13790,9211,4209,4222,0,0,289
+Carrot Cake,Objects,"After (default pipeline, 90%)",11708,5854,0,0,0,0,1
+Carved Wooden Elephant,Objects,Before (raw load),2752,1664,554,562,0,0,9
+Carved Wooden Elephant,Objects,"After (default pipeline, 90%)",2036,1016,0,0,0,0,1
+Bolt Cutters 01,Mechanical,Before (raw load),3410,2320,847,1108,0,0,62
+Bolt Cutters 01,Mechanical,"After (default pipeline, 90%)",3192,1642,0,0,0,0,28
+Drill 01,Mechanical,Before (raw load),2926,2267,1134,1468,0,0,79
+Drill 01,Mechanical,"After (default pipeline, 90%)",2642,1365,0,0,0,2,22
+Trilobite: Agnostid,Organic,Before (raw load),211874,122173,31717,32448,0,0,1630
+Trilobite: Agnostid,Organic,"After (default pipeline, 90%)",52160,26050,0,0,0,0,8
+Blastoid: Pentremites godani (PRI 70771),Organic,Before (raw load),446670,279629,110737,112526,0,0,4790
+Blastoid: Pentremites godani (PRI 70771),Organic,"After (default pipeline, 90%)",138308,69147,0,0,0,0,5
+Vertebrate: T. rex tooth (PRI 55205),Organic,Before (raw load),108958,57711,6015,6344,0,0,161
+Vertebrate: T. rex tooth (PRI 55205),Organic,"After (default pipeline, 90%)",21364,10684,0,0,0,0,8
+Loewe (lion),Organic,Before (raw load),405680,280931,144027,145108,0,0,7804
+Loewe (lion),Organic,"After (default pipeline, 90%)",251322,125656,0,0,0,0,1
+Weisshai Great White Shark,Scanned,Before (raw load),5912,17736,17736,17736,0,0,5912
+Weisshai Great White Shark,Scanned,"After (default pipeline, 90%)",3270,1637,0,0,0,0,1
+Vegetable Garden,Scanned,Before (raw load),16694,50082,50082,50082,0,0,16694
+Vegetable Garden,Scanned,"After (default pipeline, 90%)",13858,6929,0,0,0,0,7
+"Curled Rat netsuke, test scan",Scanned,Before (raw load),63998,34257,3885,4554,0,0,266
+"Curled Rat netsuke, test scan",Scanned,"After (default pipeline, 90%)",23366,11727,0,0,0,0,22
+Stanford Bunny (reconstruction),Scanned,Before (raw load),69451,35947,0,223,0,0,1
+Stanford Bunny (reconstruction),Scanned,"After (default pipeline, 90%)",8112,4059,0,0,0,0,1
+Stanford Armadillo (reconstruction),Scanned,Before (raw load),345944,172974,0,0,0,0,1
+Stanford Armadillo (reconstruction),Scanned,"After (default pipeline, 90%)",48760,24389,0,0,0,0,1
+Electrocardiograph Machine (AI-generated),Generated,Before (raw load),1869988,5609964,5609964,5609964,0,0,1869988
+Electrocardiograph Machine (AI-generated),Generated,"After (default pipeline, 90%)",186994,93487,0,0,0,0,2
+Realistic Heart (AI-generated),Generated,Before (raw load),31400,94200,94200,94200,0,0,31400
+Realistic Heart (AI-generated),Generated,"After (default pipeline, 90%)",21252,10588,0,0,0,0,1

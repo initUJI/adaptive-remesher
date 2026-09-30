@@ -1,0 +1,37 @@
+{
+  "n_points": 18,
+  "true_positives": 6,
+  "false_positives": 0,
+  "false_negatives": 0,
+  "true_negatives": 12,
+  "precision": 1.0,
+  "recall": 1.0,
+  "accuracy": 1.0,
+  "per_group": {
+    "duplicate_below_tolerance": {
+      "ground_truth_seam": false,
+      "all_predicted_correctly": true,
+      "n_points": 2
+    },
+    "duplicate_identical_uv": {
+      "ground_truth_seam": false,
+      "all_predicted_correctly": true,
+      "n_points": 2
+    },
+    "seam_above_tolerance": {
+      "ground_truth_seam": true,
+      "all_predicted_correctly": true,
+      "n_points": 2
+    },
+    "seam_large_diff": {
+      "ground_truth_seam": true,
+      "all_predicted_correctly": true,
+      "n_points": 4
+    },
+    "unique_point": {
+      "ground_truth_seam": false,
+      "all_predicted_correctly": true,
+      "n_points": 8
+    }
+  }
+}

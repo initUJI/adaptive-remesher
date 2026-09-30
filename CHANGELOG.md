@@ -25,6 +25,37 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   without duplicating its split logic elsewhere.
 
 ### Fixed
+- `vtkDecimatePro` silently achieved 0% reduction on meshes exported with
+  duplicated per-face vertices (no two triangles sharing a vertex -
+  common in some OBJ/GLTF exporters; 4 of 19 models in the evaluation
+  dataset had this): it collapses edges via triangle adjacency, so a
+  mesh with no shared edges anywhere gives it nothing to collapse.
+  `decimate_pro` now detects this cheaply (every edge is a boundary
+  edge) and welds coincident points before decimating, only in that
+  case (`_weld_if_fully_disconnected`, `remesh_core.py`).
+  `vtkQuadricDecimation` wasn't affected (it clusters by spatial
+  proximity instead) and is untouched.
+- `decimate_with_mask` could leave a handful of non-manifold edges in
+  the result, from two distinct causes: (1) `vtkDecimatePro` on its own
+  can introduce them even into an otherwise clean, watertight mesh with
+  no masking involved at all (verified on Stanford Armadillo/Bunny;
+  `vtkQuadricDecimation` didn't reproduce this); (2) on the masked path,
+  `.merge(protected_group, decimated_part, merge_points=True)` could
+  also introduce them at the seam. Both are now repaired
+  (`_repair_non_manifold_edges`/`_repair_non_manifold_edges_if_any`),
+  with the masked path's repair placed between the existing
+  `_weld_seam_gaps` and `_stitch_residual_boundary_gaps` steps
+  specifically (verified empirically: repairing before `_weld_seam_gaps`
+  gets undone by it; repairing after `_stitch_residual_boundary_gaps`
+  leaves the boundary edges this repair opens up unclosed). A third
+  cause, found by a 117-combo resolution/mask/reduction sweep at >=99%
+  reduction: `_stitch_residual_boundary_gaps`'s own bowtie-vertex fan
+  triangulation could itself introduce a non-manifold edge in ~14% of
+  that sweep. Fixed with one more repair pass at the very end of
+  `decimate_with_mask`'s masked branch (still a no-op everywhere else -
+  0/19 real models trigger it), at the cost of a handful of new boundary
+  edges (4-12) where it does fire - judged a better trade than leaving
+  genuinely non-manifold topology in the result.
 - The curvature-map checkbox stayed checked but silently had no visible
   effect while "Live preview" was on, or after "Apply decimation" until
   "Restore original" was pressed — both redraw the viewport with the
