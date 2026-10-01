@@ -90,6 +90,6 @@ jobs:
           echo "ARCHIVE=${{ matrix.asset_name }}.tar.gz" >> "$GITHUB_ENV"
 
       - name: Attach to the Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ env.ARCHIVE }}
