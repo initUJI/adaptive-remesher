@@ -14,7 +14,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.676
+    "runtime_s": 0.728
   },
   {
     "model": "Sculpture of man and woman (Egyptian excavation)",
@@ -34,7 +34,7 @@
     "runtime_s": 0.161
   },
   {
-    "model": "Statuette of a Woman: \"The Stargazer\"",
+    "model": "1993.165 Statuette of a Woman: \"The Stargazer\"",
     "category": "Characters",
     "config": "No refinement",
     "input_tris": 15000,
@@ -48,10 +48,10 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.127
+    "runtime_s": 0.141
   },
   {
-    "model": "Statuette of a Woman: \"The Stargazer\"",
+    "model": "1993.165 Statuette of a Woman: \"The Stargazer\"",
     "category": "Characters",
     "config": "Bidirectional refinement",
     "input_tris": 15000,
@@ -82,7 +82,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 1.404
+    "runtime_s": 1.422
   },
   {
     "model": "Statuette of a Woman in Hunting Clothes",
@@ -99,7 +99,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 0.331
+    "runtime_s": 0.332
   },
   {
     "model": "Barrel 03",
@@ -116,7 +116,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.017
+    "runtime_s": 0.019
   },
   {
     "model": "Barrel 03",
@@ -133,75 +133,75 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 619,
     "iterations": 3,
-    "runtime_s": 0.069
+    "runtime_s": 0.086
   },
   {
     "model": "Carrot Cake",
     "category": "Objects",
     "config": "No refinement",
     "input_tris": 13790,
-    "output_tris": 1379,
+    "output_tris": 1376,
     "error_max_fwd": 0.019303,
-    "error_mean_fwd": 0.001072,
-    "error_p95_fwd": 0.004187,
+    "error_mean_fwd": 0.001074,
+    "error_p95_fwd": 0.004191,
     "error_max_rev": 0.020696,
-    "error_mean_rev": 0.001058,
+    "error_mean_rev": 0.001059,
     "error_p95_rev": 0.003949,
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.215
+    "runtime_s": 0.218
   },
   {
     "model": "Carrot Cake",
     "category": "Objects",
     "config": "Bidirectional refinement",
     "input_tris": 13790,
-    "output_tris": 5093,
-    "error_max_fwd": 0.006917,
-    "error_mean_fwd": 0.000354,
-    "error_p95_fwd": 0.001508,
+    "output_tris": 5231,
+    "error_max_fwd": 0.007995,
+    "error_mean_fwd": 0.000405,
+    "error_p95_fwd": 0.001804,
     "error_max_rev": 0.004147,
-    "error_mean_rev": 0.000387,
-    "error_p95_rev": 0.001332,
+    "error_mean_rev": 0.00039,
+    "error_p95_rev": 0.00136,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 867,
+    "auto_added_vertices": 865,
     "iterations": 3,
-    "runtime_s": 0.788
+    "runtime_s": 0.81
   },
   {
     "model": "Carved Wooden Elephant",
     "category": "Objects",
     "config": "No refinement",
     "input_tris": 2752,
-    "output_tris": 275,
+    "output_tris": 273,
     "error_max_fwd": 0.009673,
-    "error_mean_fwd": 0.001657,
-    "error_p95_fwd": 0.004864,
+    "error_mean_fwd": 0.001665,
+    "error_p95_fwd": 0.004878,
     "error_max_rev": 0.010291,
-    "error_mean_rev": 0.001555,
+    "error_mean_rev": 0.001557,
     "error_p95_rev": 0.004725,
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.03
+    "runtime_s": 0.031
   },
   {
     "model": "Carved Wooden Elephant",
     "category": "Objects",
     "config": "Bidirectional refinement",
     "input_tris": 2752,
-    "output_tris": 2786,
+    "output_tris": 2790,
     "error_max_fwd": 0.001918,
-    "error_mean_fwd": 2.2e-05,
-    "error_p95_fwd": 0.00012,
+    "error_mean_fwd": 2.1e-05,
+    "error_p95_fwd": 0.000104,
     "error_max_rev": 0.001024,
-    "error_mean_rev": 1.1e-05,
-    "error_p95_rev": 3.7e-05,
+    "error_mean_rev": 1e-05,
+    "error_p95_rev": 3.5e-05,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 989,
+    "auto_added_vertices": 993,
     "iterations": 3,
-    "runtime_s": 0.1
+    "runtime_s": 0.112
   },
   {
     "model": "Bolt Cutters 01",
@@ -218,17 +218,17 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.037
+    "runtime_s": 0.04
   },
   {
     "model": "Bolt Cutters 01",
     "category": "Mechanical",
     "config": "Bidirectional refinement",
     "input_tris": 3410,
-    "output_tris": 1068,
+    "output_tris": 1066,
     "error_max_fwd": 0.006251,
-    "error_mean_fwd": 0.000629,
-    "error_p95_fwd": 0.002719,
+    "error_mean_fwd": 0.00063,
+    "error_p95_fwd": 0.00272,
     "error_max_rev": 0.006865,
     "error_mean_rev": 0.001544,
     "error_p95_rev": 0.004892,
@@ -252,99 +252,99 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.039
+    "runtime_s": 0.037
   },
   {
     "model": "Drill 01",
     "category": "Mechanical",
     "config": "Bidirectional refinement",
     "input_tris": 2926,
-    "output_tris": 2729,
+    "output_tris": 2730,
     "error_max_fwd": 0.013249,
-    "error_mean_fwd": 0.000338,
-    "error_p95_fwd": 0.001928,
+    "error_mean_fwd": 0.000334,
+    "error_p95_fwd": 0.001865,
     "error_max_rev": 0.003009,
     "error_mean_rev": 0.000133,
     "error_p95_rev": 0.00083,
     "manually_protected_vertices": 0,
     "auto_added_vertices": 861,
     "iterations": 3,
-    "runtime_s": 0.116
+    "runtime_s": 0.129
   },
   {
     "model": "Trilobite: Agnostid",
     "category": "Organic",
     "config": "No refinement",
     "input_tris": 211874,
-    "output_tris": 21187,
+    "output_tris": 21172,
     "error_max_fwd": 0.047435,
-    "error_mean_fwd": 0.000552,
-    "error_p95_fwd": 0.002328,
+    "error_mean_fwd": 0.000548,
+    "error_p95_fwd": 0.002304,
     "error_max_rev": 0.050117,
-    "error_mean_rev": 0.003474,
-    "error_p95_rev": 0.017768,
+    "error_mean_rev": 0.003483,
+    "error_p95_rev": 0.017823,
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 2.609
+    "runtime_s": 2.707
   },
   {
     "model": "Trilobite: Agnostid",
     "category": "Organic",
     "config": "Bidirectional refinement",
     "input_tris": 211874,
-    "output_tris": 44530,
-    "error_max_fwd": 0.05889,
-    "error_mean_fwd": 0.000749,
-    "error_p95_fwd": 0.003678,
+    "output_tris": 42555,
+    "error_max_fwd": 0.055663,
+    "error_mean_fwd": 0.00076,
+    "error_p95_fwd": 0.003796,
     "error_max_rev": 0.021922,
-    "error_mean_rev": 0.001401,
-    "error_p95_rev": 0.005823,
+    "error_mean_rev": 0.001407,
+    "error_p95_rev": 0.005971,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 4422,
+    "auto_added_vertices": 4149,
     "iterations": 3,
-    "runtime_s": 9.595
+    "runtime_s": 9.923
   },
   {
     "model": "Blastoid: Pentremites godani (PRI 70771)",
     "category": "Organic",
     "config": "No refinement",
     "input_tris": 446670,
-    "output_tris": 44667,
+    "output_tris": 44633,
     "error_max_fwd": 0.024506,
-    "error_mean_fwd": 0.000376,
-    "error_p95_fwd": 0.00144,
+    "error_mean_fwd": 0.000375,
+    "error_p95_fwd": 0.001435,
     "error_max_rev": 0.036757,
-    "error_mean_rev": 0.001137,
-    "error_p95_rev": 0.004787,
+    "error_mean_rev": 0.001138,
+    "error_p95_rev": 0.004789,
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 5.713
+    "runtime_s": 5.725
   },
   {
     "model": "Blastoid: Pentremites godani (PRI 70771)",
     "category": "Organic",
     "config": "Bidirectional refinement",
     "input_tris": 446670,
-    "output_tris": 85018,
-    "error_max_fwd": 0.046064,
-    "error_mean_fwd": 0.000863,
-    "error_p95_fwd": 0.004037,
-    "error_max_rev": 0.017166,
-    "error_mean_rev": 0.000835,
-    "error_p95_rev": 0.003602,
+    "output_tris": 150195,
+    "error_max_fwd": 0.221384,
+    "error_mean_fwd": 0.019596,
+    "error_p95_fwd": 0.153286,
+    "error_max_rev": 0.018332,
+    "error_mean_rev": 0.0007,
+    "error_p95_rev": 0.00312,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 3987,
+    "auto_added_vertices": 15225,
     "iterations": 3,
-    "runtime_s": 27.832
+    "runtime_s": 140.315
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
     "category": "Organic",
     "config": "No refinement",
     "input_tris": 108958,
-    "output_tris": 10894,
+    "output_tris": 10890,
     "error_max_fwd": 0.002859,
     "error_mean_fwd": 0.000309,
     "error_p95_fwd": 0.001,
@@ -354,14 +354,14 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 1.265
+    "runtime_s": 1.239
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
     "category": "Organic",
     "config": "Bidirectional refinement",
     "input_tris": 108958,
-    "output_tris": 10894,
+    "output_tris": 10890,
     "error_max_fwd": 0.002859,
     "error_mean_fwd": 0.000309,
     "error_p95_fwd": 0.001,
@@ -371,41 +371,41 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 0.348
+    "runtime_s": 0.345
   },
   {
     "model": "Loewe (lion)",
     "category": "Organic",
     "config": "No refinement",
     "input_tris": 405680,
-    "output_tris": 40568,
+    "output_tris": 40563,
     "error_max_fwd": 0.020625,
     "error_mean_fwd": 0.00099,
-    "error_p95_fwd": 0.003848,
+    "error_p95_fwd": 0.003847,
     "error_max_rev": 0.050376,
     "error_mean_rev": 0.001406,
-    "error_p95_rev": 0.004998,
+    "error_p95_rev": 0.004999,
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 8.15
+    "runtime_s": 8.074
   },
   {
     "model": "Loewe (lion)",
     "category": "Organic",
     "config": "Bidirectional refinement",
     "input_tris": 405680,
-    "output_tris": 90425,
-    "error_max_fwd": 0.385636,
-    "error_mean_fwd": 0.007425,
-    "error_p95_fwd": 0.026195,
-    "error_max_rev": 0.035487,
-    "error_mean_rev": 0.001064,
-    "error_p95_rev": 0.003936,
+    "output_tris": 98032,
+    "error_max_fwd": 0.365014,
+    "error_mean_fwd": 0.013302,
+    "error_p95_fwd": 0.108886,
+    "error_max_rev": 0.035891,
+    "error_mean_rev": 0.001038,
+    "error_p95_rev": 0.003859,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 2808,
+    "auto_added_vertices": 4044,
     "iterations": 3,
-    "runtime_s": 54.452
+    "runtime_s": 80.122
   },
   {
     "model": "Weisshai Great White Shark",
@@ -422,24 +422,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.056
+    "runtime_s": 0.061
   },
   {
     "model": "Weisshai Great White Shark",
     "category": "Scanned",
     "config": "Bidirectional refinement",
     "input_tris": 5912,
-    "output_tris": 5230,
-    "error_max_fwd": 0.007915,
-    "error_mean_fwd": 0.000304,
-    "error_p95_fwd": 0.002194,
+    "output_tris": 5129,
+    "error_max_fwd": 0.008328,
+    "error_mean_fwd": 0.000272,
+    "error_p95_fwd": 0.001674,
     "error_max_rev": 0.002315,
     "error_mean_rev": 0.000264,
-    "error_p95_rev": 0.001333,
+    "error_p95_rev": 0.001334,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 10389,
+    "auto_added_vertices": 10386,
     "iterations": 3,
-    "runtime_s": 0.245
+    "runtime_s": 0.267
   },
   {
     "model": "Vegetable Garden",
@@ -456,48 +456,48 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.19
+    "runtime_s": 0.181
   },
   {
     "model": "Vegetable Garden",
     "category": "Scanned",
     "config": "Bidirectional refinement",
     "input_tris": 16694,
-    "output_tris": 11981,
+    "output_tris": 11921,
     "error_max_fwd": 0.006045,
-    "error_mean_fwd": 0.000112,
-    "error_p95_fwd": 0.000611,
+    "error_mean_fwd": 0.000111,
+    "error_p95_fwd": 0.000592,
     "error_max_rev": 0.003023,
     "error_mean_rev": 0.000306,
     "error_p95_rev": 0.001476,
     "manually_protected_vertices": 0,
     "auto_added_vertices": 24277,
     "iterations": 3,
-    "runtime_s": 0.662
+    "runtime_s": 0.704
   },
   {
     "model": "Curled Rat netsuke, test scan",
     "category": "Scanned",
     "config": "No refinement",
     "input_tris": 63998,
-    "output_tris": 6398,
+    "output_tris": 6378,
     "error_max_fwd": 0.004009,
-    "error_mean_fwd": 0.000364,
-    "error_p95_fwd": 0.001333,
+    "error_mean_fwd": 0.000363,
+    "error_p95_fwd": 0.001331,
     "error_max_rev": 0.005144,
     "error_mean_rev": 0.00054,
     "error_p95_rev": 0.00166,
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.66
+    "runtime_s": 0.646
   },
   {
     "model": "Curled Rat netsuke, test scan",
     "category": "Scanned",
     "config": "Bidirectional refinement",
     "input_tris": 63998,
-    "output_tris": 6536,
+    "output_tris": 6530,
     "error_max_fwd": 0.004009,
     "error_mean_fwd": 0.000358,
     "error_p95_fwd": 0.001321,
@@ -507,7 +507,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 9,
     "iterations": 2,
-    "runtime_s": 0.82
+    "runtime_s": 0.81
   },
   {
     "model": "Stanford Bunny (reconstruction)",
@@ -524,7 +524,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.502
+    "runtime_s": 0.483
   },
   {
     "model": "Stanford Bunny (reconstruction)",
@@ -541,7 +541,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 0.17
+    "runtime_s": 0.159
   },
   {
     "model": "Stanford Armadillo (reconstruction)",
@@ -558,7 +558,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 3.909
+    "runtime_s": 3.863
   },
   {
     "model": "Stanford Armadillo (reconstruction)",
@@ -575,7 +575,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 1.514
+    "runtime_s": 1.497
   },
   {
     "model": "Electrocardiograph Machine (AI-generated)",
@@ -592,7 +592,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 25.906
+    "runtime_s": 25.439
   },
   {
     "model": "Electrocardiograph Machine (AI-generated)",
@@ -609,7 +609,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 12.752
+    "runtime_s": 12.962
   },
   {
     "model": "Realistic Heart (AI-generated)",
@@ -626,23 +626,23 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.359
+    "runtime_s": 0.358
   },
   {
     "model": "Realistic Heart (AI-generated)",
     "category": "Generated",
     "config": "Bidirectional refinement",
     "input_tris": 31400,
-    "output_tris": 25128,
-    "error_max_fwd": 0.15197,
-    "error_mean_fwd": 0.002529,
-    "error_p95_fwd": 0.01429,
+    "output_tris": 24908,
+    "error_max_fwd": 0.151949,
+    "error_mean_fwd": 0.002496,
+    "error_p95_fwd": 0.014452,
     "error_max_rev": 0.027683,
-    "error_mean_rev": 0.003005,
-    "error_p95_rev": 0.013151,
+    "error_mean_rev": 0.002961,
+    "error_p95_rev": 0.013045,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 46108,
+    "auto_added_vertices": 46048,
     "iterations": 3,
-    "runtime_s": 2.472
+    "runtime_s": 2.556
   }
 ]

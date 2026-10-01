@@ -39,10 +39,8 @@ fingers...).
 
 ## Requirements
 
-- Python 3.11 or newer (the minimums in `requirements.txt` were set against
-  3.11, but the project has also been verified on 3.14: PySide6 6.11.2,
-  PyVista 0.49.0, pyvistaqt 0.13.1, VTK 9.7.0, PyMeshLab 2025.7.post1,
-  NumPy 2.5.3, SciPy 1.18.1).
+- Python 3.14 (verified with PySide6 6.11.2, PyVista 0.49.0, pyvistaqt
+  0.13.1, VTK 9.7.0, PyMeshLab 2025.7.post1, NumPy 2.5.3, SciPy 1.18.1).
 - Windows, macOS or Linux with Qt (PySide6) and VTK support.
 
 ## Installation

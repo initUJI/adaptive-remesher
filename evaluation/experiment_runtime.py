@@ -1,4 +1,4 @@
-"""Runtime overhead of the default pipeline (QEM, 90% reduction, UV seams
+"""Runtime overhead of the default pipeline (DecimatePro, 90% reduction, UV seams
 protected, auto-error-protection on - `DecimationSettings`/
 `ProtectionSettings` defaults) on each real model.
 
@@ -40,7 +40,7 @@ from evaluation.dataset_catalog import CATALOG, MODELS_ROOT
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
 REDUCTION_PCT = 90.0
-CONFIG_NAME = f"Default pipeline (QEM, {REDUCTION_PCT:.0f}%, UV+auto-error protection)"
+CONFIG_NAME = f"Default pipeline (DecimatePro, {REDUCTION_PCT:.0f}%, UV+auto-error protection)"
 
 
 def run_model(cat: str, fname: str, display: str) -> dict:
