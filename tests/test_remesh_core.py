@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import pyvista as pv
+import vtk
 from scipy.spatial import cKDTree  # type: ignore[attr-defined]
 
 from remesh_core import (
@@ -18,6 +19,7 @@ from remesh_core import (
     error_summary,
     load_and_prepare_mesh,
     measure_bidirectional_error,
+    measure_error,
     mesh_has_texture_coords,
     refine_by_error,
     run_decimation_pipeline,
@@ -406,6 +408,57 @@ def test_refine_by_error_respects_max_iterations(sphere_mesh):
     )
 
     assert iterations <= 1
+
+
+def _boundary_edge_count(mesh: pv.PolyData) -> int:
+    return mesh.extract_feature_edges(
+        boundary_edges=True, non_manifold_edges=False, feature_edges=False, manifold_edges=False
+    ).n_cells
+
+
+def _sphere_with_opening() -> pv.PolyData:
+    """Sphere with a large cap removed: a real opening that belongs to the
+    source mesh (as on scans), not a seam gap created by decimation."""
+    sphere = pv.Sphere(theta_resolution=128, phi_resolution=128).triangulate()
+    keep = np.where(sphere.cell_centers().points[:, 2] < 0.25)[0]
+    return sphere.extract_cells(keep).extract_surface(algorithm="dataset_surface").triangulate()
+
+
+def test_decimate_with_mask_leaves_source_opening_open():
+    """Regression: the weld/stitch repair used to cap every boundary loop,
+    including openings that already exist in the source mesh, bridging
+    them with triangles that lie away from the surface. Only gaps at the
+    protected/decimated interface may be closed."""
+    source = _sphere_with_opening()
+    assert _boundary_edge_count(source) > 100  # larger than the weld stage's hole limit
+    mask = source.points[:, 0] > 0.2
+    settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=80)
+
+    result = decimate_with_mask(source, mask, settings)
+
+    assert _boundary_edge_count(result) > 0
+    # No cap triangle bridges the opening: the result stays on the source.
+    distance = vtk.vtkImplicitPolyDataDistance()
+    distance.SetInput(source)
+    forward, _ = measure_error(result, distance)
+    assert forward.max() < 0.02 * source.length
+
+
+def test_refine_by_error_never_returns_worse_than_initial_result(sphere_mesh):
+    """More protection does not always lower the error once the interface
+    repair is measured, so `refine_by_error` keeps the best pass, the
+    initial result included."""
+    mask = np.zeros(sphere_mesh.n_points, dtype=bool)
+    settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=95)
+    initial = decimate_with_mask(sphere_mesh, mask, settings)
+    forward, _, reverse, _ = measure_bidirectional_error(sphere_mesh, initial)
+    initial_max = max(forward.max(), reverse.max())
+
+    _, _, stats, _, _ = refine_by_error(
+        sphere_mesh, initial, mask, settings, error_threshold_pct=0.001, max_iterations=3
+    )
+
+    assert stats.max <= initial_max + 1e-12
 
 
 # --- full pipeline ---

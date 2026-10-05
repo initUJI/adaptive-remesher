@@ -14,7 +14,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.728
+    "runtime_s": 0.848
   },
   {
     "model": "Sculpture of man and woman (Egyptian excavation)",
@@ -31,7 +31,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 0.161
+    "runtime_s": 0.28
   },
   {
     "model": "1993.165 Statuette of a Woman: \"The Stargazer\"",
@@ -48,7 +48,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.141
+    "runtime_s": 0.171
   },
   {
     "model": "1993.165 Statuette of a Woman: \"The Stargazer\"",
@@ -65,7 +65,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 0.038
+    "runtime_s": 0.057
   },
   {
     "model": "Statuette of a Woman in Hunting Clothes",
@@ -82,7 +82,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 1.422
+    "runtime_s": 1.699
   },
   {
     "model": "Statuette of a Woman in Hunting Clothes",
@@ -99,7 +99,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 0.332
+    "runtime_s": 0.48
   },
   {
     "model": "Barrel 03",
@@ -116,24 +116,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.019
+    "runtime_s": 0.02
   },
   {
     "model": "Barrel 03",
     "category": "Objects",
     "config": "Bidirectional refinement",
     "input_tris": 1473,
-    "output_tris": 1468,
-    "error_max_fwd": 0.147412,
-    "error_mean_fwd": 0.001662,
-    "error_p95_fwd": 0.006614,
-    "error_max_rev": 0.009079,
-    "error_mean_rev": 0.000392,
+    "output_tris": 1441,
+    "error_max_fwd": 0.050252,
+    "error_mean_fwd": 0.000987,
+    "error_p95_fwd": 0.006501,
+    "error_max_rev": 0.012091,
+    "error_mean_rev": 0.000515,
     "error_p95_rev": 0.003273,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 619,
+    "auto_added_vertices": 616,
     "iterations": 3,
-    "runtime_s": 0.086
+    "runtime_s": 0.09
   },
   {
     "model": "Carrot Cake",
@@ -150,24 +150,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.218
+    "runtime_s": 0.249
   },
   {
     "model": "Carrot Cake",
     "category": "Objects",
     "config": "Bidirectional refinement",
     "input_tris": 13790,
-    "output_tris": 5231,
-    "error_max_fwd": 0.007995,
-    "error_mean_fwd": 0.000405,
-    "error_p95_fwd": 0.001804,
-    "error_max_rev": 0.004147,
-    "error_mean_rev": 0.00039,
-    "error_p95_rev": 0.00136,
+    "output_tris": 5136,
+    "error_max_fwd": 0.007727,
+    "error_mean_fwd": 0.000394,
+    "error_p95_fwd": 0.001818,
+    "error_max_rev": 0.003306,
+    "error_mean_rev": 0.000387,
+    "error_p95_rev": 0.001333,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 865,
+    "auto_added_vertices": 817,
     "iterations": 3,
-    "runtime_s": 0.81
+    "runtime_s": 1.042
   },
   {
     "model": "Carved Wooden Elephant",
@@ -184,7 +184,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.031
+    "runtime_s": 0.036
   },
   {
     "model": "Carved Wooden Elephant",
@@ -201,7 +201,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 993,
     "iterations": 3,
-    "runtime_s": 0.112
+    "runtime_s": 0.145
   },
   {
     "model": "Bolt Cutters 01",
@@ -218,24 +218,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.04
+    "runtime_s": 0.047
   },
   {
     "model": "Bolt Cutters 01",
     "category": "Mechanical",
     "config": "Bidirectional refinement",
     "input_tris": 3410,
-    "output_tris": 1066,
+    "output_tris": 1014,
     "error_max_fwd": 0.006251,
-    "error_mean_fwd": 0.00063,
-    "error_p95_fwd": 0.00272,
+    "error_mean_fwd": 0.000652,
+    "error_p95_fwd": 0.002855,
     "error_max_rev": 0.006865,
-    "error_mean_rev": 0.001544,
+    "error_mean_rev": 0.001546,
     "error_p95_rev": 0.004892,
     "manually_protected_vertices": 0,
     "auto_added_vertices": 141,
     "iterations": 2,
-    "runtime_s": 0.065
+    "runtime_s": 0.078
   },
   {
     "model": "Drill 01",
@@ -252,24 +252,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.037
+    "runtime_s": 0.044
   },
   {
     "model": "Drill 01",
     "category": "Mechanical",
     "config": "Bidirectional refinement",
     "input_tris": 2926,
-    "output_tris": 2730,
-    "error_max_fwd": 0.013249,
-    "error_mean_fwd": 0.000334,
-    "error_p95_fwd": 0.001865,
-    "error_max_rev": 0.003009,
-    "error_mean_rev": 0.000133,
-    "error_p95_rev": 0.00083,
+    "output_tris": 2189,
+    "error_max_fwd": 0.009744,
+    "error_mean_fwd": 0.000203,
+    "error_p95_fwd": 0.001241,
+    "error_max_rev": 0.004103,
+    "error_mean_rev": 0.000226,
+    "error_p95_rev": 0.001144,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 861,
+    "auto_added_vertices": 702,
     "iterations": 3,
-    "runtime_s": 0.129
+    "runtime_s": 0.142
   },
   {
     "model": "Trilobite: Agnostid",
@@ -286,24 +286,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 2.707
+    "runtime_s": 3.226
   },
   {
     "model": "Trilobite: Agnostid",
     "category": "Organic",
     "config": "Bidirectional refinement",
     "input_tris": 211874,
-    "output_tris": 42555,
-    "error_max_fwd": 0.055663,
-    "error_mean_fwd": 0.00076,
-    "error_p95_fwd": 0.003796,
-    "error_max_rev": 0.021922,
-    "error_mean_rev": 0.001407,
-    "error_p95_rev": 0.005971,
+    "output_tris": 21172,
+    "error_max_fwd": 0.047435,
+    "error_mean_fwd": 0.000548,
+    "error_p95_fwd": 0.002304,
+    "error_max_rev": 0.050117,
+    "error_mean_rev": 0.003483,
+    "error_p95_rev": 0.017823,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 4149,
+    "auto_added_vertices": 0,
     "iterations": 3,
-    "runtime_s": 9.923
+    "runtime_s": 12.196
   },
   {
     "model": "Blastoid: Pentremites godani (PRI 70771)",
@@ -320,24 +320,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 5.725
+    "runtime_s": 6.693
   },
   {
     "model": "Blastoid: Pentremites godani (PRI 70771)",
     "category": "Organic",
     "config": "Bidirectional refinement",
     "input_tris": 446670,
-    "output_tris": 150195,
-    "error_max_fwd": 0.221384,
-    "error_mean_fwd": 0.019596,
-    "error_p95_fwd": 0.153286,
-    "error_max_rev": 0.018332,
-    "error_mean_rev": 0.0007,
-    "error_p95_rev": 0.00312,
+    "output_tris": 44633,
+    "error_max_fwd": 0.024506,
+    "error_mean_fwd": 0.000375,
+    "error_p95_fwd": 0.001435,
+    "error_max_rev": 0.036757,
+    "error_mean_rev": 0.001138,
+    "error_p95_rev": 0.004789,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 15225,
+    "auto_added_vertices": 0,
     "iterations": 3,
-    "runtime_s": 140.315
+    "runtime_s": 166.672
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
@@ -354,7 +354,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 1.239
+    "runtime_s": 1.274
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
@@ -371,7 +371,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 0.345
+    "runtime_s": 0.401
   },
   {
     "model": "Loewe (lion)",
@@ -388,24 +388,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 8.074
+    "runtime_s": 8.178
   },
   {
     "model": "Loewe (lion)",
     "category": "Organic",
     "config": "Bidirectional refinement",
     "input_tris": 405680,
-    "output_tris": 98032,
-    "error_max_fwd": 0.365014,
-    "error_mean_fwd": 0.013302,
-    "error_p95_fwd": 0.108886,
-    "error_max_rev": 0.035891,
-    "error_mean_rev": 0.001038,
-    "error_p95_rev": 0.003859,
+    "output_tris": 40563,
+    "error_max_fwd": 0.020625,
+    "error_mean_fwd": 0.00099,
+    "error_p95_fwd": 0.003847,
+    "error_max_rev": 0.050376,
+    "error_mean_rev": 0.001406,
+    "error_p95_rev": 0.004999,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 4044,
+    "auto_added_vertices": 0,
     "iterations": 3,
-    "runtime_s": 80.122
+    "runtime_s": 78.183
   },
   {
     "model": "Weisshai Great White Shark",
@@ -422,24 +422,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.061
+    "runtime_s": 0.054
   },
   {
     "model": "Weisshai Great White Shark",
     "category": "Scanned",
     "config": "Bidirectional refinement",
     "input_tris": 5912,
-    "output_tris": 5129,
-    "error_max_fwd": 0.008328,
-    "error_mean_fwd": 0.000272,
-    "error_p95_fwd": 0.001674,
-    "error_max_rev": 0.002315,
-    "error_mean_rev": 0.000264,
-    "error_p95_rev": 0.001334,
+    "output_tris": 4579,
+    "error_max_fwd": 0.008081,
+    "error_mean_fwd": 0.000315,
+    "error_p95_fwd": 0.002426,
+    "error_max_rev": 0.00562,
+    "error_mean_rev": 0.000455,
+    "error_p95_rev": 0.00213,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 10386,
+    "auto_added_vertices": 9561,
     "iterations": 3,
-    "runtime_s": 0.267
+    "runtime_s": 0.279
   },
   {
     "model": "Vegetable Garden",
@@ -456,24 +456,24 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.181
+    "runtime_s": 0.179
   },
   {
     "model": "Vegetable Garden",
     "category": "Scanned",
     "config": "Bidirectional refinement",
     "input_tris": 16694,
-    "output_tris": 11921,
+    "output_tris": 11807,
     "error_max_fwd": 0.006045,
-    "error_mean_fwd": 0.000111,
-    "error_p95_fwd": 0.000592,
-    "error_max_rev": 0.003023,
-    "error_mean_rev": 0.000306,
-    "error_p95_rev": 0.001476,
+    "error_mean_fwd": 0.000112,
+    "error_p95_fwd": 0.000604,
+    "error_max_rev": 0.004854,
+    "error_mean_rev": 0.000316,
+    "error_p95_rev": 0.001522,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 24277,
+    "auto_added_vertices": 24206,
     "iterations": 3,
-    "runtime_s": 0.704
+    "runtime_s": 0.736
   },
   {
     "model": "Curled Rat netsuke, test scan",
@@ -490,7 +490,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.646
+    "runtime_s": 0.639
   },
   {
     "model": "Curled Rat netsuke, test scan",
@@ -507,7 +507,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 9,
     "iterations": 2,
-    "runtime_s": 0.81
+    "runtime_s": 0.842
   },
   {
     "model": "Stanford Bunny (reconstruction)",
@@ -524,7 +524,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.483
+    "runtime_s": 0.456
   },
   {
     "model": "Stanford Bunny (reconstruction)",
@@ -541,7 +541,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 0.159
+    "runtime_s": 0.185
   },
   {
     "model": "Stanford Armadillo (reconstruction)",
@@ -558,7 +558,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 3.863
+    "runtime_s": 3.717
   },
   {
     "model": "Stanford Armadillo (reconstruction)",
@@ -575,7 +575,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 1.497
+    "runtime_s": 1.556
   },
   {
     "model": "Electrocardiograph Machine (AI-generated)",
@@ -592,7 +592,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 25.439
+    "runtime_s": 24.951
   },
   {
     "model": "Electrocardiograph Machine (AI-generated)",
@@ -609,7 +609,7 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 1,
-    "runtime_s": 12.962
+    "runtime_s": 14.454
   },
   {
     "model": "Realistic Heart (AI-generated)",
@@ -626,23 +626,23 @@
     "manually_protected_vertices": 0,
     "auto_added_vertices": 0,
     "iterations": 0,
-    "runtime_s": 0.358
+    "runtime_s": 0.366
   },
   {
     "model": "Realistic Heart (AI-generated)",
     "category": "Generated",
     "config": "Bidirectional refinement",
     "input_tris": 31400,
-    "output_tris": 24908,
-    "error_max_fwd": 0.151949,
-    "error_mean_fwd": 0.002496,
-    "error_p95_fwd": 0.014452,
-    "error_max_rev": 0.027683,
-    "error_mean_rev": 0.002961,
-    "error_p95_rev": 0.013045,
+    "output_tris": 22630,
+    "error_max_fwd": 0.12346,
+    "error_mean_fwd": 0.002553,
+    "error_p95_fwd": 0.014726,
+    "error_max_rev": 0.051306,
+    "error_mean_rev": 0.004395,
+    "error_p95_rev": 0.019809,
     "manually_protected_vertices": 0,
-    "auto_added_vertices": 46048,
+    "auto_added_vertices": 42993,
     "iterations": 3,
-    "runtime_s": 2.556
+    "runtime_s": 3.007
   }
 ]

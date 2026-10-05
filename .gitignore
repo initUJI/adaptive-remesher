@@ -8,3 +8,5 @@ __pycache__/
 build/
 dist/
 adaptive_remesher.log*
+
+graphify-out/

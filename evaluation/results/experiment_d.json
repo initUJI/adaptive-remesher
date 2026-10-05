@@ -14,23 +14,23 @@
     "model": "Carrot Cake",
     "threshold_pct": 0.5,
     "source_tris": 13790,
-    "result_tris": 9089,
+    "result_tris": 7155,
     "iterations": 3,
-    "points_added": 2301,
-    "error_max_final": 0.017493,
-    "error_mean_final": 0.000239,
-    "error_p95_final": 0.000932
+    "points_added": 1747,
+    "error_max_final": 0.011916,
+    "error_mean_final": 0.000282,
+    "error_p95_final": 0.00114
   },
   {
     "model": "Carrot Cake",
     "threshold_pct": 1.0,
     "source_tris": 13790,
-    "result_tris": 5231,
+    "result_tris": 5136,
     "iterations": 3,
-    "points_added": 865,
-    "error_max_final": 0.007995,
-    "error_mean_final": 0.000394,
-    "error_p95_final": 0.001445
+    "points_added": 817,
+    "error_max_final": 0.007727,
+    "error_mean_final": 0.000389,
+    "error_p95_final": 0.001429
   },
   {
     "model": "Carrot Cake",
@@ -58,34 +58,34 @@
     "model": "Trilobite: Agnostid",
     "threshold_pct": 0.25,
     "source_tris": 211874,
-    "result_tris": 96954,
+    "result_tris": 21172,
     "iterations": 3,
-    "points_added": 24710,
-    "error_max_final": 0.194294,
-    "error_mean_final": 0.001703,
-    "error_p95_final": 0.002216
+    "points_added": 0,
+    "error_max_final": 0.050117,
+    "error_mean_final": 0.003216,
+    "error_p95_final": 0.016779
   },
   {
     "model": "Trilobite: Agnostid",
     "threshold_pct": 0.5,
     "source_tris": 211874,
-    "result_tris": 66527,
+    "result_tris": 21172,
     "iterations": 3,
-    "points_added": 12703,
-    "error_max_final": 0.099413,
-    "error_mean_final": 0.001215,
-    "error_p95_final": 0.003937
+    "points_added": 0,
+    "error_max_final": 0.050117,
+    "error_mean_final": 0.003216,
+    "error_p95_final": 0.016779
   },
   {
     "model": "Trilobite: Agnostid",
     "threshold_pct": 1.0,
     "source_tris": 211874,
-    "result_tris": 42555,
+    "result_tris": 21172,
     "iterations": 3,
-    "points_added": 4149,
-    "error_max_final": 0.055663,
-    "error_mean_final": 0.001299,
-    "error_p95_final": 0.005793
+    "points_added": 0,
+    "error_max_final": 0.050117,
+    "error_mean_final": 0.003216,
+    "error_p95_final": 0.016779
   },
   {
     "model": "Trilobite: Agnostid",
@@ -113,34 +113,34 @@
     "model": "Loewe (lion)",
     "threshold_pct": 0.25,
     "source_tris": 405680,
-    "result_tris": 125308,
+    "result_tris": 40563,
     "iterations": 3,
-    "points_added": 9795,
-    "error_max_final": 0.396172,
-    "error_mean_final": 0.003674,
-    "error_p95_final": 0.004656
+    "points_added": 0,
+    "error_max_final": 0.050376,
+    "error_mean_final": 0.001368,
+    "error_p95_final": 0.004903
   },
   {
     "model": "Loewe (lion)",
     "threshold_pct": 0.5,
     "source_tris": 405680,
-    "result_tris": 106515,
+    "result_tris": 40563,
     "iterations": 3,
-    "points_added": 5707,
-    "error_max_final": 0.359226,
-    "error_mean_final": 0.003218,
-    "error_p95_final": 0.004951
+    "points_added": 0,
+    "error_max_final": 0.050376,
+    "error_mean_final": 0.001368,
+    "error_p95_final": 0.004903
   },
   {
     "model": "Loewe (lion)",
     "threshold_pct": 1.0,
     "source_tris": 405680,
-    "result_tris": 98032,
+    "result_tris": 40563,
     "iterations": 3,
-    "points_added": 4044,
-    "error_max_final": 0.365014,
-    "error_mean_final": 0.003425,
-    "error_p95_final": 0.005223
+    "points_added": 0,
+    "error_max_final": 0.050376,
+    "error_mean_final": 0.001368,
+    "error_p95_final": 0.004903
   },
   {
     "model": "Loewe (lion)",
@@ -223,12 +223,12 @@
     "model": "Electrocardiograph Machine (AI-generated)",
     "threshold_pct": 0.25,
     "source_tris": 1869988,
-    "result_tris": 575314,
+    "result_tris": 572915,
     "iterations": 3,
-    "points_added": 191779,
+    "points_added": 188994,
     "error_max_final": 0.012324,
-    "error_mean_final": 0.001478,
-    "error_p95_final": 0.004036
+    "error_mean_final": 0.001488,
+    "error_p95_final": 0.004058
   },
   {
     "model": "Electrocardiograph Machine (AI-generated)",

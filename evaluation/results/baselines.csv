@@ -1,0 +1,115 @@
+model,category,comparison,method,input_tris,requested_reduction_pct,runtime_s,output_tris,reduction_pct,error_max_fwd,error_max_rev,error_max_pct_of_diagonal,boundary_edges
+Sculpture of man and woman (Egyptian excavation),Characters,fixed,MeshLab QEM,59996,90.0,0.397,5999,90.0,0.697598,3.54781,0.8422,1205
+Sculpture of man and woman (Egyptian excavation),Characters,fixed,MeshLab QEM (boundary),59996,90.0,0.416,6000,90.0,1.773444,3.311622,0.7862,0
+Sculpture of man and woman (Egyptian excavation),Characters,fixed,fast-simplification,59996,90.0,0.064,5998,90.0,0.88097,3.452809,0.8197,748
+Sculpture of man and woman (Egyptian excavation),Characters,matched,MeshLab QEM,59996,90.0,0.325,5999,90.0,0.697598,3.54781,0.8422,1205
+Sculpture of man and woman (Egyptian excavation),Characters,matched,MeshLab QEM (boundary),59996,90.0,0.316,6000,90.0,1.773444,3.311622,0.7862,0
+Sculpture of man and woman (Egyptian excavation),Characters,matched,fast-simplification,59996,90.0,0.046,5998,90.0,0.88097,3.452809,0.8197,748
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,fixed,MeshLab QEM,15000,90.0,0.064,1499,90.01,0.072267,0.090316,0.4627,327
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,fixed,MeshLab QEM (boundary),15000,90.0,0.065,1500,90.0,0.089158,0.116704,0.5978,0
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,fixed,fast-simplification,15000,90.0,0.009,1499,90.01,0.073919,0.136074,0.6971,135
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,matched,MeshLab QEM,15000,90.0,0.069,1499,90.01,0.072267,0.090316,0.4627,327
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,matched,MeshLab QEM (boundary),15000,90.0,0.066,1500,90.0,0.089158,0.116704,0.5978,0
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,matched,fast-simplification,15000,90.0,0.009,1499,90.01,0.073919,0.136074,0.6971,135
+Statuette of a Woman in Hunting Clothes,Characters,fixed,MeshLab QEM,130504,90.0,0.728,13049,90.0,0.270992,0.403519,0.2578,2091
+Statuette of a Woman in Hunting Clothes,Characters,fixed,MeshLab QEM (boundary),130504,90.0,0.689,13050,90.0,0.367839,0.422165,0.2698,0
+Statuette of a Woman in Hunting Clothes,Characters,fixed,fast-simplification,130504,90.0,0.104,13050,90.0,0.33876,1.210553,0.7735,1536
+Statuette of a Woman in Hunting Clothes,Characters,matched,MeshLab QEM,130504,90.0,0.687,13049,90.0,0.270992,0.403519,0.2578,2091
+Statuette of a Woman in Hunting Clothes,Characters,matched,MeshLab QEM (boundary),130504,90.0,0.684,13050,90.0,0.367839,0.422165,0.2698,0
+Statuette of a Woman in Hunting Clothes,Characters,matched,fast-simplification,130504,90.0,0.096,13050,90.0,0.33876,1.210553,0.7735,1536
+Barrel 03,Objects,fixed,MeshLab QEM,1473,90.0,0.005,146,90.09,0.026458,0.03708,2.8646,172
+Barrel 03,Objects,fixed,MeshLab QEM (boundary),1473,90.0,0.002,735,50.1,0.109988,0.023196,8.4972,21
+Barrel 03,Objects,fixed,fast-simplification,1473,90.0,0.002,146,90.09,0.078822,0.20782,16.0553,54
+Barrel 03,Objects,matched,MeshLab QEM,1473,2.17,0.002,1441,2.17,0.001127,0.001168,0.0902,41
+Barrel 03,Objects,matched,MeshLab QEM (boundary),1473,2.17,0.002,1441,2.17,0.000769,0.000702,0.0594,21
+Barrel 03,Objects,matched,fast-simplification,1473,2.17,0.001,1440,2.24,0.0,0.070654,5.4585,746
+Carrot Cake,Objects,fixed,MeshLab QEM,13790,90.0,0.054,1379,90.0,0.011618,0.009032,3.485,1513
+Carrot Cake,Objects,fixed,MeshLab QEM (boundary),13790,90.0,0.037,4224,69.37,0.014891,0.016923,5.0764,0
+Carrot Cake,Objects,fixed,fast-simplification,13790,90.0,0.009,1378,90.01,0.005661,0.016401,4.9197,637
+Carrot Cake,Objects,matched,MeshLab QEM,13790,62.76,0.046,5135,62.76,0.001411,0.001841,0.5522,2824
+Carrot Cake,Objects,matched,MeshLab QEM (boundary),13790,62.76,0.034,5136,62.76,0.00167,0.002212,0.6635,0
+Carrot Cake,Objects,matched,fast-simplification,13790,62.76,0.007,5135,62.76,0.001992,0.005341,1.6021,1709
+Carved Wooden Elephant,Objects,fixed,MeshLab QEM,2752,90.0,0.011,275,90.01,0.00962,0.008805,6.1484,279
+Carved Wooden Elephant,Objects,fixed,MeshLab QEM (boundary),2752,90.0,0.008,562,79.58,0.009637,0.012459,7.9634,0
+Carved Wooden Elephant,Objects,fixed,fast-simplification,2752,90.0,0.002,275,90.01,0.003939,0.006679,4.2689,111
+Carved Wooden Elephant,Objects,matched,MeshLab QEM,2752,1.0,0.004,2724,1.02,5e-05,3.6e-05,0.0319,12
+Carved Wooden Elephant,Objects,matched,MeshLab QEM (boundary),2752,1.0,0.003,2724,1.02,5e-05,3.3e-05,0.0319,0
+Carved Wooden Elephant,Objects,matched,fast-simplification,2752,1.0,0.001,2724,1.02,0.000204,0.000218,0.1391,560
+Bolt Cutters 01,Mechanical,fixed,MeshLab QEM,3410,90.0,0.011,340,90.03,0.006173,0.010156,1.2424,382
+Bolt Cutters 01,Mechanical,fixed,MeshLab QEM (boundary),3410,90.0,0.007,1098,67.8,466.411314,0.006629,57055.8141,264
+Bolt Cutters 01,Mechanical,fixed,fast-simplification,3410,90.0,0.002,340,90.03,0.005925,0.013798,1.6878,140
+Bolt Cutters 01,Mechanical,matched,MeshLab QEM,3410,70.26,0.01,1014,70.26,0.002896,0.003917,0.4792,637
+Bolt Cutters 01,Mechanical,matched,MeshLab QEM (boundary),3410,70.26,0.007,1098,67.8,466.411314,0.006629,57055.8141,264
+Bolt Cutters 01,Mechanical,matched,fast-simplification,3410,70.26,0.002,1013,70.29,0.003866,0.005608,0.686,421
+Drill 01,Mechanical,fixed,MeshLab QEM,2926,90.0,0.011,293,89.99,0.012094,0.015506,5.8425,363
+Drill 01,Mechanical,fixed,MeshLab QEM (boundary),2926,90.0,0.006,1368,53.25,0.008516,0.008111,3.2086,362
+Drill 01,Mechanical,fixed,fast-simplification,2926,90.0,0.002,291,90.05,0.005779,0.015381,5.7952,167
+Drill 01,Mechanical,matched,MeshLab QEM,2926,25.19,0.005,2188,25.22,0.000376,0.000323,0.1417,658
+Drill 01,Mechanical,matched,MeshLab QEM (boundary),2926,25.19,0.004,2188,25.22,0.000359,0.000419,0.1579,362
+Drill 01,Mechanical,matched,fast-simplification,2926,25.19,0.001,2189,25.19,0.001707,0.003415,1.2866,1247
+Trilobite: Agnostid,Organic,fixed,MeshLab QEM,211874,90.0,1.29,21187,90.0,0.044527,0.018229,1.9409,19044
+Trilobite: Agnostid,Organic,fixed,MeshLab QEM (boundary),211874,90.0,1.206,31360,85.2,0.178105,0.191908,8.3651,0
+Trilobite: Agnostid,Organic,fixed,fast-simplification,211874,90.0,0.17,21187,90.0,0.004049,0.030028,1.3089,6059
+Trilobite: Agnostid,Organic,matched,MeshLab QEM,211874,90.0,1.282,21187,90.0,0.044527,0.018229,1.9409,19044
+Trilobite: Agnostid,Organic,matched,MeshLab QEM (boundary),211874,90.0,1.21,31360,85.2,0.178105,0.191908,8.3651,0
+Trilobite: Agnostid,Organic,matched,fast-simplification,211874,90.0,0.161,21187,90.0,0.004049,0.030028,1.3089,6059
+Blastoid: Pentremites godani (PRI 70771),Organic,fixed,MeshLab QEM,446670,90.0,2.948,44666,90.0,0.069126,0.01772,3.6809,42235
+Blastoid: Pentremites godani (PRI 70771),Organic,fixed,MeshLab QEM (boundary),446670,90.0,2.342,112462,74.82,0.080464,0.038929,4.2846,0
+Blastoid: Pentremites godani (PRI 70771),Organic,fixed,fast-simplification,446670,90.0,0.368,44666,90.0,0.003446,0.012346,0.6574,20228
+Blastoid: Pentremites godani (PRI 70771),Organic,matched,MeshLab QEM,446670,90.0,2.957,44666,90.0,0.069126,0.01772,3.6809,42235
+Blastoid: Pentremites godani (PRI 70771),Organic,matched,MeshLab QEM (boundary),446670,90.0,2.325,112462,74.82,0.080464,0.038929,4.2846,0
+Blastoid: Pentremites godani (PRI 70771),Organic,matched,fast-simplification,446670,90.0,0.343,44666,90.0,0.003446,0.012346,0.6574,20228
+Vertebrate: T. rex tooth (PRI 55205),Organic,fixed,MeshLab QEM,108958,90.0,0.665,10895,90.0,0.002956,0.037001,2.2922,4149
+Vertebrate: T. rex tooth (PRI 55205),Organic,fixed,MeshLab QEM (boundary),108958,90.0,0.646,10896,90.0,0.002276,0.002358,0.1461,0
+Vertebrate: T. rex tooth (PRI 55205),Organic,fixed,fast-simplification,108958,90.0,0.088,10894,90.0,0.003752,0.028722,1.7793,1311
+Vertebrate: T. rex tooth (PRI 55205),Organic,matched,MeshLab QEM,108958,90.0,0.655,10895,90.0,0.002956,0.037001,2.2922,4149
+Vertebrate: T. rex tooth (PRI 55205),Organic,matched,MeshLab QEM (boundary),108958,90.0,0.653,10896,90.0,0.002276,0.002358,0.1461,0
+Vertebrate: T. rex tooth (PRI 55205),Organic,matched,fast-simplification,108958,90.0,0.085,10894,90.0,0.003752,0.028722,1.7793,1311
+Loewe (lion),Organic,fixed,MeshLab QEM,405680,90.0,2.508,40568,90.0,0.058521,0.029172,1.2028,45860
+Loewe (lion),Organic,fixed,MeshLab QEM (boundary),405680,90.0,1.747,139372,65.64,0.058334,0.054616,1.1989,0
+Loewe (lion),Organic,fixed,fast-simplification,405680,90.0,0.312,40566,90.0,0.009663,0.040398,0.8303,29406
+Loewe (lion),Organic,matched,MeshLab QEM,405680,90.0,2.512,40568,90.0,0.058521,0.029172,1.2028,45860
+Loewe (lion),Organic,matched,MeshLab QEM (boundary),405680,90.0,1.731,139372,65.64,0.058334,0.054616,1.1989,0
+Loewe (lion),Organic,matched,fast-simplification,405680,90.0,0.313,40566,90.0,0.009663,0.040398,0.8303,29406
+Weisshai Great White Shark,Scanned,fixed,MeshLab QEM,5912,90.0,0.013,591,90.0,0.0,0.013921,5.9821,1109
+Weisshai Great White Shark,Scanned,fixed,MeshLab QEM (boundary),5912,90.0,0.008,5912,0.0,0.0,0.0,0.0,0
+Weisshai Great White Shark,Scanned,fixed,fast-simplification,5912,90.0,0.004,591,90.0,0.0,0.025918,11.1376,1773
+Weisshai Great White Shark,Scanned,matched,MeshLab QEM,5912,22.55,0.012,4579,22.55,0.0,0.001239,0.5323,1859
+Weisshai Great White Shark,Scanned,matched,MeshLab QEM (boundary),5912,22.55,0.008,5912,0.0,0.0,0.0,0.0,0
+Weisshai Great White Shark,Scanned,matched,fast-simplification,5912,22.55,0.002,4579,22.55,0.0,0.003073,1.3205,13737
+Vegetable Garden,Scanned,fixed,MeshLab QEM,16694,90.0,0.039,1669,90.0,0.0,0.021201,7.0003,3021
+Vegetable Garden,Scanned,fixed,MeshLab QEM (boundary),16694,90.0,0.025,16694,0.0,0.0,0.0,0.0,0
+Vegetable Garden,Scanned,fixed,fast-simplification,16694,90.0,0.006,1669,90.0,0.0,0.031461,10.388,5007
+Vegetable Garden,Scanned,matched,MeshLab QEM,16694,29.27,0.039,11807,29.27,0.0,0.001066,0.3521,8751
+Vegetable Garden,Scanned,matched,MeshLab QEM (boundary),16694,29.27,0.025,16694,0.0,0.0,0.0,0.0,0
+Vegetable Garden,Scanned,matched,fast-simplification,16694,29.27,0.004,11807,29.27,0.0,0.008391,2.7707,35421
+"Curled Rat netsuke, test scan",Scanned,fixed,MeshLab QEM,63998,90.0,0.347,6400,90.0,0.003133,0.002291,0.6865,2796
+"Curled Rat netsuke, test scan",Scanned,fixed,MeshLab QEM (boundary),63998,90.0,0.335,6400,90.0,0.003511,0.004708,1.0316,0
+"Curled Rat netsuke, test scan",Scanned,fixed,fast-simplification,63998,90.0,0.045,6398,90.0,0.003251,0.004145,0.9083,829
+"Curled Rat netsuke, test scan",Scanned,matched,MeshLab QEM,63998,89.8,0.342,6529,89.8,0.003133,0.001958,0.6865,2793
+"Curled Rat netsuke, test scan",Scanned,matched,MeshLab QEM (boundary),63998,89.8,0.316,6530,89.8,0.003511,0.004708,1.0316,0
+"Curled Rat netsuke, test scan",Scanned,matched,fast-simplification,63998,89.8,0.045,6530,89.8,0.003251,0.004145,0.9083,831
+Stanford Bunny (reconstruction),Scanned,fixed,MeshLab QEM,69451,90.0,0.398,6944,90.0,0.000337,0.000381,0.1521,186
+Stanford Bunny (reconstruction),Scanned,fixed,MeshLab QEM (boundary),69451,90.0,0.373,6945,90.0,0.000361,0.000473,0.1892,223
+Stanford Bunny (reconstruction),Scanned,fixed,fast-simplification,69451,90.0,0.052,6944,90.0,0.002205,0.001334,0.8811,40
+Stanford Bunny (reconstruction),Scanned,matched,MeshLab QEM,69451,90.0,0.397,6944,90.0,0.000337,0.000381,0.1521,186
+Stanford Bunny (reconstruction),Scanned,matched,MeshLab QEM (boundary),69451,90.0,0.382,6945,90.0,0.000361,0.000473,0.1892,223
+Stanford Bunny (reconstruction),Scanned,matched,fast-simplification,69451,90.0,0.052,6944,90.0,0.002205,0.001334,0.8811,40
+Stanford Armadillo (reconstruction),Scanned,fixed,MeshLab QEM,345944,90.0,2.842,34594,90.0,0.200158,0.193489,0.0875,0
+Stanford Armadillo (reconstruction),Scanned,fixed,MeshLab QEM (boundary),345944,90.0,2.846,34594,90.0,0.200158,0.193489,0.0875,0
+Stanford Armadillo (reconstruction),Scanned,fixed,fast-simplification,345944,90.0,0.391,34594,90.0,0.151041,0.179289,0.0784,0
+Stanford Armadillo (reconstruction),Scanned,matched,MeshLab QEM,345944,90.0,2.764,34594,90.0,0.200158,0.193489,0.0875,0
+Stanford Armadillo (reconstruction),Scanned,matched,MeshLab QEM (boundary),345944,90.0,2.748,34594,90.0,0.200158,0.193489,0.0875,0
+Stanford Armadillo (reconstruction),Scanned,matched,fast-simplification,345944,90.0,0.382,34594,90.0,0.151041,0.179289,0.0784,0
+Electrocardiograph Machine (AI-generated),Generated,fixed,MeshLab QEM,1869988,90.0,8.561,186999,90.0,0.0,0.018511,0.7842,468815
+Electrocardiograph Machine (AI-generated),Generated,fixed,MeshLab QEM (boundary),1869988,90.0,6.323,1869988,0.0,0.0,0.0,0.0,0
+Electrocardiograph Machine (AI-generated),Generated,fixed,fast-simplification,1869988,90.0,1.897,186998,90.0,0.0,0.0591,2.5036,560994
+Electrocardiograph Machine (AI-generated),Generated,matched,MeshLab QEM,1869988,90.0,9.492,186999,90.0,0.0,0.018511,0.7842,468815
+Electrocardiograph Machine (AI-generated),Generated,matched,MeshLab QEM (boundary),1869988,90.0,6.514,1869988,0.0,0.0,0.0,0.0,0
+Electrocardiograph Machine (AI-generated),Generated,matched,fast-simplification,1869988,90.0,1.589,186998,90.0,0.0,0.0591,2.5036,560994
+Realistic Heart (AI-generated),Generated,fixed,MeshLab QEM,31400,90.0,0.087,3140,90.0,0.0,0.187446,7.6423,6076
+Realistic Heart (AI-generated),Generated,fixed,MeshLab QEM (boundary),31400,90.0,0.052,31400,0.0,0.0,0.0,0.0,0
+Realistic Heart (AI-generated),Generated,fixed,fast-simplification,31400,90.0,0.036,3139,90.0,0.0,0.128491,5.2386,9417
+Realistic Heart (AI-generated),Generated,matched,MeshLab QEM,31400,27.93,0.082,22630,27.93,0.0,0.01157,0.4717,13312
+Realistic Heart (AI-generated),Generated,matched,MeshLab QEM (boundary),31400,27.93,0.054,31400,0.0,0.0,0.0,0.0,0
+Realistic Heart (AI-generated),Generated,matched,fast-simplification,31400,27.93,0.01,22630,27.93,0.0,0.03061,1.248,67890

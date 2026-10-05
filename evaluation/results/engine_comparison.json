@@ -14,7 +14,7 @@
     "error_max_rev": 3.249123,
     "error_mean_rev": 0.178572,
     "error_p95_rev": 0.586702,
-    "runtime_s": 0.377,
+    "runtime_s": 0.375,
     "protected_vertices": 0,
     "boundary_edges_after": 4286
   },
@@ -33,7 +33,7 @@
     "error_max_rev": 1.897487,
     "error_mean_rev": 0.171475,
     "error_p95_rev": 0.51213,
-    "runtime_s": 0.621,
+    "runtime_s": 0.597,
     "protected_vertices": 0,
     "boundary_edges_after": 4285
   },
@@ -71,7 +71,7 @@
     "error_max_rev": 0.088753,
     "error_mean_rev": 0.013415,
     "error_p95_rev": 0.036351,
-    "runtime_s": 0.124,
+    "runtime_s": 0.122,
     "protected_vertices": 0,
     "boundary_edges_after": 704
   },
@@ -90,7 +90,7 @@
     "error_max_rev": 0.773909,
     "error_mean_rev": 0.064919,
     "error_p95_rev": 0.209553,
-    "runtime_s": 0.769,
+    "runtime_s": 0.778,
     "protected_vertices": 0,
     "boundary_edges_after": 7466
   },
@@ -109,7 +109,7 @@
     "error_max_rev": 0.359945,
     "error_mean_rev": 0.040035,
     "error_p95_rev": 0.111773,
-    "runtime_s": 1.309,
+    "runtime_s": 1.386,
     "protected_vertices": 0,
     "boundary_edges_after": 7465
   },
@@ -128,7 +128,7 @@
     "error_max_rev": 0.004708,
     "error_mean_rev": 0.000519,
     "error_p95_rev": 0.002776,
-    "runtime_s": 0.01,
+    "runtime_s": 0.011,
     "protected_vertices": 0,
     "boundary_edges_after": 747
   },
@@ -166,7 +166,7 @@
     "error_max_rev": 0.004109,
     "error_mean_rev": 0.000105,
     "error_p95_rev": 0.000532,
-    "runtime_s": 0.112,
+    "runtime_s": 0.119,
     "protected_vertices": 0,
     "boundary_edges_after": 4222
   },
@@ -185,7 +185,7 @@
     "error_max_rev": 0.020696,
     "error_mean_rev": 0.001059,
     "error_p95_rev": 0.003949,
-    "runtime_s": 0.185,
+    "runtime_s": 0.242,
     "protected_vertices": 0,
     "boundary_edges_after": 1662
   },
@@ -223,7 +223,7 @@
     "error_max_rev": 0.010291,
     "error_mean_rev": 0.001557,
     "error_p95_rev": 0.004725,
-    "runtime_s": 0.033,
+    "runtime_s": 0.031,
     "protected_vertices": 0,
     "boundary_edges_after": 281
   },
@@ -242,7 +242,7 @@
     "error_max_rev": 0.002049,
     "error_mean_rev": 7.9e-05,
     "error_p95_rev": 0.000526,
-    "runtime_s": 0.022,
+    "runtime_s": 0.023,
     "protected_vertices": 0,
     "boundary_edges_after": 1108
   },
@@ -280,7 +280,7 @@
     "error_max_rev": 0.002692,
     "error_mean_rev": 0.000157,
     "error_p95_rev": 0.000704,
-    "runtime_s": 0.018,
+    "runtime_s": 0.019,
     "protected_vertices": 0,
     "boundary_edges_after": 1468
   },
@@ -299,7 +299,7 @@
     "error_max_rev": 0.013735,
     "error_mean_rev": 0.001745,
     "error_p95_rev": 0.005276,
-    "runtime_s": 0.033,
+    "runtime_s": 0.035,
     "protected_vertices": 0,
     "boundary_edges_after": 410
   },
@@ -337,7 +337,7 @@
     "error_max_rev": 0.050117,
     "error_mean_rev": 0.003483,
     "error_p95_rev": 0.017823,
-    "runtime_s": 2.648,
+    "runtime_s": 2.529,
     "protected_vertices": 0,
     "boundary_edges_after": 20394
   },
@@ -356,7 +356,7 @@
     "error_max_rev": 0.007451,
     "error_mean_rev": 0.000339,
     "error_p95_rev": 0.001319,
-    "runtime_s": 3.206,
+    "runtime_s": 3.15,
     "protected_vertices": 0,
     "boundary_edges_after": 112520
   },
@@ -375,7 +375,7 @@
     "error_max_rev": 0.036757,
     "error_mean_rev": 0.001138,
     "error_p95_rev": 0.004789,
-    "runtime_s": 5.421,
+    "runtime_s": 5.433,
     "protected_vertices": 0,
     "boundary_edges_after": 41077
   },
@@ -394,7 +394,7 @@
     "error_max_rev": 0.021687,
     "error_mean_rev": 0.001514,
     "error_p95_rev": 0.005928,
-    "runtime_s": 0.761,
+    "runtime_s": 0.734,
     "protected_vertices": 0,
     "boundary_edges_after": 6344
   },
@@ -413,7 +413,7 @@
     "error_max_rev": 0.003781,
     "error_mean_rev": 0.000389,
     "error_p95_rev": 0.001138,
-    "runtime_s": 1.255,
+    "runtime_s": 1.304,
     "protected_vertices": 0,
     "boundary_edges_after": 6328
   },
@@ -432,7 +432,7 @@
     "error_max_rev": 0.014432,
     "error_mean_rev": 0.000403,
     "error_p95_rev": 0.001561,
-    "runtime_s": 3.618,
+    "runtime_s": 3.642,
     "protected_vertices": 0,
     "boundary_edges_after": 145090
   },
@@ -451,7 +451,7 @@
     "error_max_rev": 0.050376,
     "error_mean_rev": 0.001406,
     "error_p95_rev": 0.004999,
-    "runtime_s": 7.007,
+    "runtime_s": 8.17,
     "protected_vertices": 0,
     "boundary_edges_after": 45243
   },
@@ -470,7 +470,7 @@
     "error_max_rev": 0.001828,
     "error_mean_rev": 0.000191,
     "error_p95_rev": 0.000698,
-    "runtime_s": 0.042,
+    "runtime_s": 0.048,
     "protected_vertices": 0,
     "boundary_edges_after": 0
   },
@@ -489,7 +489,7 @@
     "error_max_rev": 0.020442,
     "error_mean_rev": 0.003538,
     "error_p95_rev": 0.009479,
-    "runtime_s": 0.057,
+    "runtime_s": 0.058,
     "protected_vertices": 0,
     "boundary_edges_after": 1773
   },
@@ -508,7 +508,7 @@
     "error_max_rev": 0.001977,
     "error_mean_rev": 6e-05,
     "error_p95_rev": 0.000235,
-    "runtime_s": 0.126,
+    "runtime_s": 0.128,
     "protected_vertices": 0,
     "boundary_edges_after": 0
   },
@@ -527,7 +527,7 @@
     "error_max_rev": 0.021685,
     "error_mean_rev": 0.004159,
     "error_p95_rev": 0.015282,
-    "runtime_s": 0.186,
+    "runtime_s": 0.188,
     "protected_vertices": 0,
     "boundary_edges_after": 5007
   },
@@ -546,7 +546,7 @@
     "error_max_rev": 0.005389,
     "error_mean_rev": 0.00026,
     "error_p95_rev": 0.001035,
-    "runtime_s": 0.4,
+    "runtime_s": 0.396,
     "protected_vertices": 0,
     "boundary_edges_after": 4552
   },
@@ -565,7 +565,7 @@
     "error_max_rev": 0.005144,
     "error_mean_rev": 0.00054,
     "error_p95_rev": 0.00166,
-    "runtime_s": 0.665,
+    "runtime_s": 0.654,
     "protected_vertices": 0,
     "boundary_edges_after": 4560
   },
@@ -584,7 +584,7 @@
     "error_max_rev": 0.002596,
     "error_mean_rev": 0.000235,
     "error_p95_rev": 0.000805,
-    "runtime_s": 0.365,
+    "runtime_s": 0.366,
     "protected_vertices": 0,
     "boundary_edges_after": 223
   },
@@ -603,7 +603,7 @@
     "error_max_rev": 0.000351,
     "error_mean_rev": 4.6e-05,
     "error_p95_rev": 0.000122,
-    "runtime_s": 0.473,
+    "runtime_s": 0.488,
     "protected_vertices": 0,
     "boundary_edges_after": 191
   },
@@ -622,7 +622,7 @@
     "error_max_rev": 1.082819,
     "error_mean_rev": 0.066469,
     "error_p95_rev": 0.22062,
-    "runtime_s": 2.852,
+    "runtime_s": 2.797,
     "protected_vertices": 0,
     "boundary_edges_after": 0
   },
@@ -641,7 +641,7 @@
     "error_max_rev": 0.165635,
     "error_mean_rev": 0.018964,
     "error_p95_rev": 0.04939,
-    "runtime_s": 3.845,
+    "runtime_s": 3.831,
     "protected_vertices": 0,
     "boundary_edges_after": 0
   },
@@ -660,7 +660,7 @@
     "error_max_rev": 0.001372,
     "error_mean_rev": 3.1e-05,
     "error_p95_rev": 0.000113,
-    "runtime_s": 27.135,
+    "runtime_s": 29.588,
     "protected_vertices": 0,
     "boundary_edges_after": 0
   },
@@ -679,7 +679,7 @@
     "error_max_rev": 0.0188,
     "error_mean_rev": 0.002406,
     "error_p95_rev": 0.005335,
-    "runtime_s": 24.113,
+    "runtime_s": 24.889,
     "protected_vertices": 0,
     "boundary_edges_after": 560994
   },
@@ -698,7 +698,7 @@
     "error_max_rev": 0.030331,
     "error_mean_rev": 0.002075,
     "error_p95_rev": 0.009385,
-    "runtime_s": 0.295,
+    "runtime_s": 0.293,
     "protected_vertices": 0,
     "boundary_edges_after": 0
   },
@@ -717,7 +717,7 @@
     "error_max_rev": 0.128813,
     "error_mean_rev": 0.025701,
     "error_p95_rev": 0.063462,
-    "runtime_s": 0.352,
+    "runtime_s": 0.35,
     "protected_vertices": 0,
     "boundary_edges_after": 9420
   }

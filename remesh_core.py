@@ -406,6 +406,7 @@ def decimate_with_mask(
     mask: np.ndarray,
     settings: DecimationSettings,
     zone_stats: Optional[dict] = None,
+    src_boundary=None,
 ) -> pv.PolyData:
     """Decimates `source` leaving the points marked in `mask` untouched
     (protected): splits them off, decimates only the rest, and
@@ -422,7 +423,11 @@ def decimate_with_mask(
     wants to report the reduction actually achieved there (as opposed to
     the diluted whole-mesh ratio) needs these counts from before the
     merge/weld/stitch/repair steps, which can themselves add or remove a
-    handful of faces at the seam."""
+    handful of faces at the seam. The weld and stitch steps only close
+    gaps at the protected/decimated interface: openings that already
+    exist in `source` are left open (see `_source_open_boundary`).
+    `src_boundary` can be passed already built to reuse it across calls
+    that share the same `source`."""
     if not mask.any():
         decimated = decimate(source, settings, lock_boundary=False)
         if zone_stats is not None:
@@ -430,6 +435,8 @@ def decimate_with_mask(
             zone_stats["unprotected_tris_after"] = decimated.n_cells
         return _repair_non_manifold_edges_if_any(decimated)
 
+    if src_boundary is None:
+        src_boundary = _source_open_boundary(source)
     protected_ids = np.where(mask)[0]
     unprotected_ids = np.where(~mask)[0]
     protected_group = source.extract_points(
@@ -449,7 +456,10 @@ def decimate_with_mask(
         zone_stats["unprotected_tris_before"] = unprotected_group.n_cells
         zone_stats["unprotected_tris_after"] = decimated_part.n_cells
     merged = protected_group.merge(decimated_part, merge_points=True)
-    stitched = _stitch_residual_boundary_gaps(_repair_non_manifold_edges_if_any(_weld_seam_gaps(merged)))
+    stitched = _stitch_residual_boundary_gaps(
+        _repair_non_manifold_edges_if_any(_weld_seam_gaps(merged, src_boundary=src_boundary)),
+        src_boundary=src_boundary,
+    )
     # `_stitch_residual_boundary_gaps`'s own fan triangulation at a bowtie
     # vertex can itself produce a genuinely non-manifold edge in rare,
     # extreme cases (found sweeping resolution x mask shape x reduction
@@ -467,7 +477,39 @@ def decimate_with_mask(
     return _repair_non_manifold_edges_if_any(stitched)
 
 
-def _weld_seam_gaps(mesh: pv.PolyData, max_hole_size: int = 100) -> pv.PolyData:
+def _source_open_boundary(source: pv.PolyData):
+    """Locator for the boundary vertices of `source` (after welding
+    coincident points, which is what the merge in `decimate_with_mask`
+    does as well), as `(cKDTree, tolerance)`, or None if `source` has no
+    open boundary. The repair stages use it to tell a gap created at the
+    protected/decimated interface apart from an opening that already
+    belongs to the source mesh: the former must be closed, the latter
+    must not (capping it with a fan bridges a real opening with triangles
+    that lie away from the surface, which showed up as a large
+    source->result error on scanned meshes with many open boundaries)."""
+    if source.n_cells == 0:
+        return None
+    welded = source.clean(lines_to_points=False, polys_to_lines=False, strips_to_polys=False)
+    boundary = welded.extract_feature_edges(
+        boundary_edges=True, non_manifold_edges=False, feature_edges=False, manifold_edges=False
+    )
+    if boundary.n_points == 0:
+        return None
+    return cKDTree(boundary.points), 1e-6 * source.length
+
+
+def _on_source_boundary(points: np.ndarray, src_boundary) -> np.ndarray:
+    """Boolean per point: whether it coincides (within tolerance) with a
+    boundary vertex of the source mesh. All False if `src_boundary` is
+    None."""
+    if src_boundary is None or len(points) == 0:
+        return np.zeros(len(points), dtype=bool)
+    tree, tol = src_boundary
+    dist, _ = tree.query(points, distance_upper_bound=tol)
+    return np.isfinite(dist)
+
+
+def _weld_seam_gaps(mesh: pv.PolyData, max_hole_size: int = 100, src_boundary=None) -> pv.PolyData:
     """Closes the residual gaps that the seam between the protected zone
     and the decimated one can leave in `decimate_with_mask`. These
     aren't non-manifold edges (shared by more than 2 faces, which
@@ -503,6 +545,16 @@ def _weld_seam_gaps(mesh: pv.PolyData, max_hole_size: int = 100) -> pv.PolyData:
         repaired = ms.current_mesh()
         verts = repaired.vertex_matrix()
         faces = repaired.face_matrix()
+        n_original = mesh.n_cells
+        if src_boundary is not None and faces.shape[0] > n_original:
+            # PyMeshLab appends the faces it creates after the original
+            # ones. A filled face whose three vertices all lie on the
+            # source's own open boundary belongs to an opening of the
+            # source mesh, not to an interface gap: drop it.
+            new_faces = faces[n_original:]
+            on_boundary = _on_source_boundary(verts, src_boundary)
+            keep = ~on_boundary[new_faces].all(axis=1)
+            faces = np.vstack([faces[:n_original], new_faces[keep]])
         poly_faces = np.hstack([np.full((faces.shape[0], 1), 3), faces]).astype(np.int64)
         return pv.PolyData(verts, poly_faces)
     except pymeshlab.PyMeshLabException:
@@ -596,7 +648,7 @@ def _pair_seam_branch_neighbors(vertex: int, neighbors: list, points: np.ndarray
     return pares
 
 
-def _stitch_residual_boundary_gaps(mesh: pv.PolyData) -> pv.PolyData:
+def _stitch_residual_boundary_gaps(mesh: pv.PolyData, src_boundary=None) -> pv.PolyData:
     """Last resort after `_weld_seam_gaps`: if there are still unwelded
     boundary edges left (not genuine non-manifold edges, those are left
     untouched: adding more faces on top of an edge already shared by 3+
@@ -626,6 +678,13 @@ def _stitch_residual_boundary_gaps(mesh: pv.PolyData) -> pv.PolyData:
         return mesh  # shouldn't happen; defensive safeguard
 
     lines = boundary.lines.reshape(-1, 3)[:, 1:]
+    if src_boundary is not None:
+        # Edges that run along the source's own open boundary are not
+        # interface gaps: leave them open.
+        on_boundary = _on_source_boundary(mesh.points[mesh_idx], src_boundary)
+        lines = lines[~(on_boundary[lines[:, 0]] & on_boundary[lines[:, 1]])]
+        if len(lines) == 0:
+            return mesh
     adjacency: dict = {}
     for a, b in lines:
         ga, gb = int(mesh_idx[a]), int(mesh_idx[b])
@@ -792,10 +851,13 @@ def refine_by_error(
     centers don't coincide with any `source` vertex); those detected
     directly in `source` (new direction) are translated exactly, using
     the marked face's own vertices. `zone_stats`, if passed, is forwarded
-    to every internal `decimate_with_mask` call (see there), ending up
-    with the unprotected-zone counts from the last pass actually run.
-    Returns (result, updated mask, final ErrorStats, number of passes,
-    points added)."""
+    to the unprotected-zone counts of the pass whose result is returned.
+    The result of the pass with the lowest pooled maximum error is
+    returned, the initial `result` included: more protection does not
+    always lower the error (the error is measured after the interface
+    repair), so a later pass is only kept if it is strictly better.
+    Returns (result, updated mask, ErrorStats of the returned result,
+    number of passes run, points added in the returned result's mask)."""
     threshold = (error_threshold_pct / 100.0) * source.length
     source_tree = cKDTree(source.points)
     source_faces = source.regular_faces
@@ -806,10 +868,17 @@ def refine_by_error(
     # time, see measure_bidirectional_error).
     distance_to_source = vtk.vtkImplicitPolyDataDistance()
     distance_to_source.SetInput(source)
+    src_boundary = _source_open_boundary(source)
     added_total = 0
     fwd_errors, fwd_centroids, rev_errors, _ = measure_bidirectional_error(
         source, result, distance_to_source
     )
+
+    def pooled_max(fwd: np.ndarray, rev: np.ndarray) -> float:
+        return max(float(fwd.max()) if fwd.size else 0.0, float(rev.max()) if rev.size else 0.0)
+
+    best_err = pooled_max(fwd_errors, rev_errors)
+    best = (result, mask.copy(), fwd_errors, rev_errors, 0, None)
     iterations = 0
     for iterations in range(1, max_iterations + 1):
         bad_fwd = fwd_errors > threshold
@@ -824,10 +893,21 @@ def refine_by_error(
             break
         mask[newly] = True
         added_total += int(newly.size)
-        result = decimate_with_mask(source, mask, settings, zone_stats=zone_stats)
+        pass_zone: dict = {}
+        result = decimate_with_mask(
+            source, mask, settings, zone_stats=pass_zone, src_boundary=src_boundary
+        )
         fwd_errors, fwd_centroids, rev_errors, _ = measure_bidirectional_error(
             source, result, distance_to_source
         )
+        current_err = pooled_max(fwd_errors, rev_errors)
+        if current_err < best_err:
+            best_err = current_err
+            best = (result, mask.copy(), fwd_errors, rev_errors, added_total, pass_zone)
+    result, best_mask, fwd_errors, rev_errors, added_total, best_zone = best
+    mask[:] = best_mask
+    if zone_stats is not None and best_zone is not None:
+        zone_stats.update(best_zone)
     stats = bidirectional_error_summary(fwd_errors, rev_errors)
     return result, mask, stats, iterations, added_total
 
