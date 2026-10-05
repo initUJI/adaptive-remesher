@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Adaptive Remesher"
+abstract: "Desktop tool for region-protected mesh simplification with bidirectional geometric error validation."
+type: software
+authors:
+  - family-names: "Tonda Ramos"
+    given-names: "Anna"
+    affiliation: "Interactive Visualization Center (CEVI), Institute of New Imaging Technologies (INIT), Universitat Jaume I"
+  - family-names: "Garcia Rytman"
+    given-names: "Linda"
+    affiliation: "Interactive Visualization Center (CEVI), Institute of New Imaging Technologies (INIT), Universitat Jaume I"
+  - family-names: "Gomez Cambronero"
+    given-names: "Agueda"
+    affiliation: "Interactive Visualization Center (CEVI), Institute of New Imaging Technologies (INIT), Universitat Jaume I"
+  - family-names: "Remolar Quintana"
+    given-names: "Inmaculada"
+    affiliation: "Interactive Visualization Center (CEVI), Institute of New Imaging Technologies (INIT), Universitat Jaume I"
+repository-code: "https://github.com/initUJI/adaptive-remesher"
+license: MIT
+keywords:
+  - mesh simplification
+  - mesh decimation
+  - geometric error

@@ -32,7 +32,9 @@ PyInstaller spec.
   Mechanical, Organic, Scanned, Generated), each with its category,
   filename, display name, source URL, and verified license. The actual
   model files live locally under `MODELS_ROOT`
-  (`C:\Users\AnniDin00\Downloads\models`), not in the repo (third-party/
+  (`<repo>/models` by default, or the folder named by the
+  `ADAPTIVE_REMESHER_MODELS` environment variable, organized as
+  `<category>/<file>`), not in the repo (third-party/
   licensed, some multi-hundred-MB) — `gather_dataset_stats.py` and
   `experiment_b_refinement.py` both import this module so the model list
   can't drift between them.
@@ -64,14 +66,16 @@ current numbers are checked in, and also copied into
 `evaluation_tracker.xlsx`'s `Dataset`/`Exp_B_Refinement_Ablation` sheets).
 Re-run any module to regenerate after a code change.
 
-Real-dataset finding worth flagging: on the "Loewe (lion)" scan, refined
-`error_max_fwd` (0.386) came out *higher* than the unrefined baseline
-(0.021) - the refinement loop is not guaranteed to be monotonically
-safe on complex real scans (likely a boundary-stitching side effect on a
-mesh with ~7800 disconnected components); worth a caveat in the paper
-rather than presenting refinement as a strict improvement in every case.
-Aggregate result: `error_max_pooled > threshold` (tau=1%) in 16/19 models
-without refinement, vs. 11/19 with it.
+Real-dataset finding worth flagging: with the original interface repair,
+refinement raised the maximum error on four meshes (trilobite, blastoid,
+lion, heart) because the capping step closed openings that belong to the
+source mesh. The repair now leaves those openings alone and
+`refine_by_error` keeps the best pass, so refinement raises the error on no
+mesh; on the trilobite, blastoid and lion it returns the first result
+unchanged (no pass improved on it). Refinement is still a trade of
+reduction for fidelity, not a strict improvement.
+Aggregate result (current code): `error_max_pooled > threshold` (tau=1%) in
+12/19 models without refinement, vs. 10/19 with it.
 
 - **`experiment_d_threshold_sensitivity.py`** — Experiment D (error-
   threshold sensitivity). Sweeps `error_threshold_pct` (0.25/0.5/1.0/2.0/

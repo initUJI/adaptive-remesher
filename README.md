@@ -158,6 +158,37 @@ tag), and [CHANGELOG.md](CHANGELOG.md) for the change history.
   on Windows; the release workflow includes an automatic smoke test
   (starts without errors) on all three platforms.
 
+- Texture coordinates are not carried into the masked output: UV-seam
+  protection keeps the geometry of seam vertices, but the result has no UV
+  data.
+- Error-guided refinement trades reduction for fidelity. It never returns a
+  result worse than its first pass, but it can leave the result unchanged
+  and, where it adds protection, lowers the achieved reduction (median 46%
+  instead of 90% in the evaluation).
+
+## Reproducing the paper
+
+The experiments for the paper "Adaptive Remesher: Region-Protected Mesh
+Simplification with Bidirectional Error Validation" are in
+[evaluation/](evaluation/README.md); their raw results are checked in under
+`evaluation/results/` and summarized in `evaluation/evaluation_tracker.xlsx`.
+The 19 real models are third-party files and are not in the repository:
+`evaluation/dataset_catalog.py` lists each one with its source and license.
+Download them into `models/<category>/<file>` (or point
+`ADAPTIVE_REMESHER_MODELS` to another folder), then run, for example:
+
+```bash
+python -u -m evaluation.experiment_b_refinement
+python -u -m evaluation.experiment_baselines   # needs experiment B's results
+```
+
+The baseline comparison additionally needs `pip install fast-simplification`.
+
+## Citation
+
+See [CITATION.cff](CITATION.cff). The reference to the paper will be added
+once it is published.
+
 ## License
 
 [MIT](LICENSE) © 2026 CEVI. Free to use, modify and redistribute (including

@@ -4,11 +4,18 @@ live under MODELS_ROOT, their category, and their license/source - kept
 here once so the two scripts that need the model list can't drift apart.
 
 None of these files are checked into the repo (third-party/licensed
-models, some multi-hundred-MB); MODELS_ROOT points at the user's local
-folder where they were downloaded and organized.
+models, some multi-hundred-MB); MODELS_ROOT points at the local folder
+where they were downloaded and organized as <MODELS_ROOT>/<category>/<file>.
+Set the ADAPTIVE_REMESHER_MODELS environment variable to use another
+folder; the default is a `models` folder at the repository root.
 """
 
-MODELS_ROOT = r"C:\Users\AnniDin00\Downloads\models"
+import os
+
+MODELS_ROOT = os.environ.get(
+    "ADAPTIVE_REMESHER_MODELS",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models"),
+)
 
 # (category, filename, display name, source/url, license, notes)
 CATALOG = [
