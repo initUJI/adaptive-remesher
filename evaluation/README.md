@@ -157,10 +157,24 @@ without refinement, vs. 11/19 with it.
   why), so the sheet's `T_Other = T_Total - SUM(...)` formula reports the
   whole refinement-loop time (error measurement + any repeat decimations
   + repair), not pure overhead — don't read it as the latter in the
-  paper. Total pipeline time ranged from 14 ms (Barrel, 1473 tris) to
-  30.7 s (electrocardiograph, 1.87M tris, and even then only because of
-  the sheer mesh size — 1 refinement iteration, no protection added).
+  paper. Total pipeline time ranged from 20 ms (Barrel, 1473 tris) to
+  32.7 s (electrocardiograph, 1.87M tris, and even then only because of
+  the sheer mesh size — 1 refinement iteration, no protection added),
+  median 0.52 s (after the interface-repair fix).
   Run: `python -u -m evaluation.experiment_runtime`.
+- **`experiment_baselines.py`** — the same 19 models simplified by
+  PyMeshLab quadric edge collapse (default and with `preserveboundary`) and
+  by fast-simplification, scored with the same bidirectional error, at a
+  fixed 90% request and at the reduction Experiment B's refined run
+  reached (read from `results/experiment_b.json`, so run Experiment B
+  first). At the same 90% request the median max error is 1.96% of the
+  diagonal for Adaptive Remesher unrefined, 1.94% for MeshLab and 1.69%
+  for fast-simplification; at the reduction refinement reached, MeshLab
+  deviates less than the refined result on all eight meshes below 80%
+  reduction. MeshLab with `preserveboundary` reduced nothing on four
+  meshes and produced a degenerate result on the bolt cutters, so treat it
+  as a note, not a baseline. Needs `pip install pymeshlab fast-simplification`.
+  Run: `python -u -m evaluation.experiment_baselines`.
 
 All experiments write raw metrics to `results/*.{csv,json}` (already run
 once; current numbers are checked in, and also copied into

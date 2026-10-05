@@ -4,6 +4,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (evaluation)
+- `evaluation/experiment_baselines.py`: scores PyMeshLab's quadric edge
+  collapse (default and boundary-preserving) and fast-simplification with
+  the same bidirectional error on the 19-model dataset, at a fixed 90%
+  reduction and at the reduction the refined run reached
+  (`results/baselines.{csv,json}`, `Baselines` sheet of the tracker).
+  meshoptimizer is not included (no wheel for Python 3.14).
+
 ### Added (report/diagnostics)
 - Per-direction geometric error, alongside the existing pooled max/mean/p95:
   `ErrorStats`/`bidirectional_error_summary` (`remesh_core.py`) now also
@@ -25,6 +33,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   without duplicating its split logic elsewhere.
 
 ### Fixed
+- Interface repair no longer closes openings that belong to the source mesh.
+  `_weld_seam_gaps` (PyMeshLab `close_holes`) and
+  `_stitch_residual_boundary_gaps` used to treat every boundary loop left
+  after merging as a seam gap, so a source with open boundaries got fan
+  triangles that lay away from the surface (the evaluation traced a maximum
+  error increase of up to 11.8% of the bounding-box diagonal to this
+  step). `_source_open_boundary` now extracts the welded source's boundary
+  once; hole filling drops new faces whose three vertices lie on it, and the
+  residual stitching ignores edges whose endpoints both lie on it
+  (`src_boundary` out-parameter of `decimate_with_mask`). Regression test:
+  `test_decimate_with_mask_leaves_source_opening_open`.
+- `refine_by_error` keeps the best pass: a pass replaces the current result
+  only if its pooled maximum error is strictly lower (the first result is the
+  baseline), so refinement can no longer return a result worse than its
+  first pass. Regression test:
+  `test_refine_by_error_never_returns_worse_than_initial_result`.
 - `vtkDecimatePro` silently achieved 0% reduction on meshes exported with
   duplicated per-face vertices (no two triangles sharing a vertex -
   common in some OBJ/GLTF exporters; 4 of 19 models in the evaluation

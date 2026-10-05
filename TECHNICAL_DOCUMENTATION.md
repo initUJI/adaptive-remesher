@@ -712,6 +712,24 @@ propagating the exception. New regression tests:
 and
 [`test_decimate_with_mask_never_raises_when_pymeshlab_repair_rejects_mesh`](tests/test_remesh_core.py).
 
+**Openings that belong to the source are left open.** Both repair steps used
+to treat every boundary loop left after merging as a seam gap. On a source
+that itself has open boundaries (4 of the 19 evaluation meshes), this capped
+them with fan triangles away from the surface and raised the maximum error
+(up to 11.8% of the bounding-box diagonal on the blastoid). `_source_open_boundary`
+now extracts the welded source's boundary edges once (a `cKDTree` of their
+vertices, tolerance 1e-6 of the source length); `_weld_seam_gaps` drops new
+faces whose three vertices lie on it and `_stitch_residual_boundary_gaps`
+ignores edges whose endpoints both lie on it. `refine_by_error` also keeps
+the best pass (strictly lower pooled maximum error than the current result;
+the first result is the baseline). After both changes refinement raised the
+error on none of the 19 meshes, but on three of them (trilobite, blastoid,
+lion) it returns the first result unchanged, and the evaluation did not
+separate how much is due to each change. Tests:
+[`test_decimate_with_mask_leaves_source_opening_open`](tests/test_remesh_core.py)
+and
+[`test_refine_by_error_never_returns_worse_than_initial_result`](tests/test_remesh_core.py).
+
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
 `_apply_rect_selection()` ([app.py:560](app.py:560)) kept its cheap
