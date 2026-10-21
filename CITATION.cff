@@ -4,19 +4,7 @@ title: "Adaptive Remesher"
 abstract: "Desktop tool for region-protected mesh simplification with bidirectional geometric error validation."
 type: software
 authors:
-  - family-names: "Tonda Ramos"
-    given-names: "Anna"
-    affiliation: "Interactive Visualization Center (CEVI), Institute of New Imaging Technologies (INIT), Universitat Jaume I"
-  - family-names: "Garcia Rytman"
-    given-names: "Linda"
-    affiliation: "Interactive Visualization Center (CEVI), Institute of New Imaging Technologies (INIT), Universitat Jaume I"
-  - family-names: "Gomez Cambronero"
-    given-names: "Agueda"
-    affiliation: "Interactive Visualization Center (CEVI), Institute of New Imaging Technologies (INIT), Universitat Jaume I"
-  - family-names: "Remolar Quintana"
-    given-names: "Inmaculada"
-    affiliation: "Interactive Visualization Center (CEVI), Institute of New Imaging Technologies (INIT), Universitat Jaume I"
-repository-code: "https://github.com/initUJI/adaptive-remesher"
+  - name: "Anonymous (authors withheld during peer review)"
 license: MIT
 keywords:
   - mesh simplification

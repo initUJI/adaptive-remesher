@@ -168,8 +168,7 @@ tag), and [CHANGELOG.md](CHANGELOG.md) for the change history.
 
 ## Reproducing the paper
 
-The experiments for the paper "Adaptive Remesher: Region-Protected Mesh
-Simplification with Bidirectional Error Validation" are in
+The experiments for the accompanying paper are in
 [evaluation/](evaluation/README.md); their raw results are checked in under
 `evaluation/results/` and summarized in `evaluation/evaluation_tracker.xlsx`.
 The 19 real models are third-party files and are not in the repository:
