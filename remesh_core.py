@@ -228,7 +228,19 @@ def decimate_qem(
             decimate.SetNormalsAttribute(True)
             decimate.SetNormalsWeight(normals_weight)
     decimate.SetBoundaryWeightFactor(1e10 if boundary_locked else 1.0)
-    decimate.Update()
+    # With the attribute error metric, VTK prints "Unable to factor linear
+    # system" once per collapse whose attribute quadric is singular (flat or
+    # duplicated-UV regions) and falls back to an endpoint placement, so the
+    # result is valid and measurably better than without the UV term; the
+    # warnings only flood the console. Mute them just for this call.
+    mute = use_uv or use_normals_weight
+    previous = vtk.vtkObject.GetGlobalWarningDisplay()
+    if mute:
+        vtk.vtkObject.GlobalWarningDisplayOff()
+    try:
+        decimate.Update()
+    finally:
+        vtk.vtkObject.SetGlobalWarningDisplay(previous)
     output = pv.wrap(decimate.GetOutput())
     if working is not mesh and "Normals" in output.point_data:
         # The normals were only computed to guide the collapse cost,
