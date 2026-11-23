@@ -16,6 +16,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   model with the base-colour image of a glTF/GLB or an OBJ's `map_Kd`
   (`load_base_color_texture`).
 - "Show mesh lines" option to hide the triangle edges.
+- After decimating, a hint appears in the stats when UV-seam protection froze
+  15% or more of the vertices and the reduction fell more than 15 points
+  short of the request (`seam_protection_limits_reduction`): textures from
+  generators are often split into hundreds of tiny islands, and freezing
+  their seams can leave a 90% request at under 30%. It suggests turning off
+  "Protect UV seams automatically", which works because the texture is
+  restored on the result.
 - Options that cannot be used in the current state (no mesh loaded, no UV, the
   other engine's controls, dependent checkboxes, restore/compare without a
   result) are disabled and their tooltip says why.

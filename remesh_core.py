@@ -46,6 +46,27 @@ def ensure_active_texture_coords(mesh: pv.PolyData) -> None:
             return
 
 
+def seam_protection_limits_reduction(
+    requested_pct: float,
+    achieved_pct: float,
+    seam_points: int,
+    total_points: int,
+    min_seam_fraction: float = 0.15,
+    min_shortfall_pct: float = 15.0,
+) -> bool:
+    """Whether UV-seam protection is probably what kept the result well
+    below the requested reduction: a large share of the vertices was frozen
+    (heavily fragmented texture atlases freeze almost half of them) and the
+    whole-mesh reduction fell short by more than `min_shortfall_pct` points.
+    It is a heuristic for a hint, not a measurement of the cause."""
+    if total_points <= 0 or seam_points <= 0:
+        return False
+    return (
+        seam_points / total_points >= min_seam_fraction
+        and requested_pct - achieved_pct > min_shortfall_pct
+    )
+
+
 def _texture_from_bytes(data: bytes) -> Optional[pv.Texture]:
     """Decodes an image (PNG/JPEG/...) into a pyvista texture; None if it
     can't be decoded."""

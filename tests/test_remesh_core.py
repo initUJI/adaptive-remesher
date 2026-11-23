@@ -24,6 +24,7 @@ from remesh_core import (
     mesh_has_texture_coords,
     refine_by_error,
     run_decimation_pipeline,
+    seam_protection_limits_reduction,
     transfer_texture_coords,
     uv_seam_point_mask,
 )
@@ -656,3 +657,13 @@ def test_load_base_color_texture_is_none_without_image(tmp_path):
 
     assert load_base_color_texture(str(tmp_path / "m.obj")) is None
     assert load_base_color_texture(str(tmp_path / "missing.glb")) is None
+
+
+def test_seam_protection_limits_reduction_heuristic():
+    # Many frozen seam vertices and a big shortfall: hint.
+    assert seam_protection_limits_reduction(90, 18, 4000, 9000)
+    # Few seam vertices, or the reduction was reached: no hint.
+    assert not seam_protection_limits_reduction(90, 18, 300, 9000)
+    assert not seam_protection_limits_reduction(90, 85, 4000, 9000)
+    assert not seam_protection_limits_reduction(90, 18, 0, 9000)
+    assert not seam_protection_limits_reduction(90, 18, 10, 0)

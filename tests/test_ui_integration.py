@@ -247,3 +247,16 @@ def test_show_texture_option_explains_when_unavailable(loaded_window):
     # The loaded sphere has no texture image.
     assert not loaded_window.show_texture_cb.isEnabled()
     assert "texture image" in loaded_window.show_texture_cb.toolTip()
+
+
+def test_stats_hint_when_seam_protection_limits_reduction(loaded_window):
+    import app as app_module
+
+    real = app_module.seam_protection_limits_reduction
+    # The heuristic itself is tested in test_remesh_core; here only the wiring.
+    app_module.seam_protection_limits_reduction = lambda *a, **k: True
+    try:
+        loaded_window.apply_decimation()
+    finally:
+        app_module.seam_protection_limits_reduction = real
+    assert "Hint: UV-seam protection" in loaded_window.stats_label.text()

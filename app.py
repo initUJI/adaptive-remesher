@@ -61,6 +61,7 @@ from remesh_core import (
     load_base_color_texture,
     mesh_has_texture_coords,
     run_decimation_pipeline,
+    seam_protection_limits_reduction,
     transfer_texture_coords,
     uv_seam_point_mask,
 )
@@ -1087,12 +1088,26 @@ class AdaptiveRemesherWindow(QMainWindow):
                 f"mean {result.error_mean:.4f}, p95 {result.error_p95:.4f}"
                 f"{error_direction_note}"
             )
+        seam_hint = ""
+        if seam_protection_limits_reduction(
+            self.reduction_slider.value(),
+            result.reduction_real_pct,
+            result.uv_seam_protected_points,
+            self.original_mesh.n_points,
+        ):
+            share = 100 * result.uv_seam_protected_points / self.original_mesh.n_points
+            seam_hint = (
+                f"\nHint: UV-seam protection froze {share:.0f}% of the vertices, "
+                "which limits the reduction. Turn off \"Protect UV seams "
+                "automatically\" to reduce more; the texture is restored on the "
+                "result, but faces next to a seam may look slightly stretched."
+            )
         self.stats_label.setText(
             f"Original: {result.original_tris} tris\n"
             f"Result: {result.result_tris} tris\n"
             f"Actual reduction: {result.reduction_real_pct:.1f}% overall, "
             f"{result.unprotected_zone_reduction_pct:.1f}% in the unprotected zone"
-            f"{note}{error_note}"
+            f"{note}{error_note}{seam_hint}"
         )
 
         self._last_run_info = {
