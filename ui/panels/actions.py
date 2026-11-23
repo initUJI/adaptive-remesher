@@ -54,8 +54,9 @@ def build_action_buttons(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLa
         "Saves the decimated mesh to disk; if you haven't applied any "
         "decimation yet, saves the original mesh (already cleaned, if "
         "applicable). OBJ and PLY preserve UV coordinates if the mesh "
-        "has a texture; STL doesn't support UV/texture (a limitation "
-        "of the format itself)."
+        "has a texture, and the texture image is saved next to the mesh "
+        "(name_texture.png; an OBJ also gets a .mtl that links it); STL "
+        "doesn't support UV/texture (a limitation of the format itself)."
     ))
     window.export_btn.clicked.connect(window.export_mesh)
     panel_layout.addWidget(window.export_btn)

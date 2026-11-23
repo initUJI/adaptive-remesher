@@ -15,6 +15,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - "Show texture" option: the viewer (and the comparison window) paints the
   model with the base-colour image of a glTF/GLB or an OBJ's `map_Kd`
   (`load_base_color_texture`).
+- Exporting (and batch processing) a mesh that has UV also writes its texture
+  next to it as `name_texture.png`; an OBJ gets a `name.mtl` plus the
+  `mtllib`/`usemtl` lines so it opens textured (`save_texture_with_mesh`), a
+  PLY gets a `comment TextureFile` header line.
 - "Show mesh lines" option to hide the triangle edges.
 - After decimating, a hint appears in the stats when UV-seam protection froze
   15% or more of the vertices and the reduction fell more than 15 points

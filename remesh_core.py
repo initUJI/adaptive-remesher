@@ -46,6 +46,48 @@ def ensure_active_texture_coords(mesh: pv.PolyData) -> None:
             return
 
 
+def save_texture_with_mesh(mesh_path: str, texture: Optional[pv.Texture]) -> Optional[str]:
+    """After a mesh with UV was saved to `mesh_path`, writes its colour
+    texture next to it as `<name>_texture.png` and links it so the model
+    opens textured: an OBJ gets a `<name>.mtl` (`map_Kd`) plus the `mtllib`
+    and `usemtl` lines; a PLY gets a `comment TextureFile` header line. STL
+    has no UV and is left alone. Returns the image path, or None if there was
+    nothing to write."""
+    import os
+
+    stem, ext = os.path.splitext(mesh_path)
+    ext = ext.lower()
+    if texture is None or ext not in (".obj", ".ply"):
+        return None
+    from PIL import Image
+
+    image_path = f"{stem}_texture.png"
+    # Textures are stored bottom row first; image files, top row first.
+    Image.fromarray(np.ascontiguousarray(np.flipud(texture.to_array()))).save(image_path)
+    image_name = os.path.basename(image_path)
+    with open(mesh_path, "rb") as f:
+        data = f.read()
+    if ext == ".obj":
+        mtl_name = os.path.basename(stem) + ".mtl"
+        with open(f"{stem}.mtl", "w", encoding="utf-8") as f:
+            f.write(f"newmtl material0\nKd 1 1 1\nmap_Kd {image_name}\n")
+        lines = data.split(b"\n")
+        first_v = next((i for i, ln in enumerate(lines) if ln.startswith(b"v ")), 0)
+        lines.insert(first_v, f"mtllib {mtl_name}".encode())
+        first_f = next((i for i, ln in enumerate(lines) if ln.startswith(b"f ")), len(lines))
+        lines.insert(first_f, b"usemtl material0")
+        data = b"\n".join(lines)
+    else:
+        marker = b"end_header"
+        at = data.find(marker)
+        if at < 0:
+            return image_path
+        data = data[:at] + f"comment TextureFile {image_name}\n".encode() + data[at:]
+    with open(mesh_path, "wb") as f:
+        f.write(data)
+    return image_path
+
+
 def seam_protection_limits_reduction(
     requested_pct: float,
     achieved_pct: float,

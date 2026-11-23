@@ -61,6 +61,7 @@ from remesh_core import (
     load_base_color_texture,
     mesh_has_texture_coords,
     run_decimation_pipeline,
+    save_texture_with_mesh,
     seam_protection_limits_reduction,
     transfer_texture_coords,
     uv_seam_point_mask,
@@ -1185,6 +1186,8 @@ class AdaptiveRemesherWindow(QMainWindow):
             return
         try:
             mesh.save(path)
+            if mesh_has_texture_coords(mesh):
+                save_texture_with_mesh(path, self.texture)
             if self.export_report_cb.isChecked() and self._last_run_info is not None:
                 report_path = f"{os.path.splitext(path)[0]}_report.json"
                 with open(report_path, "w", encoding="utf-8") as f:
@@ -1312,7 +1315,10 @@ class AdaptiveRemesherWindow(QMainWindow):
             try:
                 processed = self._process_one_batch_file(src_path)
                 out_name = os.path.splitext(filename)[0] + f".{ext}"
-                processed["mesh"].save(os.path.join(output_dir, out_name))
+                out_path = os.path.join(output_dir, out_name)
+                processed["mesh"].save(out_path)
+                if mesh_has_texture_coords(processed["mesh"]):
+                    save_texture_with_mesh(out_path, load_base_color_texture(src_path))
                 if self.export_report_cb.isChecked():
                     report_path = os.path.join(
                         output_dir, os.path.splitext(filename)[0] + "_report.json"

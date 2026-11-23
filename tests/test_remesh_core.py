@@ -24,6 +24,7 @@ from remesh_core import (
     mesh_has_texture_coords,
     refine_by_error,
     run_decimation_pipeline,
+    save_texture_with_mesh,
     seam_protection_limits_reduction,
     transfer_texture_coords,
     uv_seam_point_mask,
@@ -667,3 +668,44 @@ def test_seam_protection_limits_reduction_heuristic():
     assert not seam_protection_limits_reduction(90, 85, 4000, 9000)
     assert not seam_protection_limits_reduction(90, 18, 0, 9000)
     assert not seam_protection_limits_reduction(90, 18, 10, 0)
+
+
+def _two_row_texture():
+    # Bottom row (index 0) red, top row blue: checks the vertical orientation.
+    array = np.zeros((2, 2, 3), dtype=np.uint8)
+    array[0] = (255, 0, 0)
+    array[1] = (0, 0, 255)
+    return pv.Texture(array)
+
+
+def test_save_texture_with_mesh_links_texture_in_obj(tmp_path):
+    from PIL import Image
+
+    mesh = _plane_with_uv(4)
+    path = str(tmp_path / "out.obj")
+    mesh.save(path)
+
+    image = save_texture_with_mesh(path, _two_row_texture())
+
+    assert image is not None and image.endswith("out_texture.png")
+    assert tuple(Image.open(image).convert("RGB").getpixel((0, 0))) == (0, 0, 255)  # top row is blue
+    assert "mtllib out.mtl" in (tmp_path / "out.obj").read_text()
+    assert "usemtl material0" in (tmp_path / "out.obj").read_text()
+    assert "map_Kd out_texture.png" in (tmp_path / "out.mtl").read_text()
+    assert load_base_color_texture(path) is not None  # the viewer finds it again
+    assert pv.read(path).n_cells == mesh.n_cells
+
+
+def test_save_texture_with_mesh_marks_ply_and_ignores_stl(tmp_path):
+    mesh = _plane_with_uv(4)
+    ply = str(tmp_path / "out.ply")
+    mesh.save(ply)
+
+    assert save_texture_with_mesh(ply, _two_row_texture()) is not None
+    assert b"comment TextureFile out_texture.png" in (tmp_path / "out.ply").read_bytes()
+    assert pv.read(ply).n_cells == mesh.n_cells
+
+    stl = str(tmp_path / "out.stl")
+    mesh.save(stl)
+    assert save_texture_with_mesh(stl, _two_row_texture()) is None
+    assert save_texture_with_mesh(ply, None) is None
