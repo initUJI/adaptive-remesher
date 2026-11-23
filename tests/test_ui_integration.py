@@ -260,3 +260,70 @@ def test_stats_hint_when_seam_protection_limits_reduction(loaded_window):
     finally:
         app_module.seam_protection_limits_reduction = real
     assert "Hint: UV-seam protection" in loaded_window.stats_label.text()
+
+
+def _window_with_textured_model(loaded_window):
+    import numpy as np
+
+    from materials import MaterialMaps
+
+    mesh = pv.Sphere(theta_resolution=40, phi_resolution=40).triangulate().texture_map_to_sphere(inplace=False)
+    loaded_window.original_mesh = mesh
+    loaded_window._reset_protection(rebuild_kdtree=True)
+    loaded_window.maps = MaterialMaps(
+        base=np.full((8, 8, 3), 200, dtype=np.uint8),
+        normal=np.full((8, 8, 3), (128, 128, 255), dtype=np.uint8),
+    )
+    loaded_window.texture = None
+    loaded_window.show_mesh(mesh, is_original=True)
+    return loaded_window
+
+
+def test_bake_normal_map_flow(loaded_window):
+    window = _window_with_textured_model(loaded_window)
+    assert not window.bake_btn.isEnabled()
+    assert "Apply a decimation first" in window.bake_btn.toolTip()
+
+    window.protect_uv_seams_cb.setChecked(False)
+    window.reduction_slider.setValue(80)
+    window.apply_decimation()
+    assert window.bake_btn.isEnabled()
+
+    window.bake_size_combo.setCurrentText("512")
+    window.bake_normal_map_now()
+
+    assert window.baked_normal is not None and window.baked_normal.shape == (512, 512, 3)
+    assert window.show_normals_cb.isEnabled() and window.show_normals_cb.isChecked()
+    # A new decimation invalidates the bake.
+    window.apply_decimation()
+    assert window.baked_normal is None
+
+
+def test_normal_map_option_explains_when_model_has_none(loaded_window):
+    window = _window_with_textured_model(loaded_window)
+    window.maps.normal = None
+    window._refresh_availability()
+
+    assert not window.show_normals_cb.isEnabled()
+    assert "Bake normal map" in window.show_normals_cb.toolTip()
+
+
+def test_export_maps_use_the_baked_normal_for_the_result(loaded_window, tmp_path):
+    import numpy as np
+
+    from materials import load_material_maps, write_glb
+
+    window = _window_with_textured_model(loaded_window)
+    window.protect_uv_seams_cb.setChecked(False)
+    window.apply_decimation()
+    window.bake_size_combo.setCurrentText("512")
+    window.bake_normal_map_now()
+
+    maps = window._maps_for_export(window.decimated_mesh)
+    assert maps is not None and maps.normal is window.baked_normal
+    assert window._maps_for_export(window.original_mesh).normal is window.maps.normal
+
+    path = str(tmp_path / "out.glb")
+    write_glb(path, window.decimated_mesh, maps)
+    back = load_material_maps(path)
+    np.testing.assert_array_equal(back.normal, window.baked_normal)

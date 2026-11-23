@@ -162,8 +162,12 @@ tag), and [CHANGELOG.md](CHANGELOG.md) for the change history.
   the source mesh (nearest source triangle, per UV chart), not carried
   through the decimation itself. A decimated face that straddles a texture
   seam can look slightly stretched, which is why seam vertices are protected
-  by default. Only the colour image of a glTF/GLB or an OBJ's `map_Kd` is
-  shown in the viewer.
+  by default. The viewer shows the colour image of a glTF/GLB or an OBJ's
+  `map_Kd`, and the normal map (loaded or baked with "Bake normal map").
+  Export to GLB keeps every map of a glTF material; OBJ/PLY keep the colour
+  texture and the normal map only. The baked normal map is ray-cast from a
+  cage 3% of the diagonal above the decimated surface; where the original
+  lies beyond the cage the decimated surface keeps its own normal.
 - Error-guided refinement trades reduction for fidelity. It never returns a
   result worse than its first pass, but it can leave the result unchanged
   and, where it adds protection, lowers the achieved reduction (median 46%

@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtWidgets import QCheckBox, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QPushButton, QVBoxLayout
 
 from ui.common import tip
 
@@ -38,6 +38,28 @@ def build_action_buttons(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLa
     ))
     window.compare_btn.clicked.connect(window.open_comparison)
     panel_layout.addWidget(window.compare_btn)
+
+    bake_row = QHBoxLayout()
+    window.bake_btn = QPushButton("Bake normal map")
+    window.bake_btn.setToolTip(tip(
+        "Creates a normal map for the decimated result from the original "
+        "mesh (and from the original's own normal map, if it has one), so "
+        "the shading of the removed detail comes back without adding "
+        "triangles. The result keeps the original's texture layout, so "
+        "the model's other maps stay valid. Export to GLB keeps all of "
+        "them."
+    ))
+    window.bake_btn.clicked.connect(window.bake_normal_map_now)
+    bake_row.addWidget(window.bake_btn, 1)
+    window.bake_size_combo = QComboBox()
+    window.bake_size_combo.addItems(["512", "1024", "2048", "4096"])
+    window.bake_size_combo.setCurrentText("1024")
+    window.bake_size_combo.setToolTip(tip(
+        "Resolution of the baked normal map in pixels per side. Larger "
+        "maps keep finer detail and take longer to bake."
+    ))
+    bake_row.addWidget(window.bake_size_combo)
+    panel_layout.addLayout(bake_row)
 
     window.export_report_cb = QCheckBox("Export .json report alongside the mesh")
     window.export_report_cb.setChecked(True)

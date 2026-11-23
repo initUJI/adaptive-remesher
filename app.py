@@ -14,6 +14,7 @@ UI construction is split by section under `ui/panels/` (one
 this module holds the window's state and all its logic.
 """
 
+import dataclasses
 import json
 import logging
 import os
@@ -65,6 +66,14 @@ from remesh_core import (
     seam_protection_limits_reduction,
     transfer_texture_coords,
     uv_seam_point_mask,
+)
+from materials import (
+    MaterialMaps,
+    bake_normal_map,
+    load_material_maps,
+    map_to_texture,
+    with_tangents,
+    write_glb,
 )
 from logging_config import configure_logging
 from ui.common import (
@@ -159,6 +168,9 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.original_mesh: pv.PolyData | None = None
         self.decimated_mesh: pv.PolyData | None = None
         self.texture: pv.Texture | None = None
+        self.maps: MaterialMaps | None = None  # every map of the loaded file's material
+        self.baked_normal: np.ndarray | None = None  # normal map baked for the decimated result
+        self._tangent_cache: tuple | None = None
         self.protected_mask: np.ndarray | None = None
         self.point_kdtree: cKDTree | None = None
         self.protected_actor = None
@@ -314,6 +326,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             "original_mesh": self.original_mesh,
             "protected_mask": self.protected_mask.copy() if self.protected_mask is not None else None,
             "decimated_mesh": self.decimated_mesh,
+            "baked_normal": self.baked_normal,
         }
 
     def _push_undo(self):
@@ -331,6 +344,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.original_mesh = state["original_mesh"]
         self.protected_mask = state["protected_mask"]
         self.decimated_mesh = state["decimated_mesh"]
+        self.baked_normal = state.get("baked_normal")
         self.point_kdtree = (
             cKDTree(self.original_mesh.points) if self.original_mesh is not None else None
         )
@@ -383,7 +397,12 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         self.original_mesh = mesh
         self.decimated_mesh = None
-        self.texture = load_base_color_texture(path)
+        self.maps = load_material_maps(path)
+        self.baked_normal = None
+        if self.maps is not None and self.maps.base is not None:
+            self.texture = map_to_texture(self.maps.base)
+        else:
+            self.texture = load_base_color_texture(path)
         self._reset_protection(rebuild_kdtree=True)
         self._undo_stack.clear()
         self._redo_stack.clear()
@@ -416,6 +435,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._push_undo()
         self.original_mesh = cleaned
         self.decimated_mesh = None
+        self.baked_normal = None
         self._reset_protection(rebuild_kdtree=True)
         self.show_mesh(cleaned, is_original=True)
         self.update_stats(cleaned)
@@ -761,6 +781,8 @@ class AdaptiveRemesherWindow(QMainWindow):
                 edge_color="#101114",
                 scalar_bar_args={"color": "#e4e6eb"},
             )
+        elif self.show_normals_cb.isChecked() and self._normal_map_for(mesh) is not None:
+            self._add_normal_mapped_mesh(mesh, self._normal_map_for(mesh), edges)
         elif (
             self.show_texture_cb.isChecked()
             and self.texture is not None
@@ -779,6 +801,38 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._viewing_original = is_original
         self._update_curvature_availability()
         self._refresh_availability()
+
+    def _normal_map_for(self, mesh: pv.PolyData) -> np.ndarray | None:
+        """The normal map that belongs on `mesh`: the one baked for the
+        decimated result if there is one, else the loaded file's own. None
+        without texture coordinates or a map."""
+        if self.maps is None or not mesh_has_texture_coords(mesh):
+            return None
+        if mesh is self.decimated_mesh and self.baked_normal is not None:
+            return self.baked_normal
+        return self.maps.normal
+
+    def _add_normal_mapped_mesh(self, mesh: pv.PolyData, normal_map: np.ndarray, edges: bool):
+        """Draws `mesh` with VTK's PBR shading and `normal_map`. PBR needs
+        tangents on the mesh (cached per mesh) for the map to have any effect."""
+        key = (id(mesh), mesh.n_points)
+        if self._tangent_cache is None or self._tangent_cache[0] != key:
+            self._tangent_cache = (key, with_tangents(mesh))
+        factors = self.maps.factors if self.maps is not None else {}
+        look = {"color": "#d8dadd"} if self.texture is None else {}
+        actor = self.plotter.add_mesh(
+            self._tangent_cache[1],
+            pbr=True,
+            metallic=factors.get("metallicFactor") or 0.0,
+            roughness=factors.get("roughnessFactor") or 0.6,
+            show_edges=edges,
+            edge_color="#101114",
+            **look,
+        )
+        if self.texture is not None:
+            actor.prop.SetBaseColorTexture(self.texture)
+        actor.prop.SetNormalTexture(map_to_texture(normal_map))
+        actor.prop.SetNormalScale(factors.get("normalScale") or 1.0)
 
     def _refresh_availability(self, *_args):
         """Disables every control that cannot be used in the current state
@@ -850,6 +904,33 @@ class AdaptiveRemesherWindow(QMainWindow):
         else:
             texture_reason = None
         set_available(self.show_texture_cb, texture_reason)
+
+        shown = self.decimated_mesh if has_result else self.original_mesh
+        if not has_mesh:
+            normals_reason: Optional[str] = no_mesh
+        elif not mesh_has_texture_coords(shown):
+            normals_reason = "This mesh has no texture coordinates (UV), which a normal map needs."
+        elif self._normal_map_for(shown) is None:
+            normals_reason = (
+                "This model has no normal map. Decimate it and press "
+                "\"Bake normal map\" to create one."
+            )
+        elif self.curvature_cb.isChecked() and self._viewing_original:
+            normals_reason = "Not available while the curvature map is on."
+        else:
+            normals_reason = None
+        set_available(self.show_normals_cb, normals_reason)
+
+        if not has_mesh:
+            bake_reason: Optional[str] = no_mesh
+        elif not has_result:
+            bake_reason = "Apply a decimation first."
+        elif not (has_uv and mesh_has_texture_coords(self.decimated_mesh)):
+            bake_reason = "Baking a normal map needs the model to have texture coordinates (UV)."
+        else:
+            bake_reason = None
+        set_available(self.bake_btn, bake_reason)
+        set_available(self.bake_size_combo, bake_reason)
 
         mesh_reason = None if has_mesh else no_mesh
         for w in (
@@ -1053,6 +1134,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._push_undo()
         # The pipeline works on bare geometry; give the result the source's UV back.
         self.decimated_mesh = transfer_texture_coords(self.original_mesh, result.mesh)
+        self.baked_normal = None  # a new result needs its own bake
         self.show_mesh(self.decimated_mesh, is_original=False)
         # If any protection tool was already active before decimating,
         # disable it: from now on it would work against the decimated
@@ -1147,9 +1229,38 @@ class AdaptiveRemesherWindow(QMainWindow):
             return
         self._push_undo()
         self.decimated_mesh = None
+        self.baked_normal = None
         self.show_mesh(self.original_mesh, is_original=True)
         self.update_stats(self.original_mesh)
         self._refresh_protection_overlay()
+
+    def bake_normal_map_now(self):
+        """Bakes a tangent-space normal map for the decimated result from the
+        original (and the original's own normal map, if it has one), so the
+        shading of the removed detail can be shown again without triangles.
+        The result keeps the original's UV, so the model's other maps stay
+        valid and only the normal map is replaced."""
+        if self.original_mesh is None or self.decimated_mesh is None:
+            return
+        size = int(self.bake_size_combo.currentText())
+        high_map = self.maps.normal if self.maps is not None else None
+        scale = (self.maps.factors.get("normalScale") if self.maps is not None else None) or 1.0
+        try:
+            with busy_cursor():
+                baked = bake_normal_map(
+                    self.original_mesh,
+                    self.decimated_mesh,
+                    size=size,
+                    high_normal_map=high_map,
+                    high_normal_scale=scale,
+                )
+        except Exception as exc:
+            QMessageBox.critical(self, "Error baking the normal map", str(exc))
+            return
+        self._push_undo()
+        self.baked_normal = baked
+        self.show_normals_cb.setChecked(True)
+        self._on_curvature_toggled(True)  # redraws the current mesh
 
     def open_comparison(self):
         """Opens the side-by-side comparison dialog; requires a decimation to already have been applied."""
@@ -1171,6 +1282,22 @@ class AdaptiveRemesherWindow(QMainWindow):
         )
         dialog.exec()
 
+    def _maps_for_export(self, mesh: pv.PolyData) -> MaterialMaps | None:
+        """The material maps that go with `mesh`: the loaded file's maps, with
+        the baked normal map replacing the original's when `mesh` is the
+        decimated result; None if there is nothing to keep."""
+        base = (
+            np.ascontiguousarray(np.flipud(self.texture.to_array()))
+            if self.texture is not None
+            else None
+        )
+        maps = dataclasses.replace(self.maps) if self.maps is not None else MaterialMaps()
+        if maps.base is None:
+            maps.base = base
+        if mesh is self.decimated_mesh and self.baked_normal is not None:
+            maps.normal = self.baked_normal
+        return maps if maps.available() else None
+
     def export_mesh(self):
         """Saves the decimated mesh to disk (or the original if none has
         been decimated) in the chosen format. If checked and a previous
@@ -1180,14 +1307,20 @@ class AdaptiveRemesherWindow(QMainWindow):
         if mesh is None:
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export mesh", "", "OBJ (*.obj);;PLY (*.ply);;STL (*.stl)"
+            self, "Export mesh", "", "OBJ (*.obj);;PLY (*.ply);;STL (*.stl);;GLB (*.glb)"
         )
         if not path:
             return
         try:
-            mesh.save(path)
-            if mesh_has_texture_coords(mesh):
-                save_texture_with_mesh(path, self.texture)
+            maps = self._maps_for_export(mesh)
+            if path.lower().endswith(".glb"):
+                write_glb(path, mesh, maps)
+            else:
+                mesh.save(path)
+                if mesh_has_texture_coords(mesh):
+                    save_texture_with_mesh(
+                        path, self.texture, normal_map=maps.normal if maps is not None else None
+                    )
             if self.export_report_cb.isChecked() and self._last_run_info is not None:
                 report_path = f"{os.path.splitext(path)[0]}_report.json"
                 with open(report_path, "w", encoding="utf-8") as f:
@@ -1274,7 +1407,7 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         ext, ok = QInputDialog.getItem(
             self, "Output format", "Save results as:",
-            ["obj", "ply", "stl"], 0, False,
+            ["obj", "ply", "stl", "glb"], 0, False,
         )
         if not ok:
             return
@@ -1316,9 +1449,20 @@ class AdaptiveRemesherWindow(QMainWindow):
                 processed = self._process_one_batch_file(src_path)
                 out_name = os.path.splitext(filename)[0] + f".{ext}"
                 out_path = os.path.join(output_dir, out_name)
-                processed["mesh"].save(out_path)
-                if mesh_has_texture_coords(processed["mesh"]):
-                    save_texture_with_mesh(out_path, load_base_color_texture(src_path))
+                file_maps = load_material_maps(src_path)
+                if ext == "glb":
+                    write_glb(out_path, processed["mesh"], file_maps)
+                else:
+                    processed["mesh"].save(out_path)
+                    if mesh_has_texture_coords(processed["mesh"]):
+                        base = (
+                            map_to_texture(file_maps.base)
+                            if file_maps is not None and file_maps.base is not None
+                            else load_base_color_texture(src_path)
+                        )
+                        save_texture_with_mesh(
+                            out_path, base, normal_map=file_maps.normal if file_maps is not None else None
+                        )
                 if self.export_report_cb.isChecked():
                     report_path = os.path.join(
                         output_dir, os.path.splitext(filename)[0] + "_report.json"

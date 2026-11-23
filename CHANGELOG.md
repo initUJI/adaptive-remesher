@@ -19,6 +19,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   next to it as `name_texture.png`; an OBJ gets a `name.mtl` plus the
   `mtllib`/`usemtl` lines so it opens textured (`save_texture_with_mesh`), a
   PLY gets a `comment TextureFile` header line.
+- Material maps (`materials.py`): a glTF/GLB's base colour, normal,
+  metallic-roughness, occlusion and emissive maps are loaded with their
+  factors. Since the result keeps the original's UV, every map stays valid on
+  it, and "Export mesh" can now write GLB, which keeps all of them (OBJ/PLY
+  keep the colour texture and the normal map, the latter as `map_Bump`).
+- "Show normal map" option: shades the model with its normal map (VTK PBR with
+  tangents, which it needs for the map to have any effect).
+- "Bake normal map" button (512 to 4096 px): bakes a tangent-space normal map
+  for the decimated result from the original and the original's own normal map,
+  so the shading of the removed detail comes back without triangles. Each
+  texel casts a ray along the decimated surface's smooth normal, from a cage
+  3% of the bounding-box diagonal above it, and takes the first (outermost)
+  triangle of the original it meets; a texel whose ray misses keeps the
+  decimated surface's own normal. `method="nearest"` (closest point) remains
+  available in `bake_normal_map`. On the carrot cake both give the same
+  fine-scale variation (a neighbouring-texel angle of 17.5 degrees against 12.0
+  in the original's own map): the coloured cells over the crumbs are the
+  faceted crumb geometry baked faithfully, not an artefact of the matching.
+  A new decimation discards the bake.
 - "Show mesh lines" option to hide the triangle edges.
 - After decimating, a hint appears in the stats when UV-seam protection froze
   15% or more of the vertices and the reduction fell more than 15 points

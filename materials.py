@@ -1,0 +1,456 @@
+"""Material maps (base colour, normal, metallic-roughness, occlusion,
+emissive): reading them from glTF/GLB, writing a GLB that keeps them, and
+baking a tangent-space normal map that carries the detail a decimation
+removed. Independent of Qt. All images are uint8 arrays stored top row first,
+like image files; UV coordinates follow VTK (v up)."""
+
+import base64
+import json
+import os
+import struct
+from dataclasses import dataclass, field
+from io import BytesIO
+from typing import Callable, Dict, Optional
+from urllib.parse import unquote
+
+import numpy as np
+import pyvista as pv
+from scipy.ndimage import distance_transform_edt
+from scipy.spatial import cKDTree  # type: ignore[attr-defined]
+
+MAP_NAMES = ("base", "normal", "metal_rough", "occlusion", "emissive")
+
+
+@dataclass
+class MaterialMaps:
+    """The images of one material plus the glTF factors that go with them.
+    `metal_rough` is glTF's packed map (G roughness, B metallic) and
+    `occlusion` may be the same image."""
+
+    base: Optional[np.ndarray] = None
+    normal: Optional[np.ndarray] = None
+    metal_rough: Optional[np.ndarray] = None
+    occlusion: Optional[np.ndarray] = None
+    emissive: Optional[np.ndarray] = None
+    factors: Dict[str, object] = field(default_factory=dict)
+
+    def available(self) -> list:
+        return [n for n in MAP_NAMES if getattr(self, n) is not None]
+
+
+def _decode(data: bytes) -> Optional[np.ndarray]:
+    try:
+        from PIL import Image
+
+        return np.asarray(Image.open(BytesIO(data)).convert("RGB"))
+    except Exception:
+        return None
+
+
+def _read_gltf(path: str):
+    with open(path, "rb") as f:
+        raw = f.read()
+    binary = None
+    if raw[:4] == b"glTF":
+        offset, doc = 12, None
+        while offset + 8 <= len(raw):
+            length, kind = struct.unpack_from("<II", raw, offset)
+            chunk = raw[offset + 8 : offset + 8 + length]
+            if kind == 0x4E4F534A:
+                doc = json.loads(chunk.decode("utf-8"))
+            elif kind == 0x004E4942:
+                binary = chunk
+            offset += 8 + length
+        return doc, binary
+    return json.loads(raw.decode("utf-8")), None
+
+
+def _gltf_image(doc: dict, binary: Optional[bytes], path: str, texture_index: int) -> Optional[np.ndarray]:
+    source = doc["textures"][texture_index].get("source")
+    if source is None:
+        return None
+    image = doc["images"][source]
+    if "bufferView" in image and binary is not None:
+        view = doc["bufferViews"][image["bufferView"]]
+        start = view.get("byteOffset", 0)
+        return _decode(binary[start : start + view["byteLength"]])
+    uri = image.get("uri", "")
+    if uri.startswith("data:"):
+        return _decode(base64.b64decode(uri.split(",", 1)[1]))
+    image_path = os.path.join(os.path.dirname(path), unquote(uri))
+    if os.path.isfile(image_path):
+        with open(image_path, "rb") as f:
+            return _decode(f.read())
+    return None
+
+
+def load_material_maps(path: str) -> Optional[MaterialMaps]:
+    """Every map of the first textured material of a .gltf/.glb, with its
+    factors; None for other formats, no textured material, or any error."""
+    if path.lower().rsplit(".", 1)[-1] not in ("gltf", "glb"):
+        return None
+    try:
+        doc, binary = _read_gltf(path)
+        if doc is None:
+            return None
+        for material in doc.get("materials", []):
+            pbr = material.get("pbrMetallicRoughness", {})
+            slots = {
+                "base": pbr.get("baseColorTexture"),
+                "normal": material.get("normalTexture"),
+                "metal_rough": pbr.get("metallicRoughnessTexture"),
+                "occlusion": material.get("occlusionTexture"),
+                "emissive": material.get("emissiveTexture"),
+            }
+            if not any(slots.values()):
+                continue
+            maps = MaterialMaps()
+            for name, ref in slots.items():
+                if ref is not None:
+                    setattr(maps, name, _gltf_image(doc, binary, path, ref["index"]))
+            maps.factors = {
+                "baseColorFactor": pbr.get("baseColorFactor"),
+                "metallicFactor": pbr.get("metallicFactor"),
+                "roughnessFactor": pbr.get("roughnessFactor"),
+                "emissiveFactor": material.get("emissiveFactor"),
+                "normalScale": (slots["normal"] or {}).get("scale"),
+                "occlusionStrength": (slots["occlusion"] or {}).get("strength"),
+            }
+            return maps if maps.available() else None
+    except Exception:
+        return None
+    return None
+
+
+def map_to_texture(image: np.ndarray) -> pv.Texture:
+    """A pyvista texture from a top-row-first image (VTK textures start at the bottom row)."""
+    return pv.Texture(np.ascontiguousarray(np.flipud(image)))
+
+
+def with_tangents(mesh: pv.PolyData) -> pv.PolyData:
+    """A copy of `mesh` with smooth normals and tangents, which VTK's PBR
+    shading needs before it applies a normal map (without them the map has no
+    effect). Requires texture coordinates."""
+    import vtk
+
+    shaded = mesh.compute_normals(cell_normals=False, split_vertices=False, auto_orient_normals=False)
+    tangents = vtk.vtkPolyDataTangents()
+    tangents.SetInputData(shaded)
+    tangents.Update()
+    return pv.wrap(tangents.GetOutput())
+
+
+def _png(image: np.ndarray) -> bytes:
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.fromarray(np.ascontiguousarray(image)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def welded_vertex_normals(mesh: pv.PolyData) -> np.ndarray:
+    """Smooth area-weighted vertex normals computed over welded positions, so
+    the two copies of a texture-seam vertex get the same normal and shading
+    does not show the seam."""
+    pts = np.asarray(mesh.points, dtype=float)
+    tri = np.asarray(mesh.regular_faces)
+    face_n = np.cross(pts[tri[:, 1]] - pts[tri[:, 0]], pts[tri[:, 2]] - pts[tri[:, 0]])
+    scale = float(mesh.length) or 1.0
+    _, weld = np.unique(np.round(pts / (1e-7 * scale)), axis=0, return_inverse=True)
+    weld = weld.reshape(-1)
+    acc = np.zeros((int(weld.max()) + 1, 3))
+    for k in range(3):
+        np.add.at(acc, weld[tri[:, k]], face_n)
+    normals = acc[weld]
+    length = np.linalg.norm(normals, axis=1, keepdims=True)
+    return normals / np.where(length > 0, length, 1.0)
+
+
+def write_glb(path: str, mesh: pv.PolyData, maps: Optional[MaterialMaps] = None) -> None:
+    """Writes `mesh` (triangles, with UV if it has them) as a GLB. With
+    `maps`, the material keeps every map and factor, so metallic-roughness,
+    occlusion and emissive survive a decimation that left the UV unchanged."""
+    pts = np.asarray(mesh.points, dtype="<f4")
+    tri = np.asarray(mesh.regular_faces, dtype="<u4")
+    normals = welded_vertex_normals(mesh).astype("<f4")
+    uv = mesh.active_texture_coordinates
+    chunks: list = []
+    views: list = []
+    accessors: list = []
+
+    def add_view(data: bytes, target: Optional[int] = None) -> int:
+        offset = sum(len(c) for c in chunks)
+        chunks.append(data + b"\x00" * (-len(data) % 4))
+        view = {"buffer": 0, "byteOffset": offset, "byteLength": len(data)}
+        if target:
+            view["target"] = target
+        views.append(view)
+        return len(views) - 1
+
+    attributes = {}
+    accessors.append({
+        "bufferView": add_view(pts.tobytes(), 34962), "componentType": 5126, "count": len(pts), "type": "VEC3",
+        "min": pts.min(axis=0).tolist(), "max": pts.max(axis=0).tolist(),
+    })
+    attributes["POSITION"] = len(accessors) - 1
+    accessors.append({"bufferView": add_view(normals.tobytes(), 34962), "componentType": 5126, "count": len(pts), "type": "VEC3"})
+    attributes["NORMAL"] = len(accessors) - 1
+    if uv is not None:
+        gl_uv = np.column_stack([uv[:, 0], 1.0 - uv[:, 1]]).astype("<f4")  # glTF's v points down
+        accessors.append({"bufferView": add_view(gl_uv.tobytes(), 34962), "componentType": 5126, "count": len(pts), "type": "VEC2"})
+        attributes["TEXCOORD_0"] = len(accessors) - 1
+    accessors.append({"bufferView": add_view(tri.reshape(-1).tobytes(), 34963), "componentType": 5125, "count": tri.size, "type": "SCALAR"})
+    indices = len(accessors) - 1
+
+    doc: dict = {"asset": {"version": "2.0", "generator": "Adaptive Remesher"}, "scene": 0, "scenes": [{"nodes": [0]}], "nodes": [{"mesh": 0}]}
+    primitive = {"attributes": attributes, "indices": indices, "mode": 4}
+    if maps is not None and uv is not None and maps.available():
+        images, textures = [], []
+
+        def texture_ref(name: str, **extra) -> Optional[dict]:
+            image = getattr(maps, name)
+            if image is None:
+                return None
+            images.append({"bufferView": add_view(_png(image)), "mimeType": "image/png"})
+            textures.append({"source": len(images) - 1})
+            return {"index": len(textures) - 1, **extra}
+
+        f = maps.factors
+        pbr: dict = {}
+        if f.get("baseColorFactor") is not None:
+            pbr["baseColorFactor"] = f["baseColorFactor"]
+        if f.get("metallicFactor") is not None:
+            pbr["metallicFactor"] = f["metallicFactor"]
+        if f.get("roughnessFactor") is not None:
+            pbr["roughnessFactor"] = f["roughnessFactor"]
+        material: dict = {"pbrMetallicRoughness": pbr}
+        base = texture_ref("base")
+        if base:
+            pbr["baseColorTexture"] = base
+        mr = texture_ref("metal_rough")
+        if mr:
+            pbr["metallicRoughnessTexture"] = mr
+        normal = texture_ref("normal", **({"scale": f["normalScale"]} if f.get("normalScale") is not None else {}))
+        if normal:
+            material["normalTexture"] = normal
+        occ = texture_ref("occlusion", **({"strength": f["occlusionStrength"]} if f.get("occlusionStrength") is not None else {}))
+        if occ:
+            material["occlusionTexture"] = occ
+        emi = texture_ref("emissive")
+        if emi:
+            material["emissiveTexture"] = emi
+        if f.get("emissiveFactor") is not None:
+            material["emissiveFactor"] = f["emissiveFactor"]
+        doc.update({"images": images, "textures": textures, "materials": [material]})
+        primitive["material"] = 0
+    doc["meshes"] = [{"primitives": [primitive]}]
+    blob = b"".join(chunks)
+    doc.update({"buffers": [{"byteLength": len(blob)}], "bufferViews": views, "accessors": accessors})
+    text = json.dumps(doc, separators=(",", ":")).encode("utf-8")
+    text += b" " * (-len(text) % 4)
+    total = 12 + 8 + len(text) + 8 + len(blob)
+    with open(path, "wb") as out:
+        out.write(struct.pack("<4sII", b"glTF", 2, total))
+        out.write(struct.pack("<II", len(text), 0x4E4F534A) + text)
+        out.write(struct.pack("<II", len(blob), 0x004E4942) + blob)
+
+
+# --- normal map baking ---
+
+
+def _triangle_frames(pts: np.ndarray, uv: np.ndarray, tri: np.ndarray):
+    """Per-triangle tangent (direction of increasing u) and bitangent
+    (increasing v, v up), from positions and UV."""
+    p0, p1, p2 = pts[tri[:, 0]], pts[tri[:, 1]], pts[tri[:, 2]]
+    e1, e2 = p1 - p0, p2 - p0
+    d1, d2 = uv[tri[:, 1]] - uv[tri[:, 0]], uv[tri[:, 2]] - uv[tri[:, 0]]
+    det = d1[:, 0] * d2[:, 1] - d2[:, 0] * d1[:, 1]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        r = np.where(np.abs(det) > 1e-20, 1.0 / det, 0.0)
+    tangent = (e1 * d2[:, 1:2] - e2 * d1[:, 1:2]) * r[:, None]
+    bitangent = (e2 * d1[:, 0:1] - e1 * d2[:, 0:1]) * r[:, None]
+    return tangent, bitangent
+
+
+def _normalized(v: np.ndarray) -> np.ndarray:
+    n = np.linalg.norm(v, axis=-1, keepdims=True)
+    return v / np.where(n > 1e-20, n, 1.0)
+
+
+def _frame(normal: np.ndarray, tangent: np.ndarray, bitangent: np.ndarray):
+    """Orthonormal (T, B, N): T from the triangle's tangent made orthogonal
+    to N, B = N x T flipped when the UV mapping is mirrored."""
+    t = _normalized(tangent - normal * np.einsum("ij,ij->i", tangent, normal)[:, None])
+    b = np.cross(normal, t)
+    flip = np.einsum("ij,ij->i", b, bitangent) < 0
+    b[flip] *= -1.0
+    return t, b
+
+
+def _rasterize(uv: np.ndarray, tri: np.ndarray, size: int) -> np.ndarray:
+    """(size, size) int32 with the index of the triangle covering each texel
+    (image rows, top first) or -1."""
+    from PIL import Image, ImageDraw
+
+    canvas = Image.new("I", (size, size), 0)
+    draw = ImageDraw.Draw(canvas)
+    x = uv[:, 0] * size
+    y = (1.0 - uv[:, 1]) * size
+    for i, (a, b, c) in enumerate(tri):
+        draw.polygon([(x[a], y[a]), (x[b], y[b]), (x[c], y[c])], fill=i + 1)
+    return np.asarray(canvas, dtype=np.int64).astype(np.int32) - 1
+
+
+def _sample(image: np.ndarray, uv: np.ndarray) -> np.ndarray:
+    """Bilinear samples (n, C) of a top-first image at VTK UV (wrapping)."""
+    h, w = image.shape[:2]
+    x = (uv[:, 0] % 1.0) * (w - 1)
+    y = ((1.0 - uv[:, 1]) % 1.0) * (h - 1)
+    x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
+    x1, y1 = np.minimum(x0 + 1, w - 1), np.minimum(y0 + 1, h - 1)
+    fx, fy = (x - x0)[:, None], (y - y0)[:, None]
+    img = image.astype(float)
+    top = img[y0, x0] * (1 - fx) + img[y0, x1] * fx
+    bottom = img[y1, x0] * (1 - fx) + img[y1, x1] * fx
+    return top * (1 - fy) + bottom * fy
+
+
+def _ray_hits(locator, origins: np.ndarray, directions: np.ndarray, length: float):
+    """For each ray (origin, unit direction) the first triangle hit within
+    `length`, as (cell ids, hit points, hit mask). Casting from the outside of
+    the cage inwards makes the first hit the outermost surface, i.e. the one
+    a viewer sees."""
+    import vtk
+
+    n = len(origins)
+    cells = np.full(n, -1, dtype=np.int64)
+    points = np.zeros((n, 3))
+    ends = origins + directions * length
+    t, sub, cell = vtk.mutable(0.0), vtk.mutable(0), vtk.mutable(0)
+    x, pc = [0.0] * 3, [0.0] * 3
+    o_list, e_list = origins.tolist(), ends.tolist()
+    intersect = locator.IntersectWithLine
+    for i in range(n):
+        if intersect(o_list[i], e_list[i], 1e-9, t, x, pc, sub, cell):
+            cells[i] = int(cell)
+            points[i] = x
+    return cells, points, cells >= 0
+
+
+def bake_normal_map(
+    high: pv.PolyData,
+    low: pv.PolyData,
+    size: int = 1024,
+    high_normal_map: Optional[np.ndarray] = None,
+    high_normal_scale: float = 1.0,
+    progress: Optional[Callable[[float], None]] = None,
+    chunk: int = 300_000,
+    method: str = "rays",
+    cage_pct: float = 3.0,
+) -> np.ndarray:
+    """Tangent-space normal map (size x size x 3, uint8, top row first) for
+    `low` that reproduces the shading of `high`: each texel of `low`'s UV
+    layout is located on `low`'s surface, matched to a point of `high`, and
+    the normal there (smooth, plus `high_normal_map` if the original had one)
+    is expressed in `low`'s tangent frame. Both meshes need UV; `low` is
+    expected to share `high`'s atlas (see transfer_texture_coords), so its
+    other maps stay valid. Empty texels are filled from the nearest covered
+    one so bilinear filtering does not bleed across charts.
+
+    `method="rays"` (default) casts a ray per texel along `low`'s smooth normal
+    from a cage `cage_pct` % of the bounding-box diagonal above the surface
+    and takes the first triangle of `high` it meets; a texel whose ray misses
+    keeps `low`'s own normal (identity), so detail the cage cannot reach does
+    not turn into noise. `method="nearest"` matches the nearest point of
+    `high` instead: no cage to tune, but where `low` is far from `high` the
+    nearest point jumps between unrelated bumps."""
+    import vtk
+
+    from remesh_core import _closest_point_barycentric  # same module family; imported lazily
+
+    if low.active_texture_coordinates is None or high.active_texture_coordinates is None:
+        raise ValueError("Both meshes need texture coordinates to bake a normal map.")
+    l_pts = np.asarray(low.points, dtype=float)
+    l_tri = np.asarray(low.regular_faces)
+    l_uv = np.asarray(low.active_texture_coordinates, dtype=float)
+    l_n = welded_vertex_normals(low)
+    l_t, l_b = _triangle_frames(l_pts, l_uv, l_tri)
+
+    h_pts = np.asarray(high.points, dtype=float)
+    h_tri = np.asarray(high.regular_faces)
+    h_uv = np.asarray(high.active_texture_coordinates, dtype=float)
+    h_n = welded_vertex_normals(high)
+    h_t, h_b = _triangle_frames(h_pts, h_uv, h_tri)
+    a, b, c = h_pts[h_tri[:, 0]], h_pts[h_tri[:, 1]], h_pts[h_tri[:, 2]]
+    tree = cKDTree((a + b + c) / 3.0) if method != "rays" else None
+    locator = None
+    if method == "rays":
+        locator = vtk.vtkStaticCellLocator()
+        locator.SetDataSet(high)
+        locator.BuildLocator()
+    cage = cage_pct / 100.0 * float(high.length)
+
+    cover = _rasterize(l_uv, l_tri, size)
+    ys, xs = np.nonzero(cover >= 0)
+    tid_all = cover[ys, xs]
+    out = np.zeros((size, size, 3), dtype=np.uint8)
+    out[...] = (128, 128, 255)
+    total = len(ys)
+    for start in range(0, total, chunk):
+        sl = slice(start, min(start + chunk, total))
+        tid, x, y = tid_all[sl], xs[sl], ys[sl]
+        tex_uv = np.column_stack([(x + 0.5) / size, 1.0 - (y + 0.5) / size])
+        # barycentric coordinates of the texel centre in its low triangle (clamped)
+        i0, i1, i2 = l_tri[tid, 0], l_tri[tid, 1], l_tri[tid, 2]
+        u0, u1, u2 = l_uv[i0], l_uv[i1], l_uv[i2]
+        det = (u1[:, 0] - u0[:, 0]) * (u2[:, 1] - u0[:, 1]) - (u2[:, 0] - u0[:, 0]) * (u1[:, 1] - u0[:, 1])
+        det = np.where(np.abs(det) > 1e-20, det, 1e-20)
+        w1 = ((tex_uv[:, 0] - u0[:, 0]) * (u2[:, 1] - u0[:, 1]) - (u2[:, 0] - u0[:, 0]) * (tex_uv[:, 1] - u0[:, 1])) / det
+        w2 = ((u1[:, 0] - u0[:, 0]) * (tex_uv[:, 1] - u0[:, 1]) - (tex_uv[:, 0] - u0[:, 0]) * (u1[:, 1] - u0[:, 1])) / det
+        w = np.clip(np.column_stack([1.0 - w1 - w2, w1, w2]), 0.0, None)
+        w = w / np.maximum(w.sum(axis=1, keepdims=True), 1e-12)
+        p = w[:, 0:1] * l_pts[i0] + w[:, 1:2] * l_pts[i1] + w[:, 2:3] * l_pts[i2]
+        n_low = _normalized(w[:, 0:1] * l_n[i0] + w[:, 1:2] * l_n[i1] + w[:, 2:3] * l_n[i2])
+        t_low, b_low = _frame(n_low, l_t[tid], l_b[tid])
+
+        if method == "rays":
+            # From the cage inwards along -normal: the first hit is the outermost surface.
+            best, hit_points, hit = _ray_hits(locator, p + n_low * cage, -n_low, 2.0 * cage)
+            best = np.where(hit, best, 0)
+            hb, _ = _closest_point_barycentric(np.where(hit[:, None], hit_points, p), a[best], b[best], c[best])
+        else:
+            _, cand = tree.query(p, k=min(8, len(h_tri)))
+            cand = np.asarray(cand).reshape(len(p), -1)
+            best = cand[:, 0].copy()
+            best_d = np.full(len(p), np.inf)
+            for j in range(cand.shape[1]):
+                ht = cand[:, j]
+                _, d = _closest_point_barycentric(p, a[ht], b[ht], c[ht])
+                better = d < best_d
+                best[better], best_d[better] = ht[better], d[better]
+            hb, _ = _closest_point_barycentric(p, a[best], b[best], c[best])
+            hit = np.ones(len(p), dtype=bool)
+        j0, j1, j2 = h_tri[best, 0], h_tri[best, 1], h_tri[best, 2]
+        n_high = _normalized(hb[:, 0:1] * h_n[j0] + hb[:, 1:2] * h_n[j1] + hb[:, 2:3] * h_n[j2])
+        if high_normal_map is not None:
+            q_uv = hb[:, 0:1] * h_uv[j0] + hb[:, 1:2] * h_uv[j1] + hb[:, 2:3] * h_uv[j2]
+            m = _sample(high_normal_map, q_uv) / 255.0 * 2.0 - 1.0
+            m[:, :2] *= high_normal_scale
+            t_h, b_h = _frame(n_high, h_t[best], h_b[best])
+            n_high = _normalized(t_h * m[:, 0:1] + b_h * m[:, 1:2] + n_high * m[:, 2:3])
+        local = np.column_stack([
+            np.einsum("ij,ij->i", n_high, t_low),
+            np.einsum("ij,ij->i", n_high, b_low),
+            np.einsum("ij,ij->i", n_high, n_low),
+        ])
+        local = _normalized(local)
+        local[~hit] = (0.0, 0.0, 1.0)  # ray missed: keep the low-poly normal
+        out[y, x] = np.clip((local * 0.5 + 0.5) * 255.0 + 0.5, 0, 255).astype(np.uint8)
+        if progress is not None:
+            progress(min(1.0, (sl.stop) / max(total, 1)))
+
+    empty = cover < 0
+    if empty.any() and not empty.all():
+        _, (iy, ix) = distance_transform_edt(empty, return_indices=True)
+        out = out[iy, ix]
+    return out

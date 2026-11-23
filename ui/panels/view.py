@@ -55,7 +55,17 @@ def build_view_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout
     window.show_texture_cb.toggled.connect(window._on_curvature_toggled)
     view_grid.addWidget(window.show_texture_cb, 3, 0)
 
-    view_grid.addWidget(QLabel("Background"), 4, 0)
+    window.show_normals_cb = QCheckBox("Show normal map")
+    window.show_normals_cb.setChecked(False)
+    window.show_normals_cb.setToolTip(tip(
+        "Shades the model with its normal map (the loaded file's own, or "
+        "the one you baked after decimating) using physically based "
+        "lighting, which looks different from the plain view."
+    ))
+    window.show_normals_cb.toggled.connect(window._on_curvature_toggled)
+    view_grid.addWidget(window.show_normals_cb, 4, 0)
+
+    view_grid.addWidget(QLabel("Background"), 5, 0)
     window.viewport_bg_combo = QComboBox()
     for label, _hex in VIEWPORT_BACKGROUND_PRESETS:
         window.viewport_bg_combo.addItem(label)
@@ -66,6 +76,6 @@ def build_view_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout
         "curvature-map colors, whichever looks better for a given model."
     ))
     window.viewport_bg_combo.currentIndexChanged.connect(window._on_viewport_bg_changed)
-    view_grid.addWidget(window.viewport_bg_combo, 4, 1)
+    view_grid.addWidget(window.viewport_bg_combo, 5, 1)
 
     panel_layout.addWidget(view_group)
