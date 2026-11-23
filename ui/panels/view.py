@@ -35,7 +35,27 @@ def build_view_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout
     window.live_preview_cb.toggled.connect(window._on_live_preview_toggled)
     view_grid.addWidget(window.live_preview_cb, 1, 0)
 
-    view_grid.addWidget(QLabel("Background"), 2, 0)
+    window.show_edges_cb = QCheckBox("Show mesh lines")
+    window.show_edges_cb.setChecked(True)
+    window.show_edges_cb.setToolTip(tip(
+        "Draws the triangle edges over the surface. Turn it off to see "
+        "the model as a smooth solid, for example to judge its overall "
+        "shape or to take a clean screenshot."
+    ))
+    window.show_edges_cb.toggled.connect(window._on_curvature_toggled)
+    view_grid.addWidget(window.show_edges_cb, 2, 0)
+
+    window.show_texture_cb = QCheckBox("Show texture")
+    window.show_texture_cb.setChecked(True)
+    window.show_texture_cb.setToolTip(tip(
+        "Paints the model with its colour texture, when the loaded file "
+        "has one and the mesh keeps its texture coordinates, so you can "
+        "check that the decimated result still looks right."
+    ))
+    window.show_texture_cb.toggled.connect(window._on_curvature_toggled)
+    view_grid.addWidget(window.show_texture_cb, 3, 0)
+
+    view_grid.addWidget(QLabel("Background"), 4, 0)
     window.viewport_bg_combo = QComboBox()
     for label, _hex in VIEWPORT_BACKGROUND_PRESETS:
         window.viewport_bg_combo.addItem(label)
@@ -46,6 +66,6 @@ def build_view_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout
         "curvature-map colors, whichever looks better for a given model."
     ))
     window.viewport_bg_combo.currentIndexChanged.connect(window._on_viewport_bg_changed)
-    view_grid.addWidget(window.viewport_bg_combo, 2, 1)
+    view_grid.addWidget(window.viewport_bg_combo, 4, 1)
 
     panel_layout.addWidget(view_group)

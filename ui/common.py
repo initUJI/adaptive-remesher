@@ -3,6 +3,7 @@ the wait cursor, the HTML tooltip, the collapsible panel and the
 side-by-side comparison dialog."""
 
 from contextlib import contextmanager
+from typing import Optional
 
 import pyvista as pv
 from PySide6.QtWidgets import QApplication, QDialog, QGroupBox, QVBoxLayout
@@ -153,6 +154,17 @@ def tip(text: str) -> str:
     return f"<div style='max-width:280px'>{text}</div>"
 
 
+def set_available(widget, reason: Optional[str]) -> None:
+    """Enables `widget` when `reason` is None; otherwise disables it and
+    makes its tooltip say why (Qt shows tooltips on disabled widgets too).
+    The widget's own tooltip is remembered the first time and restored when
+    it becomes available again."""
+    if widget.property("base_tip") is None:
+        widget.setProperty("base_tip", widget.toolTip())
+    widget.setEnabled(reason is None)
+    widget.setToolTip(widget.property("base_tip") if reason is None else tip(reason))
+
+
 class CollapsibleGroupBox(QGroupBox):
     """QGroupBox whose title acts as a switch: a click collapses or expands
     it. Collapsing only hides its child widgets (they still exist and keep
@@ -186,12 +198,21 @@ class ComparisonDialog(QDialog):
     result on the right, with both viewport cameras synchronized (orbiting/
     zooming in one moves the other the same way)."""
 
+    @staticmethod
+    def _look(mesh: pv.PolyData, texture: Optional[pv.Texture]) -> dict:
+        """add_mesh arguments: the texture if `mesh` has UV to use it, else plain gray."""
+        if texture is not None and mesh.active_texture_coordinates is not None:
+            return {"texture": texture}
+        return {"color": "#d8dadd"}
+
     def __init__(
         self,
         original: pv.PolyData,
         decimated: pv.PolyData,
         parent=None,
         background: str = VIEWPORT_BACKGROUND_PRESETS[0][1],
+        show_edges: bool = True,
+        texture: Optional[pv.Texture] = None,
     ):
         """Builds the dialog with two sub-views of the same QtInteractor and
         frames the camera on the original. `background` matches the main
@@ -212,7 +233,7 @@ class ComparisonDialog(QDialog):
         layout.addWidget(self.plotter.interactor)
 
         self.plotter.subplot(0, 0)
-        self.plotter.add_mesh(original, show_edges=True, color="#d8dadd", edge_color="#101114")
+        self.plotter.add_mesh(original, show_edges=show_edges, edge_color="#101114", **self._look(original, texture))
         self.plotter.add_text(
             f"Original: {original.n_points} vert / {original.n_cells} tris",
             color="white",
@@ -220,7 +241,7 @@ class ComparisonDialog(QDialog):
         )
 
         self.plotter.subplot(0, 1)
-        self.plotter.add_mesh(decimated, show_edges=True, color="#d8dadd", edge_color="#101114")
+        self.plotter.add_mesh(decimated, show_edges=show_edges, edge_color="#101114", **self._look(decimated, texture))
         self.plotter.add_text(
             f"Decimated: {decimated.n_points} vert / {decimated.n_cells} tris",
             color="white",

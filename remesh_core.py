@@ -16,6 +16,8 @@ import numpy as np
 import pymeshlab
 import pyvista as pv
 import vtk
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
 from scipy.spatial import cKDTree  # type: ignore[attr-defined]
 
 ENGINE_DECIMATE_PRO = 0
@@ -42,6 +44,233 @@ def ensure_active_texture_coords(mesh: pv.PolyData) -> None:
         if array.ndim == 2 and array.shape[1] == 2 and any(k in name.lower() for k in keywords):
             mesh.active_texture_coordinates = array
             return
+
+
+def _texture_from_bytes(data: bytes) -> Optional[pv.Texture]:
+    """Decodes an image (PNG/JPEG/...) into a pyvista texture; None if it
+    can't be decoded."""
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+
+        image = Image.open(BytesIO(data)).convert("RGB")
+        # VTK textures start at the bottom row, images at the top.
+        return pv.Texture(np.ascontiguousarray(np.flipud(np.asarray(image))))
+    except Exception:
+        return None
+
+
+def _gltf_base_color_texture(path: str) -> Optional[pv.Texture]:
+    """The base-color texture of the first material that has one, from a
+    .gltf (external or embedded image) or .glb (embedded image)."""
+    import base64
+    import json
+    import os
+    import struct
+    from urllib.parse import unquote
+
+    with open(path, "rb") as f:
+        raw = f.read()
+    binary = None
+    if raw[:4] == b"glTF":
+        offset, doc = 12, None
+        while offset + 8 <= len(raw):
+            length, kind = struct.unpack_from("<II", raw, offset)
+            chunk = raw[offset + 8 : offset + 8 + length]
+            if kind == 0x4E4F534A:  # JSON
+                doc = json.loads(chunk.decode("utf-8"))
+            elif kind == 0x004E4942:  # BIN
+                binary = chunk
+            offset += 8 + length
+        if doc is None:
+            return None
+    else:
+        doc = json.loads(raw.decode("utf-8"))
+
+    source = None
+    for material in doc.get("materials", []):
+        texture = material.get("pbrMetallicRoughness", {}).get("baseColorTexture")
+        if texture is not None:
+            source = doc["textures"][texture["index"]].get("source")
+            break
+    if source is None:
+        return None
+    image = doc["images"][source]
+    if "bufferView" in image and binary is not None:
+        view = doc["bufferViews"][image["bufferView"]]
+        start = view.get("byteOffset", 0)
+        return _texture_from_bytes(binary[start : start + view["byteLength"]])
+    uri = image.get("uri", "")
+    if uri.startswith("data:"):
+        return _texture_from_bytes(base64.b64decode(uri.split(",", 1)[1]))
+    image_path = os.path.join(os.path.dirname(path), unquote(uri))
+    if not os.path.isfile(image_path):
+        return None
+    with open(image_path, "rb") as f:
+        return _texture_from_bytes(f.read())
+
+
+def _obj_diffuse_texture(path: str) -> Optional[pv.Texture]:
+    """The `map_Kd` image of the first material library an .obj references."""
+    import os
+
+    folder = os.path.dirname(path)
+    with open(path, encoding="utf-8", errors="ignore") as f:
+        libraries = [line.split(None, 1)[1].strip() for line in f if line.startswith("mtllib ")]
+    for library in libraries:
+        mtl = os.path.join(folder, library)
+        if not os.path.isfile(mtl):
+            continue
+        with open(mtl, encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if line.strip().lower().startswith("map_kd"):
+                    image_path = os.path.join(folder, line.strip().split(None, 1)[1].strip())
+                    if os.path.isfile(image_path):
+                        with open(image_path, "rb") as img:
+                            return _texture_from_bytes(img.read())
+    return None
+
+
+def load_base_color_texture(path: str) -> Optional[pv.Texture]:
+    """The colour texture a mesh file refers to, if it has one the viewer can
+    show: the base-colour image of a .gltf/.glb, or the `map_Kd` image of an
+    .obj's material. None for other formats, a missing image, or any error
+    (the mesh itself still loads and is shown untextured)."""
+    ext = path.lower().rsplit(".", 1)[-1]
+    try:
+        if ext in ("gltf", "glb"):
+            return _gltf_base_color_texture(path)
+        if ext == "obj":
+            return _obj_diffuse_texture(path)
+    except Exception:
+        return None
+    return None
+
+
+def _closest_point_barycentric(p: np.ndarray, a: np.ndarray, b: np.ndarray, c: np.ndarray):
+    """Barycentric weights (n, 3) of the point of triangle (a, b, c) closest
+    to each p, and the squared distance to it (Ericson, Real-Time Collision
+    Detection 5.1.5, vectorized over n triangles)."""
+    ab, ac, ap = b - a, c - a, p - a
+    d1, d2 = np.einsum("ij,ij->i", ab, ap), np.einsum("ij,ij->i", ac, ap)
+    bp = p - b
+    d3, d4 = np.einsum("ij,ij->i", ab, bp), np.einsum("ij,ij->i", ac, bp)
+    cp = p - c
+    d5, d6 = np.einsum("ij,ij->i", ab, cp), np.einsum("ij,ij->i", ac, cp)
+    vc, vb, va = d1 * d4 - d3 * d2, d5 * d2 - d1 * d6, d3 * d6 - d5 * d4
+    with np.errstate(divide="ignore", invalid="ignore"):
+        w = np.zeros((len(p), 3))
+        inside = (va >= 0) & (vb >= 0) & (vc >= 0)
+        den = va + vb + vc
+        w[:, 1] = np.where(inside, vb / den, 0.0)
+        w[:, 2] = np.where(inside, vc / den, 0.0)
+        w[:, 0] = np.where(inside, 1.0 - w[:, 1] - w[:, 2], 0.0)
+        # Outside the face: the closest point is on an edge or a vertex.
+        # Project onto each edge (clamped) and keep the nearest one.
+        best = np.full(len(p), np.inf)
+        for i, j, e_start, e_dir in ((0, 1, a, ab), (0, 2, a, ac), (1, 2, b, c - b)):
+            t = np.clip(np.einsum("ij,ij->i", p - e_start, e_dir) / np.einsum("ij,ij->i", e_dir, e_dir), 0.0, 1.0)
+            t = np.nan_to_num(t)
+            q = e_start + t[:, None] * e_dir
+            d = np.einsum("ij,ij->i", p - q, p - q)
+            take = ~inside & (d < best)
+            best = np.where(take, d, best)
+            w_edge = np.zeros((len(p), 3))
+            w_edge[:, i] = 1.0 - t
+            w_edge[:, j] = t
+            w[take] = w_edge[take]
+    pt = w[:, 0:1] * a + w[:, 1:2] * b + w[:, 2:3] * c
+    return w, np.einsum("ij,ij->i", p - pt, p - pt)
+
+
+def transfer_texture_coords(source: pv.PolyData, target: pv.PolyData, k: int = 8) -> pv.PolyData:
+    """Returns a copy of `target` carrying the texture coordinates of
+    `source`, so a result that lost its UV (cleaning, welding and repair
+    rebuild the mesh from geometry alone) can be textured again.
+
+    Each target face takes its UV from the source triangle nearest to its
+    centroid (among the `k` nearest by centroid), interpolating at its
+    three corners. Source triangles are grouped into UV charts (connected
+    through vertices that share both position and UV); a target vertex is
+    duplicated once per chart that touches it, which recreates the texture
+    seams, and keeps a single copy elsewhere. A face that straddles a seam
+    gets the UV of one chart only, so it can look stretched, which is why
+    seam vertices are protected during decimation. Returns `target`
+    unchanged if `source` has no UV."""
+    if not mesh_has_texture_coords(source) or target.n_cells == 0:
+        return target
+    s_pts = np.asarray(source.points, dtype=float)
+    s_tri = np.asarray(source.regular_faces)
+    s_uv = np.asarray(source.active_texture_coordinates, dtype=float)
+    t_pts = np.asarray(target.points, dtype=float)
+    t_tri = np.asarray(target.regular_faces)
+
+    # UV charts of the source: weld points that coincide in position AND uv.
+    scale = float(source.length) or 1.0
+    keys = np.column_stack([np.round(s_pts / (1e-6 * scale)), np.round(s_uv / 1e-6)])
+    _, weld = np.unique(keys, axis=0, return_inverse=True)
+    weld = weld.reshape(-1)
+    n = int(weld.max()) + 1
+    edges = np.concatenate([weld[s_tri[:, [0, 1]]], weld[s_tri[:, [1, 2]]]])
+    graph = coo_matrix((np.ones(len(edges)), (edges[:, 0], edges[:, 1])), shape=(n, n))
+    _, chart_of_vertex = connected_components(graph, directed=False)
+    chart = chart_of_vertex[weld[s_tri[:, 0]]]
+
+    a, b, c = s_pts[s_tri[:, 0]], s_pts[s_tri[:, 1]], s_pts[s_tri[:, 2]]
+    tree = cKDTree((a + b + c) / 3.0)
+    centroids = t_pts[t_tri].mean(axis=1)
+    _, cand = tree.query(centroids, k=min(k, len(s_tri)))
+    cand = np.asarray(cand).reshape(len(centroids), -1)
+    best = cand[:, 0].copy()
+    best_d = np.full(len(centroids), np.inf)
+    for j in range(cand.shape[1]):
+        tri = cand[:, j]
+        _, d = _closest_point_barycentric(centroids, a[tri], b[tri], c[tri])
+        better = d < best_d
+        best[better], best_d[better] = tri[better], d[better]
+
+    # The chart of each face comes from its centroid; each corner then looks
+    # for its own nearest source triangle within that chart (a large decimated
+    # face can span many source triangles, so one triangle per face would
+    # clamp its far corners).
+    face_chart = chart[best]
+    corner_uv = np.empty((len(t_tri), 3, 2))
+    for i in range(3):
+        p = t_pts[t_tri[:, i]]
+        _, near = tree.query(p, k=min(2 * k, len(s_tri)))
+        near = np.asarray(near).reshape(len(p), -1)
+        pick = near[:, 0].copy()
+        pick_d = np.full(len(p), np.inf)
+        for j in range(near.shape[1]):
+            tri = near[:, j]
+            _, d = _closest_point_barycentric(p, a[tri], b[tri], c[tri])
+            d = np.where(chart[tri] == face_chart, d, np.inf)
+            better = d < pick_d
+            pick[better], pick_d[better] = tri[better], d[better]
+        none = ~np.isfinite(pick_d)  # no triangle of the chart nearby: use the face's own
+        pick[none] = best[none]
+        w, _ = _closest_point_barycentric(p, a[pick], b[pick], c[pick])
+        corner_uv[:, i] = (
+            w[:, 0:1] * s_uv[s_tri[pick, 0]]
+            + w[:, 1:2] * s_uv[s_tri[pick, 1]]
+            + w[:, 2:3] * s_uv[s_tri[pick, 2]]
+        )
+
+    # One output vertex per (target vertex, chart); UV averaged over its corners.
+    pair = np.column_stack([t_tri.reshape(-1), np.repeat(face_chart, 3)])
+    uniq, inverse = np.unique(pair, axis=0, return_inverse=True)
+    inverse = inverse.reshape(-1)
+    uv_sum = np.zeros((len(uniq), 2))
+    np.add.at(uv_sum, inverse, corner_uv.reshape(-1, 2))
+    uv_out = uv_sum / np.bincount(inverse, minlength=len(uniq))[:, None]
+    faces = inverse.reshape(-1, 3)
+    out = pv.PolyData(
+        t_pts[uniq[:, 0]],
+        np.hstack([np.full((len(faces), 1), 3), faces]).astype(np.int64),
+    )
+    out.active_texture_coordinates = uv_out
+    return out
 
 
 def clean_mesh(
@@ -79,7 +308,9 @@ def clean_mesh(
     verts = cleaned.vertex_matrix()
     faces = cleaned.face_matrix()
     poly_faces = np.hstack([np.full((faces.shape[0], 1), 3), faces]).astype(np.int64)
-    return pv.PolyData(verts, poly_faces)
+    result = pv.PolyData(verts, poly_faces)
+    # PyMeshLab was fed bare geometry, so the cleaned mesh has lost its UV.
+    return transfer_texture_coords(mesh, result)
 
 
 def uv_seam_point_mask(mesh: pv.PolyData) -> np.ndarray:

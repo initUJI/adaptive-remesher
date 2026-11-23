@@ -11,33 +11,33 @@ if TYPE_CHECKING:
 
 
 def build_action_buttons(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout) -> None:
-    apply_btn = QPushButton("Apply decimation")
-    apply_btn.setObjectName("primaryButton")
-    apply_btn.setToolTip(tip(
+    window.apply_btn = QPushButton("Apply decimation")
+    window.apply_btn.setObjectName("primaryButton")
+    window.apply_btn.setToolTip(tip(
         "Runs the chosen decimation engine on the original mesh with "
         "the current parameters. If there are protected areas "
         "(painted, UV seams or auto-detected by error), only the rest "
         "is decimated and then the result is recomposed."
     ))
-    apply_btn.clicked.connect(window.apply_decimation)
-    panel_layout.addWidget(apply_btn)
+    window.apply_btn.clicked.connect(window.apply_decimation)
+    panel_layout.addWidget(window.apply_btn)
 
-    reset_btn = QPushButton("Restore original")
-    reset_btn.setToolTip(tip(
+    window.reset_btn = QPushButton("Restore original")
+    window.reset_btn.setToolTip(tip(
         "Discards the decimated result and shows the original mesh "
         "again as it was loaded (or cleaned), keeping the protection marks."
     ))
-    reset_btn.clicked.connect(window.reset_mesh)
-    panel_layout.addWidget(reset_btn)
+    window.reset_btn.clicked.connect(window.reset_mesh)
+    panel_layout.addWidget(window.reset_btn)
 
-    compare_btn = QPushButton("Compare original/decimated")
-    compare_btn.setToolTip(tip(
+    window.compare_btn = QPushButton("Compare original/decimated")
+    window.compare_btn.setToolTip(tip(
         "Opens a window with two side-by-side views -original and "
         "decimated- with synchronized cameras, to judge the loss of "
         "detail. Requires having applied a decimation first."
     ))
-    compare_btn.clicked.connect(window.open_comparison)
-    panel_layout.addWidget(compare_btn)
+    window.compare_btn.clicked.connect(window.open_comparison)
+    panel_layout.addWidget(window.compare_btn)
 
     window.export_report_cb = QCheckBox("Export .json report alongside the mesh")
     window.export_report_cb.setChecked(True)
@@ -49,13 +49,13 @@ def build_action_buttons(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLa
     ))
     panel_layout.addWidget(window.export_report_cb)
 
-    export_btn = QPushButton("Export mesh...")
-    export_btn.setToolTip(tip(
+    window.export_btn = QPushButton("Export mesh...")
+    window.export_btn.setToolTip(tip(
         "Saves the decimated mesh to disk; if you haven't applied any "
         "decimation yet, saves the original mesh (already cleaned, if "
         "applicable). OBJ and PLY preserve UV coordinates if the mesh "
         "has a texture; STL doesn't support UV/texture (a limitation "
         "of the format itself)."
     ))
-    export_btn.clicked.connect(window.export_mesh)
-    panel_layout.addWidget(export_btn)
+    window.export_btn.clicked.connect(window.export_mesh)
+    panel_layout.addWidget(window.export_btn)

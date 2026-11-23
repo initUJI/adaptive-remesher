@@ -187,3 +187,63 @@ def test_viewport_background_persists_through_preset_roundtrip(loaded_window):
     loaded_window._apply_preset(preset)
 
     assert loaded_window.viewport_bg_combo.currentIndex() == 2
+
+
+def test_options_unavailable_without_mesh_say_why(window):
+    assert not window.apply_btn.isEnabled()
+    assert "Load a mesh first" in window.apply_btn.toolTip()
+    assert not window.protect_uv_seams_cb.isEnabled()
+
+
+def test_uv_options_disabled_when_mesh_has_no_texture_coordinates(loaded_window):
+    # The loaded sphere has no UV.
+    assert not loaded_window.protect_uv_seams_cb.isEnabled()
+    assert "texture coordinates" in loaded_window.protect_uv_seams_cb.toolTip()
+    assert not loaded_window.uv_attribute_metric_cb.isEnabled()
+    assert loaded_window.apply_btn.isEnabled()
+
+
+def test_uv_options_enabled_when_mesh_has_texture_coordinates(loaded_window):
+    import numpy as np
+
+    mesh = loaded_window.original_mesh.copy()
+    mesh.active_texture_coordinates = np.zeros((mesh.n_points, 2))
+    loaded_window.original_mesh = mesh
+    loaded_window.engine_combo.setCurrentIndex(1)  # QEM group holds the UV cost option
+    loaded_window._refresh_availability()
+
+    assert loaded_window.protect_uv_seams_cb.isEnabled()
+    assert loaded_window.uv_attribute_metric_cb.isEnabled()
+
+
+def test_engine_specific_options_explain_why_they_are_disabled(window):
+    window.engine_combo.setCurrentIndex(1)  # QEM
+    assert not window.angle_slider.isEnabled()
+    assert "vtkDecimatePro" in window.angle_slider.toolTip()
+    window.engine_combo.setCurrentIndex(0)
+    assert window.angle_slider.isEnabled()
+    assert "QEM" in window.qem_group.toolTip()
+
+
+def test_restore_and_compare_need_a_result(loaded_window):
+    assert not loaded_window.compare_btn.isEnabled()
+    assert "Apply a decimation first" in loaded_window.compare_btn.toolTip()
+
+    loaded_window.apply_decimation()
+
+    assert loaded_window.compare_btn.isEnabled()
+    assert loaded_window.reset_btn.isEnabled()
+
+
+def test_show_mesh_lines_option_redraws_without_error(loaded_window):
+    assert loaded_window.show_edges_cb.isChecked()
+    loaded_window.show_edges_cb.setChecked(False)
+    actor = next(iter(loaded_window.plotter.renderer.actors.values()))
+    assert not actor.prop.show_edges
+    loaded_window.show_edges_cb.setChecked(True)
+
+
+def test_show_texture_option_explains_when_unavailable(loaded_window):
+    # The loaded sphere has no texture image.
+    assert not loaded_window.show_texture_cb.isEnabled()
+    assert "texture image" in loaded_window.show_texture_cb.toolTip()

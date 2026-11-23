@@ -19,7 +19,7 @@ import logging
 import os
 import sys
 from datetime import datetime
-from typing import cast
+from typing import Optional, cast
 
 import numpy as np
 import pyvista as pv
@@ -58,8 +58,10 @@ from remesh_core import (
     clean_mesh,
     decimate_with_mask,
     load_and_prepare_mesh,
+    load_base_color_texture,
     mesh_has_texture_coords,
     run_decimation_pipeline,
+    transfer_texture_coords,
     uv_seam_point_mask,
 )
 from logging_config import configure_logging
@@ -69,6 +71,7 @@ from ui.common import (
     CollapsibleGroupBox,
     ComparisonDialog,
     busy_cursor,
+    set_available,
     tip,
 )
 from ui.panels import (
@@ -153,6 +156,7 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         self.original_mesh: pv.PolyData | None = None
         self.decimated_mesh: pv.PolyData | None = None
+        self.texture: pv.Texture | None = None
         self.protected_mask: np.ndarray | None = None
         self.point_kdtree: cKDTree | None = None
         self.protected_actor = None
@@ -245,7 +249,15 @@ class AdaptiveRemesherWindow(QMainWindow):
         build_batch_panel(self, panel_layout)
 
         panel_layout.addStretch(1)
+        for toggle in (
+            self.auto_error_cb,
+            self.uv_attribute_metric_cb,
+            self.normals_weight_cb,
+            self.close_holes_cb,
+        ):
+            toggle.toggled.connect(self._refresh_availability)
         self._update_curvature_availability()
+        self._refresh_availability()
 
     # --- collapsible sections ---
 
@@ -369,6 +381,7 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         self.original_mesh = mesh
         self.decimated_mesh = None
+        self.texture = load_base_color_texture(path)
         self._reset_protection(rebuild_kdtree=True)
         self._undo_stack.clear()
         self._redo_stack.clear()
@@ -735,18 +748,25 @@ class AdaptiveRemesherWindow(QMainWindow):
         (a previous position to restore, so zoom isn't lost when just
         switching display mode)."""
         self.plotter.clear()
+        edges = self.show_edges_cb.isChecked()
         if is_original and self.curvature_cb.isChecked():
             curvature = self._curvature_for(mesh)
             self.plotter.add_mesh(
                 mesh,
                 scalars=curvature,
                 cmap="coolwarm",
-                show_edges=True,
+                show_edges=edges,
                 edge_color="#101114",
                 scalar_bar_args={"color": "#e4e6eb"},
             )
+        elif (
+            self.show_texture_cb.isChecked()
+            and self.texture is not None
+            and mesh_has_texture_coords(mesh)
+        ):
+            self.plotter.add_mesh(mesh, texture=self.texture, show_edges=edges, edge_color="#101114")
         else:
-            self.plotter.add_mesh(mesh, show_edges=True, color="#d8dadd", edge_color="#101114")
+            self.plotter.add_mesh(mesh, show_edges=edges, color="#d8dadd", edge_color="#101114")
         if preserve_camera is not None:
             # camera_position, like set_background/reset_camera, is a
             # pyvista descriptor the type stubs don't reflect well.
@@ -756,6 +776,97 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.protected_actor = None
         self._viewing_original = is_original
         self._update_curvature_availability()
+        self._refresh_availability()
+
+    def _refresh_availability(self, *_args):
+        """Disables every control that cannot be used in the current state
+        and makes its tooltip say why, instead of leaving it enabled and
+        silently doing nothing (or failing with a dialog). The reason
+        replaces the control's usual tooltip until it becomes available."""
+        has_mesh = self.original_mesh is not None
+        has_result = self.decimated_mesh is not None
+        no_mesh = "Load a mesh first."
+        has_uv = has_mesh and mesh_has_texture_coords(self.original_mesh)
+        if not has_mesh:
+            uv_reason: Optional[str] = no_mesh
+        elif not has_uv:
+            uv_reason = (
+                "The loaded mesh has no texture coordinates (UV). If the "
+                "file has a texture, cleaning discards it: turn off "
+                "\"Clean automatically on load\" and load the file again."
+            )
+        else:
+            uv_reason = None
+        set_available(self.protect_uv_seams_cb, uv_reason)
+        set_available(self.uv_attribute_metric_cb, uv_reason)
+        uv_cost_on = self.uv_attribute_metric_cb.isChecked()
+        uv_weight_reason = uv_reason or (
+            None if uv_cost_on else "Turn on \"Penalize UV distortion in the cost\" first."
+        )
+        for w in (self.uv_weight_label, self.uv_weight_spin):
+            set_available(w, uv_weight_reason)
+
+        normals_reason = None if self.normals_weight_cb.isChecked() else (
+            "Turn on \"Preserve normals\" first."
+        )
+        for w in (self.normals_weight_label, self.normals_weight_spin):
+            set_available(w, normals_reason)
+
+        holes_reason = None if self.close_holes_cb.isChecked() else (
+            "Turn on \"Fill small holes\" first."
+        )
+        for w in (self.hole_size_label, self.max_hole_size_spin):
+            set_available(w, holes_reason)
+
+        auto_reason = None if self.auto_error_cb.isChecked() else (
+            "Turn on \"Auto-protect high-error areas\" first."
+        )
+        for w in (
+            self.error_threshold_label,
+            self.error_threshold_spin,
+            self.error_max_iterations_label,
+            self.error_max_iterations_spin,
+        ):
+            set_available(w, auto_reason)
+
+        if not has_mesh:
+            texture_reason: Optional[str] = no_mesh
+        elif self.texture is None:
+            texture_reason = (
+                "The loaded file has no texture image the viewer can read "
+                "(supported: the base-colour image of a glTF/GLB, or the "
+                "map_Kd image of an OBJ)."
+            )
+        elif not has_uv:
+            texture_reason = (
+                "This mesh has no texture coordinates (UV). If the file has "
+                "a texture, cleaning discards it: turn off \"Clean "
+                "automatically on load\" and load the file again."
+            )
+        elif self.curvature_cb.isChecked() and self._viewing_original:
+            texture_reason = "Not available while the curvature map is on."
+        else:
+            texture_reason = None
+        set_available(self.show_texture_cb, texture_reason)
+
+        mesh_reason = None if has_mesh else no_mesh
+        for w in (
+            self.apply_btn,
+            self.export_btn,
+            self.paint_btn,
+            self.erase_btn,
+            self.rect_btn,
+            self.clear_marks_btn,
+            self.mask_export_btn,
+            self.mask_import_btn,
+            self.live_preview_cb,
+        ):
+            set_available(w, mesh_reason)
+        result_reason = mesh_reason or (
+            None if has_result else "Apply a decimation first."
+        )
+        set_available(self.reset_btn, result_reason)
+        set_available(self.compare_btn, result_reason)
 
     def _update_curvature_availability(self):
         """Enables the curvature-map checkbox only while the original mesh
@@ -870,10 +981,13 @@ class AdaptiveRemesherWindow(QMainWindow):
         """Enables each engine's own controls (angle/topology/splitting for
         vtkDecimatePro, or QEM options) depending on the one chosen."""
         is_qem = index == ENGINE_QEM
-        self.angle_slider.setEnabled(not is_qem)
-        self.preserve_topology_cb.setEnabled(not is_qem)
-        self.splitting_cb.setEnabled(not is_qem)
-        self.qem_group.setEnabled(is_qem)
+        pro_only = "Only used by the vtkDecimatePro engine; the current engine is QEM."
+        for w in (self.angle_slider, self.preserve_topology_cb, self.splitting_cb):
+            set_available(w, pro_only if is_qem else None)
+        set_available(
+            self.qem_group,
+            None if is_qem else "Only used by the QEM engine; the current engine is vtkDecimatePro.",
+        )
 
     def _gather_clean_settings(self) -> CleanSettings:
         """Gathers the pre-cleanup parameters configured in the panel."""
@@ -935,8 +1049,9 @@ class AdaptiveRemesherWindow(QMainWindow):
             return
 
         self._push_undo()
-        self.decimated_mesh = result.mesh
-        self.show_mesh(result.mesh, is_original=False)
+        # The pipeline works on bare geometry; give the result the source's UV back.
+        self.decimated_mesh = transfer_texture_coords(self.original_mesh, result.mesh)
+        self.show_mesh(self.decimated_mesh, is_original=False)
         # If any protection tool was already active before decimating,
         # disable it: from now on it would work against the decimated
         # result (the current view) while comparing positions with the
@@ -1030,7 +1145,14 @@ class AdaptiveRemesherWindow(QMainWindow):
             )
             return
         _, bg_color = VIEWPORT_BACKGROUND_PRESETS[self.viewport_bg_combo.currentIndex()]
-        dialog = ComparisonDialog(self.original_mesh, self.decimated_mesh, self, background=bg_color)
+        dialog = ComparisonDialog(
+            self.original_mesh,
+            self.decimated_mesh,
+            self,
+            background=bg_color,
+            show_edges=self.show_edges_cb.isChecked(),
+            texture=self.texture if self.show_texture_cb.isChecked() else None,
+        )
         dialog.exec()
 
     def export_mesh(self):
@@ -1102,7 +1224,7 @@ class AdaptiveRemesherWindow(QMainWindow):
                 "error_refine_iterations": result.error_refine_iterations,
                 "error_refine_added_points": result.error_refine_added_points,
             })
-        return {"mesh": result.mesh, "info": info}
+        return {"mesh": transfer_texture_coords(mesh, result.mesh), "info": info}
 
     def run_batch(self):
         """Applies the panel's current settings to every compatible mesh

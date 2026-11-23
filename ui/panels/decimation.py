@@ -75,11 +75,11 @@ def build_decimation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     window.angle_slider.setValue(15)
     window.angle_slider.setToolTip(angle_tip)
     window.angle_slider.valueChanged.connect(
-        lambda v: window.angle_value_label.setText(f"{v}°")
+        lambda v: window.angle_value_label.setText(f"{v}Â°")
     )
     window.angle_slider.valueChanged.connect(window._schedule_preview)
     grid.addWidget(window.angle_slider, 5, 0)
-    window.angle_value_label = QLabel("15°")
+    window.angle_value_label = QLabel("15Â°")
     grid.addWidget(window.angle_value_label, 5, 1)
 
     window.preserve_topology_cb = QCheckBox("Preserve topology")
@@ -139,15 +139,15 @@ def build_decimation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     ))
     qem_grid.addWidget(window.uv_attribute_metric_cb, 1, 0, 1, 2)
 
-    uv_weight_label = QLabel("UV distortion weight")
+    window.uv_weight_label = QLabel("UV distortion weight")
     uv_weight_tip = tip(
         "How much texture distortion weighs against pure geometric "
         "error when deciding each collapse. Raise it if the texture "
         "comes out more deformed than you'd like; lower it if you "
         "prefer to prioritize shape over texture."
     )
-    uv_weight_label.setToolTip(uv_weight_tip)
-    qem_grid.addWidget(uv_weight_label, 2, 0, 1, 2)
+    window.uv_weight_label.setToolTip(uv_weight_tip)
+    qem_grid.addWidget(window.uv_weight_label, 2, 0, 1, 2)
     window.uv_weight_spin = QDoubleSpinBox()
     window.uv_weight_spin.setRange(0.1, 10.0)
     window.uv_weight_spin.setSingleStep(0.1)
@@ -168,15 +168,15 @@ def build_decimation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     ))
     qem_grid.addWidget(window.normals_weight_cb, 4, 0, 1, 2)
 
-    normals_weight_label = QLabel("Normal weight")
+    window.normals_weight_label = QLabel("Normal weight")
     normals_weight_tip = tip(
         "How much the normal change weighs against pure geometric "
         "error when deciding each collapse. Raise it if you still see "
         "faceting in curved areas; lower it if you prefer to "
         "prioritize reduction over shading."
     )
-    normals_weight_label.setToolTip(normals_weight_tip)
-    qem_grid.addWidget(normals_weight_label, 5, 0, 1, 2)
+    window.normals_weight_label.setToolTip(normals_weight_tip)
+    qem_grid.addWidget(window.normals_weight_label, 5, 0, 1, 2)
     window.normals_weight_spin = QDoubleSpinBox()
     window.normals_weight_spin.setRange(0.1, 10.0)
     window.normals_weight_spin.setSingleStep(0.1)

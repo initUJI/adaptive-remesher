@@ -18,11 +18,13 @@ from remesh_core import (
     ensure_active_texture_coords,
     error_summary,
     load_and_prepare_mesh,
+    load_base_color_texture,
     measure_bidirectional_error,
     measure_error,
     mesh_has_texture_coords,
     refine_by_error,
     run_decimation_pipeline,
+    transfer_texture_coords,
     uv_seam_point_mask,
 )
 
@@ -565,3 +567,92 @@ def test_load_and_prepare_mesh_rejects_empty_file(tmp_path):
 
     with pytest.raises(ValueError):
         load_and_prepare_mesh(str(path), None)
+
+
+# --- texture coordinate transfer ---
+
+
+def _plane_with_uv(n=20):
+    plane = pv.Plane(i_resolution=n, j_resolution=n).triangulate()
+    plane.active_texture_coordinates = np.asarray(plane.points[:, :2])
+    return plane
+
+
+def test_transfer_texture_coords_is_exact_on_a_plane():
+    source = _plane_with_uv()
+    bare = pv.PolyData(source.points.copy(), source.faces.copy())
+    decimated = decimate_qem(bare, 0.8, True, False, 1.0, False)
+
+    result = transfer_texture_coords(source, decimated)
+
+    np.testing.assert_allclose(result.active_texture_coordinates, result.points[:, :2], atol=1e-6)
+    assert result.n_cells == decimated.n_cells
+
+
+def test_transfer_texture_coords_recreates_the_seam():
+    # Two halves of a strip sharing the line x == 1, but with different UV.
+    left = pv.Plane(center=(0.5, 0, 0), i_size=1, j_size=1, i_resolution=4, j_resolution=4).triangulate()
+    right = pv.Plane(center=(1.5, 0, 0), i_size=1, j_size=1, i_resolution=4, j_resolution=4).triangulate()
+    uv = np.vstack([left.points[:, :2], right.points[:, :2] + [10.0, 0.0]])
+    source = left.merge(right, merge_points=False)
+    source.active_texture_coordinates = uv
+    welded = pv.PolyData(source.points.copy(), source.faces.copy()).clean(tolerance=1e-9)
+
+    result = transfer_texture_coords(source, welded)
+
+    assert result.n_points > welded.n_points  # seam vertices were split again
+    out_uv = result.active_texture_coordinates
+    for tri in result.regular_faces:
+        u = out_uv[tri, 0]
+        assert (u.max() <= 1.0 + 1e-6) or (u.min() >= 11.0 - 1e-6)
+
+
+def test_transfer_texture_coords_without_source_uv_returns_target(sphere_mesh):
+    out = transfer_texture_coords(sphere_mesh, sphere_mesh.copy())
+    assert not mesh_has_texture_coords(out)
+
+
+def test_clean_mesh_keeps_texture_coordinates():
+    source = _plane_with_uv()
+
+    cleaned = clean_mesh(source, min_component_pct=0)
+
+    assert mesh_has_texture_coords(cleaned)
+    np.testing.assert_allclose(cleaned.active_texture_coordinates, cleaned.points[:, :2], atol=1e-6)
+
+
+def test_load_base_color_texture_reads_gltf_image(tmp_path):
+    import json
+
+    from PIL import Image
+
+    Image.new("RGB", (4, 2), (200, 30, 30)).save(tmp_path / "color.png")
+    gltf = {
+        "asset": {"version": "2.0"},
+        "images": [{"uri": "color.png"}],
+        "textures": [{"source": 0}],
+        "materials": [{"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}],
+    }
+    (tmp_path / "model.gltf").write_text(json.dumps(gltf))
+
+    texture = load_base_color_texture(str(tmp_path / "model.gltf"))
+
+    assert texture is not None
+    assert tuple(texture.dimensions[:2]) == (4, 2)
+
+
+def test_load_base_color_texture_reads_obj_material(tmp_path):
+    from PIL import Image
+
+    Image.new("RGB", (3, 3), (10, 200, 10)).save(tmp_path / "diffuse.png")
+    (tmp_path / "m.mtl").write_text("newmtl a\nmap_Kd diffuse.png\n")
+    (tmp_path / "m.obj").write_text("mtllib m.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+
+    assert load_base_color_texture(str(tmp_path / "m.obj")) is not None
+
+
+def test_load_base_color_texture_is_none_without_image(tmp_path):
+    (tmp_path / "m.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+
+    assert load_base_color_texture(str(tmp_path / "m.obj")) is None
+    assert load_base_color_texture(str(tmp_path / "missing.glb")) is None

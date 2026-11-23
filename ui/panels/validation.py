@@ -35,7 +35,7 @@ def build_validation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     ))
     error_grid.addWidget(window.auto_error_cb, 0, 0, 1, 2)
 
-    error_threshold_label = QLabel("Maximum allowed error (% diagonal)")
+    window.error_threshold_label = QLabel("Maximum allowed error (% diagonal)")
     error_threshold_tip = tip(
         "Error threshold, as a percentage of the bounding-box "
         "diagonal, above which a decimated area is considered too "
@@ -43,8 +43,8 @@ def build_validation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
         "demand more fidelity (more areas get auto-protected, less "
         "actual reduction); raise it to allow more deformation."
     )
-    error_threshold_label.setToolTip(error_threshold_tip)
-    error_grid.addWidget(error_threshold_label, 1, 0, 1, 2)
+    window.error_threshold_label.setToolTip(error_threshold_tip)
+    error_grid.addWidget(window.error_threshold_label, 1, 0, 1, 2)
     window.error_threshold_spin = QDoubleSpinBox()
     window.error_threshold_spin.setRange(0.1, 10.0)
     window.error_threshold_spin.setSingleStep(0.1)
@@ -53,7 +53,7 @@ def build_validation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     window.error_threshold_spin.setToolTip(error_threshold_tip)
     error_grid.addWidget(window.error_threshold_spin, 2, 0, 1, 2)
 
-    error_max_iterations_label = QLabel("Maximum auto-protection passes")
+    window.error_max_iterations_label = QLabel("Maximum auto-protection passes")
     error_max_iterations_tip = tip(
         "Maximum number of times the cycle of measuring error and "
         "decimating again while protecting the worst areas is "
@@ -62,8 +62,8 @@ def build_validation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
         "computation time; fewer passes stop earlier even if the "
         "error is still above it."
     )
-    error_max_iterations_label.setToolTip(error_max_iterations_tip)
-    error_grid.addWidget(error_max_iterations_label, 3, 0, 1, 2)
+    window.error_max_iterations_label.setToolTip(error_max_iterations_tip)
+    error_grid.addWidget(window.error_max_iterations_label, 3, 0, 1, 2)
     window.error_max_iterations_spin = QSpinBox()
     window.error_max_iterations_spin.setRange(1, 10)
     window.error_max_iterations_spin.setValue(3)

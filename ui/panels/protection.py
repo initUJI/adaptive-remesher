@@ -55,23 +55,23 @@ def build_protection_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     )
     protect_grid.addWidget(window.rect_btn, 6, 0, 1, 2)
 
-    mask_export_btn = QPushButton("Save mask...")
-    mask_export_btn.setToolTip(tip(
+    window.mask_export_btn = QPushButton("Save mask...")
+    window.mask_export_btn.setToolTip(tip(
         "Saves the indices of the currently protected vertices to a "
         ".json, to reuse the same protection in another session or "
         "on another mesh with identical topology (same number and "
         "order of vertices)."
     ))
-    mask_export_btn.clicked.connect(window.export_protection_mask)
-    mask_import_btn = QPushButton("Load mask...")
-    mask_import_btn.setToolTip(tip(
+    window.mask_export_btn.clicked.connect(window.export_protection_mask)
+    window.mask_import_btn = QPushButton("Load mask...")
+    window.mask_import_btn.setToolTip(tip(
         "Loads a saved protection mask and replaces the current marks. "
         "Only applies if the vertex count matches exactly that of the "
         "current mesh."
     ))
-    mask_import_btn.clicked.connect(window.import_protection_mask)
-    protect_grid.addWidget(mask_export_btn, 7, 0)
-    protect_grid.addWidget(mask_import_btn, 7, 1)
+    window.mask_import_btn.clicked.connect(window.import_protection_mask)
+    protect_grid.addWidget(window.mask_export_btn, 7, 0)
+    protect_grid.addWidget(window.mask_import_btn, 7, 1)
 
     brush_label = QLabel("Brush radius (% diagonal)")
     brush_tip = tip(
@@ -96,14 +96,14 @@ def build_protection_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     protect_grid.addWidget(window.brush_slider, 2, 0)
     protect_grid.addWidget(window.brush_spin, 2, 1)
 
-    clear_marks_btn = QPushButton("Clear all marks")
-    clear_marks_btn.setToolTip(tip(
+    window.clear_marks_btn = QPushButton("Clear all marks")
+    window.clear_marks_btn.setToolTip(tip(
         "Removes all protection marks from the current mesh at once "
         "(equivalent to erasing everything with the erase brush, but "
         "in a single click)."
     ))
-    clear_marks_btn.clicked.connect(window.clear_protection)
-    protect_grid.addWidget(clear_marks_btn, 3, 0, 1, 2)
+    window.clear_marks_btn.clicked.connect(window.clear_protection)
+    protect_grid.addWidget(window.clear_marks_btn, 3, 0, 1, 2)
 
     window.protected_count_label = QLabel("Protected points: 0")
     window.protected_count_label.setToolTip(tip(

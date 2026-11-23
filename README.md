@@ -158,9 +158,12 @@ tag), and [CHANGELOG.md](CHANGELOG.md) for the change history.
   on Windows; the release workflow includes an automatic smoke test
   (starts without errors) on all three platforms.
 
-- Texture coordinates are not carried into the masked output: UV-seam
-  protection keeps the geometry of seam vertices, but the result has no UV
-  data.
+- Texture coordinates are restored on the result by transferring them from
+  the source mesh (nearest source triangle, per UV chart), not carried
+  through the decimation itself. A decimated face that straddles a texture
+  seam can look slightly stretched, which is why seam vertices are protected
+  by default. Only the colour image of a glTF/GLB or an OBJ's `map_Kd` is
+  shown in the viewer.
 - Error-guided refinement trades reduction for fidelity. It never returns a
   result worse than its first pass, but it can leave the result unchanged
   and, where it adds protection, lowers the achieved reduction (median 46%

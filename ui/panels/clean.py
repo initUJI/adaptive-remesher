@@ -59,14 +59,14 @@ def build_clean_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayou
     ))
     clean_grid.addWidget(window.close_holes_cb, 3, 0, 1, 2)
 
-    hole_size_label = QLabel("Max. hole size (edges)")
+    window.hole_size_label = QLabel("Max. hole size (edges)")
     hole_size_tip = tip(
         "Only holes bounded by up to this number of edges are filled. "
         "Raise it to close larger gaps; lower it to leave large "
         "openings untouched, since they may be intentional."
     )
-    hole_size_label.setToolTip(hole_size_tip)
-    clean_grid.addWidget(hole_size_label, 4, 0, 1, 2)
+    window.hole_size_label.setToolTip(hole_size_tip)
+    clean_grid.addWidget(window.hole_size_label, 4, 0, 1, 2)
     window.max_hole_size_spin = QSpinBox()
     window.max_hole_size_spin.setRange(3, 500)
     window.max_hole_size_spin.setValue(30)
