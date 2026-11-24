@@ -14,6 +14,7 @@ from remesh_core import (
     clean_mesh,
     decimate_pro,
     decimate_qem,
+    _weld_coincident,
     decimate_with_mask,
     ensure_active_texture_coords,
     error_summary,
@@ -26,6 +27,8 @@ from remesh_core import (
     run_decimation_pipeline,
     save_texture_with_mesh,
     seam_protection_limits_reduction,
+    seam_vertex_fraction,
+    should_protect_uv_seams,
     transfer_texture_coords,
     uv_seam_point_mask,
 )
@@ -671,7 +674,7 @@ def test_seam_protection_limits_reduction_heuristic():
 
 
 def _two_row_texture():
-    # Bottom row (index 0) red, top row blue: checks the vertical orientation.
+    # Top row (index 0) red, bottom row blue: checks the vertical orientation.
     array = np.zeros((2, 2, 3), dtype=np.uint8)
     array[0] = (255, 0, 0)
     array[1] = (0, 0, 255)
@@ -688,7 +691,7 @@ def test_save_texture_with_mesh_links_texture_in_obj(tmp_path):
     image = save_texture_with_mesh(path, _two_row_texture())
 
     assert image is not None and image.endswith("out_texture.png")
-    assert tuple(Image.open(image).convert("RGB").getpixel((0, 0))) == (0, 0, 255)  # top row is blue
+    assert tuple(Image.open(image).convert("RGB").getpixel((0, 0))) == (255, 0, 0)  # top row stays on top
     assert "mtllib out.mtl" in (tmp_path / "out.obj").read_text()
     assert "usemtl material0" in (tmp_path / "out.obj").read_text()
     assert "map_Kd out_texture.png" in (tmp_path / "out.mtl").read_text()
@@ -709,3 +712,53 @@ def test_save_texture_with_mesh_marks_ply_and_ignores_stl(tmp_path):
     mesh.save(stl)
     assert save_texture_with_mesh(stl, _two_row_texture()) is None
     assert save_texture_with_mesh(ply, None) is None
+
+
+def _exploded(mesh):
+    """The same surface with every face holding private copies of its vertices, as many exports store it."""
+    tri = np.asarray(mesh.regular_faces)
+    points = np.asarray(mesh.points)[tri].reshape(-1, 3)
+    faces = np.hstack([np.full((len(tri), 1), 3), np.arange(len(points)).reshape(-1, 3)])
+    return pv.PolyData(points, faces.astype(np.int64))
+
+
+def test_weld_coincident_merges_private_copies_and_carries_the_mask():
+    mesh = _exploded(pv.Sphere(theta_resolution=16, phi_resolution=16).triangulate())
+    mask = np.zeros(mesh.n_points, dtype=bool)
+    mask[0] = True  # one copy of a vertex is protected
+
+    welded, welded_mask = _weld_coincident(mesh, mask)
+
+    assert welded.n_points < mesh.n_points / 3
+    assert welded_mask.sum() == 1  # protected if any copy was
+    already, same_mask = _weld_coincident(welded, welded_mask)
+    assert already is welded and same_mask is welded_mask  # nothing left to merge
+
+
+def test_decimate_with_mask_welds_private_vertex_copies():
+    sphere = pv.Sphere(theta_resolution=60, phi_resolution=60).triangulate()
+    mesh = _exploded(sphere)
+    settings = DecimationSettings(engine=ENGINE_QEM, reduction_pct=80.0)
+
+    result = decimate_with_mask(mesh, np.zeros(mesh.n_points, dtype=bool), settings)
+
+    assert result.n_cells < mesh.n_cells * 0.3
+    fwd, _, rev, _ = measure_bidirectional_error(mesh, result)
+    stats = bidirectional_error_summary(fwd, rev)
+    assert max(stats.max_fwd, stats.max_rev) < 0.03 * mesh.length  # a coarse sphere, not a scrambled one
+
+
+def test_seam_vertex_fraction_and_policy(uv_seam_mesh, sphere_mesh):
+    assert seam_vertex_fraction(sphere_mesh) == 0.0  # no UV
+    assert should_protect_uv_seams(sphere_mesh)
+
+    few = seam_vertex_fraction(uv_seam_mesh)
+    assert 0.0 < few < 1.0
+
+    # Every face with its own UV island: every vertex is on a seam.
+    tri = np.asarray(sphere_mesh.regular_faces)
+    points = np.asarray(sphere_mesh.points)[tri].reshape(-1, 3)
+    shattered = pv.PolyData(points, np.hstack([np.full((len(tri), 1), 3), np.arange(len(points)).reshape(-1, 3)]).astype(np.int64))
+    shattered.active_texture_coordinates = np.random.default_rng(0).random((len(points), 2))
+    assert seam_vertex_fraction(shattered) > 0.9
+    assert not should_protect_uv_seams(shattered)

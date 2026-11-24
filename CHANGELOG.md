@@ -40,6 +40,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   in the original's own map): the coloured cells over the crumbs are the
   faceted crumb geometry baked faithfully, not an artefact of the matching.
   A new decimation discards the bake.
+- "Re-bake all textures (new atlas)" button (optional `xatlas` package): gives
+  the decimated result its own texture layout, so no face is stretched or
+  overlaps, and bakes every map from the original onto it (colour,
+  metallic-roughness, occlusion and emissive are resampled, a new normal map is
+  baked), at the chosen size. On the carrot cake the colour error against the
+  original is about the same as keeping the original atlas (8.5 against 8.2,
+  mean absolute difference over four views): the gain is a clean layout and a
+  smaller atlas, not a better picture.
+- GLB export stores the colour maps as JPEG (quality 90) and keeps the data
+  maps (normal, metallic-roughness, occlusion) as lossless PNG. The carrot
+  cake went from 49 MB to about 12 MB after re-baking at 2048 px.
+- Conservative rasterization in `bake_maps`: texels just outside a triangle take
+  its own extrapolated value, so a GPU that filters across a small triangle's
+  edge does not read a neighbour's colour.
 - "Show mesh lines" option to hide the triangle edges.
 - After decimating, a hint appears in the stats when UV-seam protection froze
   15% or more of the vertices and the reduction fell more than 15 points
@@ -51,6 +65,36 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Options that cannot be used in the current state (no mesh loaded, no UV, the
   other engine's controls, dependent checkboxes, restore/compare without a
   result) are disabled and their tooltip says why.
+
+### Changed (geometry)
+- `decimate_with_mask` welds points that sit at the same position before
+  decimating (`_weld_coincident`). Exports that store every face, or every
+  texture seam, with private copies of its vertices made QEM collapse across
+  what is one surface: errors of 5% to 612% of the bounding-box diagonal at a
+  90% reduction on the open-boundary evaluation meshes, 0.6% to 3.6% once
+  welded (a sphere with private vertex copies: 32.4% against 0.10%). With a mask
+  the welded points keep their UV, because on the fragmented unprotected zone
+  that term is what keeps QEM from flinging vertices (64% to 328% without it);
+  on a whole mesh it is left out (it raised the error to 2.5% to 16%).
+- "Protect UV seams" now follows the loaded mesh until you set it yourself
+  (`should_protect_uv_seams`): it is turned off when the seams cover 15% or
+  more of the vertices, and batch processing decides per file. At equal
+  reduction on eight textured meshes, leaving the seams free gave a lower
+  geometric error on all of them (e.g. 15.5% against 0.34% on the elephant, 35.8%
+  against 0.16% on the drill) and a colour error that was lower on four, equal on
+  two and higher on two sculptures whose seams cover about 13% of the vertices;
+  freezing them also capped the reduction at 22% to 81%. Ticking or unticking
+  the option, or loading a preset, disables the automatic rule.
+
+### Fixed (texture orientation)
+- Textures were drawn and exported upside down. `pv.Texture(array)` already
+  expects the top row first (it matches `pv.read_texture` of the same file),
+  and the code flipped the array again. The viewer, the PNG written next to an
+  exported OBJ/PLY, and the colour used when exporting GLB all had the flip.
+  `map_to_texture`, the texture loader and the exporters no longer flip, and a
+  test compares the result with `pv.read_texture` so it cannot come back.
+  Re-exporting a model from an earlier build is needed to get a right-side-up
+  PNG.
 
 ### Fixed (warnings)
 - `vtkQuadricDecimation` with the UV/normals attribute metric printed "Unable

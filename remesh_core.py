@@ -67,8 +67,7 @@ def save_texture_with_mesh(
     from PIL import Image
 
     image_path = f"{stem}_texture.png"
-    # Textures are stored bottom row first; image files, top row first.
-    Image.fromarray(np.ascontiguousarray(np.flipud(texture.to_array()))).save(image_path)
+    Image.fromarray(np.ascontiguousarray(texture.to_array())).save(image_path)
     image_name = os.path.basename(image_path)
     normal_name = None
     if normal_map is not None:
@@ -99,12 +98,35 @@ def save_texture_with_mesh(
     return image_path
 
 
+# Share of the vertices on UV seams from which freezing them does more harm than
+# good: measured on eight textured meshes, decimating with the seams free gave a
+# lower geometric error and more reduction than freezing them, at the same
+# reduction, and a colour error that was equal or better except on two
+# sculptures whose seams cover about 13% of the vertices.
+SEAM_FREEZE_LIMIT = 0.15
+
+
+def seam_vertex_fraction(mesh: pv.PolyData) -> float:
+    """Share of `mesh`'s vertices that sit on UV seams (0 without UV)."""
+    if not mesh_has_texture_coords(mesh) or mesh.n_points == 0:
+        return 0.0
+    return float(uv_seam_point_mask(mesh).sum()) / mesh.n_points
+
+
+def should_protect_uv_seams(mesh: pv.PolyData) -> bool:
+    """Whether freezing the UV seams of `mesh` is worth it: yes while they are
+    a small share of its vertices (`SEAM_FREEZE_LIMIT`), no when a fragmented
+    texture atlas would freeze so much that it limits the reduction and
+    degrades the geometry."""
+    return seam_vertex_fraction(mesh) < SEAM_FREEZE_LIMIT
+
+
 def seam_protection_limits_reduction(
     requested_pct: float,
     achieved_pct: float,
     seam_points: int,
     total_points: int,
-    min_seam_fraction: float = 0.15,
+    min_seam_fraction: float = SEAM_FREEZE_LIMIT,
     min_shortfall_pct: float = 15.0,
 ) -> bool:
     """Whether UV-seam protection is probably what kept the result well
@@ -129,8 +151,8 @@ def _texture_from_bytes(data: bytes) -> Optional[pv.Texture]:
         from PIL import Image
 
         image = Image.open(BytesIO(data)).convert("RGB")
-        # VTK textures start at the bottom row, images at the top.
-        return pv.Texture(np.ascontiguousarray(np.flipud(np.asarray(image))))
+        # pv.Texture expects the top row first, like the image itself.
+        return pv.Texture(np.ascontiguousarray(np.asarray(image)))
     except Exception:
         return None
 
@@ -718,6 +740,36 @@ def decimate(mesh: pv.PolyData, settings: DecimationSettings, lock_boundary: boo
     )
 
 
+def _weld_coincident(source: pv.PolyData, mask: np.ndarray, keep_uv: bool = True):
+    """Merges points that sit at the same position, and returns the welded
+    mesh with `mask` carried over (a merged point is protected if any of its
+    copies was). Exports often store every face, or every texture seam, with
+    private copies of its vertices; a decimator then sees each copy as part of
+    an open boundary and collapses across what is really one surface, which
+    on the evaluation meshes left errors of 5% to 600% of the bounding-box
+    diagonal at a 90% reduction (0.6% to 3.6% once welded). Only exact
+    coincidences are merged; attributes (UV) are not kept, the caller restores
+    them afterwards. Returns the inputs untouched if nothing coincides."""
+    pts = np.asarray(source.points, dtype=float)
+    scale = float(source.length) or 1.0
+    keys = np.round(pts / (1e-9 * scale)).astype(np.int64)
+    _, first, inverse = np.unique(keys, axis=0, return_index=True, return_inverse=True)
+    inverse = inverse.reshape(-1)
+    if len(first) == len(pts):
+        return source, mask
+    tri = inverse[np.asarray(source.regular_faces)]
+    keep = (tri[:, 0] != tri[:, 1]) & (tri[:, 1] != tri[:, 2]) & (tri[:, 0] != tri[:, 2])
+    tri = tri[keep]
+    welded = pv.PolyData(pts[first], np.hstack([np.full((len(tri), 1), 3), tri]).astype(np.int64))
+    if keep_uv and mesh_has_texture_coords(source):
+        # A merged point keeps the UV of its first copy: exact for ordinary
+        # vertices, arbitrary at a seam (whose copies differ).
+        welded.active_texture_coordinates = np.asarray(source.active_texture_coordinates)[first]
+    welded_mask = np.zeros(len(first), dtype=bool)
+    welded_mask[inverse[np.asarray(mask, dtype=bool)]] = True
+    return welded, welded_mask
+
+
 def decimate_with_mask(
     source: pv.PolyData,
     mask: np.ndarray,
@@ -744,7 +796,14 @@ def decimate_with_mask(
     gaps at the protected/decimated interface: openings that already
     exist in `source` are left open (see `_source_open_boundary`).
     `src_boundary` can be passed already built to reuse it across calls
-    that share the same `source`."""
+    that share the same `source`. Points at the same position are welded
+    first (see `_weld_coincident`); the result is built from geometry alone
+    and carries no UV. With a mask the welded points keep their UV for the
+    quadric cost: on the fragmented unprotected zone that term is what keeps
+    QEM from flinging vertices (errors of 60% to 330% of the diagonal on
+    several meshes without it), while on a whole mesh it only gets in the way
+    (0.6% to 3.6% without it against 2.5% to 16% with it)."""
+    source, mask = _weld_coincident(source, mask, keep_uv=bool(np.asarray(mask).any()))
     if not mask.any():
         decimated = decimate(source, settings, lock_boundary=False)
         if zone_stats is not None:

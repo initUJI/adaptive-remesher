@@ -61,6 +61,16 @@ def build_action_buttons(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLa
     bake_row.addWidget(window.bake_size_combo)
     panel_layout.addLayout(bake_row)
 
+    window.rebake_btn = QPushButton("Re-bake all textures (new atlas)")
+    window.rebake_btn.setToolTip(tip(
+        "Gives the decimated result a new texture layout (no stretched "
+        "faces, size chosen at the right) and bakes every map from the "
+        "original onto it: colour, metallic-roughness, occlusion, emissive "
+        "and a new normal map. Needs the optional xatlas package."
+    ))
+    window.rebake_btn.clicked.connect(window.rebake_textures_now)
+    panel_layout.addWidget(window.rebake_btn)
+
     window.export_report_cb = QCheckBox("Export .json report alongside the mesh")
     window.export_report_cb.setChecked(True)
     window.export_report_cb.setToolTip(tip(

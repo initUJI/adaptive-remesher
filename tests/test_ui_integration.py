@@ -344,3 +344,81 @@ def test_material_maps_option_draws_roughness_and_occlusion(loaded_window):
     assert set(found) == {"orm"}
     window.show_normals_cb.setChecked(True)  # redraws through the PBR path without raising
     assert window.plotter.renderer.actors
+
+
+def test_rebake_textures_flow(loaded_window, tmp_path):
+    import numpy as np
+    import pytest
+
+    from materials import load_material_maps, write_glb, xatlas_available
+
+    if not xatlas_available():
+        pytest.skip("optional package xatlas not installed")
+    window = _window_with_textured_model(loaded_window)
+    window.protect_uv_seams_cb.setChecked(False)
+    window.reduction_slider.setValue(80)
+    window.apply_decimation()
+    assert window.rebake_btn.isEnabled()
+
+    window.bake_size_combo.setCurrentText("512")
+    window.rebake_textures_now()
+
+    assert window.result_maps is not None and window.result_maps.base.shape == (512, 512, 3)
+    assert window.result_maps.normal.shape == (512, 512, 3)
+    assert window._texture_for(window.decimated_mesh) is not None
+    window.show_normals_cb.setChecked(True)  # draws with the result's own maps without raising
+    maps = window._maps_for_export(window.decimated_mesh)
+    assert maps is not None and maps.base.shape == (512, 512, 3)
+    write_glb(str(tmp_path / "r.glb"), window.decimated_mesh, maps)
+    assert load_material_maps(str(tmp_path / "r.glb")).available() == maps.available()
+    # A new decimation drops the re-baked maps.
+    window.apply_decimation()
+    assert window.result_maps is None
+
+
+def test_rebake_explains_when_xatlas_is_missing(loaded_window, monkeypatch):
+    import app as app_module
+
+    window = _window_with_textured_model(loaded_window)
+    window.apply_decimation()
+    monkeypatch.setattr(app_module, "xatlas_available", lambda: False)
+    window._refresh_availability()
+
+    assert not window.rebake_btn.isEnabled()
+    assert "xatlas" in window.rebake_btn.toolTip()
+
+
+def _fragmented_uv_mesh():
+    import numpy as np
+
+    sphere = pv.Sphere(theta_resolution=20, phi_resolution=20).triangulate()
+    tri = np.asarray(sphere.regular_faces)
+    points = np.asarray(sphere.points)[tri].reshape(-1, 3)
+    mesh = pv.PolyData(points, np.hstack([np.full((len(tri), 1), 3), np.arange(len(points)).reshape(-1, 3)]).astype(np.int64))
+    mesh.active_texture_coordinates = np.random.default_rng(0).random((len(points), 2))
+    return mesh
+
+
+def test_seam_protection_follows_the_mesh_until_the_user_chooses(loaded_window):
+    window = loaded_window
+    mesh = _fragmented_uv_mesh()
+    window.original_mesh = mesh  # a model with UV, so the option is available
+    window._refresh_availability()
+
+    window._apply_seam_policy(mesh)
+    assert not window.protect_uv_seams_cb.isChecked()  # seams cover (almost) every vertex
+    assert "UV seams cover" in window.stats_label.text()
+
+    window.protect_uv_seams_cb.click()  # the user ticks it
+    assert window.protect_uv_seams_cb.isChecked() and not window._seam_auto
+    window._apply_seam_policy(mesh)
+    assert window.protect_uv_seams_cb.isChecked()  # respected
+
+
+def test_seam_policy_leaves_meshes_without_uv_alone(loaded_window):
+    window = loaded_window
+    before = window.protect_uv_seams_cb.isChecked()
+
+    window._apply_seam_policy(window.original_mesh)  # the sphere has no UV
+
+    assert window.protect_uv_seams_cb.isChecked() == before

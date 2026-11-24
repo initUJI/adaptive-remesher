@@ -63,17 +63,23 @@ from remesh_core import (
     mesh_has_texture_coords,
     run_decimation_pipeline,
     save_texture_with_mesh,
+    SEAM_FREEZE_LIMIT,
     seam_protection_limits_reduction,
+    seam_vertex_fraction,
+    should_protect_uv_seams,
     transfer_texture_coords,
     uv_seam_point_mask,
 )
 from materials import (
     MaterialMaps,
+    bake_material_maps,
     bake_normal_map,
     load_material_maps,
     map_to_texture,
     orm_image,
+    reparametrize,
     with_tangents,
+    xatlas_available,
     write_glb,
 )
 from logging_config import configure_logging
@@ -171,8 +177,12 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.texture: pv.Texture | None = None
         self.maps: MaterialMaps | None = None  # every map of the loaded file's material
         self.baked_normal: np.ndarray | None = None  # normal map baked for the decimated result
+        self.result_maps: MaterialMaps | None = None  # full maps of a re-atlased result
         self._tangent_cache: tuple | None = None
         self._map_texture_cache: dict = {}
+        # True until the user ticks or unticks "Protect UV seams" (or loads a preset): while it is,
+        # the option follows the loaded mesh (see `_apply_seam_policy`).
+        self._seam_auto = True
         self.protected_mask: np.ndarray | None = None
         self.point_kdtree: cKDTree | None = None
         self.protected_actor = None
@@ -329,6 +339,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             "protected_mask": self.protected_mask.copy() if self.protected_mask is not None else None,
             "decimated_mesh": self.decimated_mesh,
             "baked_normal": self.baked_normal,
+            "result_maps": self.result_maps,
         }
 
     def _push_undo(self):
@@ -347,6 +358,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.protected_mask = state["protected_mask"]
         self.decimated_mesh = state["decimated_mesh"]
         self.baked_normal = state.get("baked_normal")
+        self.result_maps = state.get("result_maps")
         self.point_kdtree = (
             cKDTree(self.original_mesh.points) if self.original_mesh is not None else None
         )
@@ -401,6 +413,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.decimated_mesh = None
         self.maps = load_material_maps(path)
         self.baked_normal = None
+        self.result_maps = None
         if self.maps is not None and self.maps.base is not None:
             self.texture = map_to_texture(self.maps.base)
         else:
@@ -411,6 +424,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._update_undo_redo_buttons()
         self.show_mesh(mesh, is_original=True)
         self.update_stats(mesh)
+        self._apply_seam_policy(mesh)
 
     def clean_now(self):
         """Re-cleans the current mesh with the configured fragment threshold and resets protection."""
@@ -438,9 +452,11 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.original_mesh = cleaned
         self.decimated_mesh = None
         self.baked_normal = None
+        self.result_maps = None
         self._reset_protection(rebuild_kdtree=True)
         self.show_mesh(cleaned, is_original=True)
         self.update_stats(cleaned)
+        self._apply_seam_policy(cleaned)
 
     # --- manual protection (paint/erase) ---
 
@@ -787,10 +803,10 @@ class AdaptiveRemesherWindow(QMainWindow):
             self._add_material_mapped_mesh(mesh, self._pbr_maps_for(mesh), edges)
         elif (
             self.show_texture_cb.isChecked()
-            and self.texture is not None
+            and self._texture_for(mesh) is not None
             and mesh_has_texture_coords(mesh)
         ):
-            self.plotter.add_mesh(mesh, texture=self.texture, show_edges=edges, edge_color="#101114")
+            self.plotter.add_mesh(mesh, texture=self._texture_for(mesh), show_edges=edges, edge_color="#101114")
         else:
             self.plotter.add_mesh(mesh, show_edges=edges, color="#d8dadd", edge_color="#101114")
         if preserve_camera is not None:
@@ -804,32 +820,69 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._update_curvature_availability()
         self._refresh_availability()
 
+    def _maps_in_use(self, mesh: pv.PolyData) -> MaterialMaps | None:
+        """The material maps that belong on `mesh`: the full set of a
+        re-atlased result when `mesh` is that result, else the loaded file's."""
+        if mesh is self.decimated_mesh and self.result_maps is not None:
+            return self.result_maps
+        return self.maps
+
+    def _texture_for(self, mesh: pv.PolyData) -> pv.Texture | None:
+        """The colour texture to draw on `mesh` (None if it has none)."""
+        if mesh is self.decimated_mesh and self.result_maps is not None:
+            return self._texture_of(self.result_maps.base) if self.result_maps.base is not None else None
+        return self.texture
+
+    def _on_seam_option_clicked(self, _checked: bool):
+        """The user chose; from now on the loaded mesh no longer decides."""
+        self._seam_auto = False
+
+    def _apply_seam_policy(self, mesh: pv.PolyData):
+        """While the option is still automatic, sets "Protect UV seams" for the
+        loaded mesh: on unless the seams cover `SEAM_FREEZE_LIMIT` or more of its
+        vertices, where freezing them gives less reduction and worse geometry.
+        Says so in the stats; ticking or unticking it afterwards is respected."""
+        if not self._seam_auto or not mesh_has_texture_coords(mesh):
+            return
+        fraction = seam_vertex_fraction(mesh)
+        protect = fraction < SEAM_FREEZE_LIMIT
+        self.protect_uv_seams_cb.setChecked(protect)
+        if not protect:
+            self.stats_label.setText(
+                self.stats_label.text()
+                + f"\nUV seams cover {100 * fraction:.0f}% of the vertices, so \"Protect UV "
+                "seams\" was turned off: it would limit the reduction and degrade the geometry. "
+                "Tick it to protect them anyway."
+            )
+
     def _normal_map_for(self, mesh: pv.PolyData) -> np.ndarray | None:
         """The normal map that belongs on `mesh`: the one baked for the
         decimated result if there is one, else the loaded file's own. None
         without texture coordinates or a map."""
-        if self.maps is None or not mesh_has_texture_coords(mesh):
+        maps = self._maps_in_use(mesh)
+        if maps is None or not mesh_has_texture_coords(mesh):
             return None
-        if mesh is self.decimated_mesh and self.baked_normal is not None:
+        if mesh is self.decimated_mesh and self.baked_normal is not None and self.result_maps is None:
             return self.baked_normal
-        return self.maps.normal
+        return maps.normal
 
     def _pbr_maps_for(self, mesh: pv.PolyData) -> dict | None:
         """The material maps the viewer can draw on `mesh` (normal, packed
         occlusion-roughness-metallic, emissive); None if there are none or the
         mesh has no UV."""
-        if self.maps is None or not mesh_has_texture_coords(mesh):
+        maps = self._maps_in_use(mesh)
+        if maps is None or not mesh_has_texture_coords(mesh):
             return None
         found = {
             "normal": self._normal_map_for(mesh),
-            "orm": orm_image(self.maps),
-            "emissive": self.maps.emissive,
+            "orm": orm_image(maps),
+            "emissive": maps.emissive,
         }
         found = {k: v for k, v in found.items() if v is not None}
         return found or None
 
     def _texture_of(self, image: np.ndarray) -> pv.Texture:
-        """A pyvista texture for `image`, cached by identity (4k maps are slow to flip and upload every redraw)."""
+        """A pyvista texture for `image`, cached by identity (4k maps are slow to upload every redraw)."""
         cache = self._map_texture_cache
         entry = cache.get(id(image))
         if entry is None or entry[0] is not image:
@@ -839,15 +892,16 @@ class AdaptiveRemesherWindow(QMainWindow):
             cache[id(image)] = entry  # the entry keeps `image` alive, so its id stays unique
         return entry[1]
 
-    def _albedo_texture(self) -> pv.Texture:
-        """The colour texture flagged as sRGB, which PBR shading expects (the
-        plain view must keep using `self.texture`, unflagged, or it darkens)."""
-        key = ("srgb", id(self.texture))
+    def _albedo_texture(self, texture: pv.Texture) -> pv.Texture:
+        """`texture` flagged as sRGB, which PBR shading expects (the plain view
+        must keep using the unflagged one, or it darkens)."""
+        key = ("srgb", id(texture))
         if self._map_texture_cache.get("albedo_key") != key:
-            albedo = pv.Texture(self.texture.to_array())
+            albedo = pv.Texture(texture.to_array())
             albedo.SetUseSRGBColorSpace(True)
             self._map_texture_cache["albedo_key"] = key
             self._map_texture_cache["albedo"] = albedo
+            self._map_texture_cache["albedo_source"] = texture  # keeps the id valid
         return self._map_texture_cache["albedo"]
 
     def _add_material_mapped_mesh(self, mesh: pv.PolyData, found: dict, edges: bool):
@@ -856,12 +910,14 @@ class AdaptiveRemesherWindow(QMainWindow):
         key = (id(mesh), mesh.n_points)
         if self._tangent_cache is None or self._tangent_cache[0] != key:
             self._tangent_cache = (key, with_tangents(mesh))
-        factors = self.maps.factors if self.maps is not None else {}
+        maps = self._maps_in_use(mesh)
+        factors = maps.factors if maps is not None else {}
+        texture = self._texture_for(mesh)
         has_orm = "orm" in found
         # With a packed map the factors scale it (glTF: 1.0 when unspecified).
         metallic = factors.get("metallicFactor")
         roughness = factors.get("roughnessFactor")
-        look = {"color": "#d8dadd"} if self.texture is None else {}
+        look = {"color": "#d8dadd"} if texture is None else {}
         actor = self.plotter.add_mesh(
             self._tangent_cache[1],
             pbr=True,
@@ -871,8 +927,8 @@ class AdaptiveRemesherWindow(QMainWindow):
             edge_color="#101114",
             **look,
         )
-        if self.texture is not None:
-            actor.prop.SetBaseColorTexture(self._albedo_texture())
+        if texture is not None:
+            actor.prop.SetBaseColorTexture(self._albedo_texture(texture))
         if "normal" in found:
             actor.prop.SetNormalTexture(self._texture_of(found["normal"]))
             actor.prop.SetNormalScale(factors.get("normalScale") or 1.0)
@@ -937,7 +993,7 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         if not has_mesh:
             texture_reason: Optional[str] = no_mesh
-        elif self.texture is None:
+        elif self._texture_for(self.decimated_mesh if has_result else self.original_mesh) is None:
             texture_reason = (
                 "The loaded file has no texture image the viewer can read "
                 "(supported: the base-colour image of a glTF/GLB, or the "
@@ -982,6 +1038,14 @@ class AdaptiveRemesherWindow(QMainWindow):
             bake_reason = None
         set_available(self.bake_btn, bake_reason)
         set_available(self.bake_size_combo, bake_reason)
+        if bake_reason is None and not xatlas_available():
+            rebake_reason: Optional[str] = (
+                "Needs the optional xatlas package (pip install xatlas; it is built "
+                "from source and needs a C++ compiler on Windows)."
+            )
+        else:
+            rebake_reason = bake_reason
+        set_available(self.rebake_btn, rebake_reason)
 
         mesh_reason = None if has_mesh else no_mesh
         for w in (
@@ -1186,6 +1250,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         # The pipeline works on bare geometry; give the result the source's UV back.
         self.decimated_mesh = transfer_texture_coords(self.original_mesh, result.mesh)
         self.baked_normal = None  # a new result needs its own bake
+        self.result_maps = None
         self.show_mesh(self.decimated_mesh, is_original=False)
         # If any protection tool was already active before decimating,
         # disable it: from now on it would work against the decimated
@@ -1281,6 +1346,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._push_undo()
         self.decimated_mesh = None
         self.baked_normal = None
+        self.result_maps = None
         self.show_mesh(self.original_mesh, is_original=True)
         self.update_stats(self.original_mesh)
         self._refresh_protection_overlay()
@@ -1313,6 +1379,33 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.show_normals_cb.setChecked(True)
         self._on_curvature_toggled(True)  # redraws the current mesh
 
+    def rebake_textures_now(self):
+        """Gives the decimated result its own, new texture atlas (xatlas) and
+        bakes every map of the model onto it from the original: colour,
+        metallic-roughness, occlusion and emissive are resampled, and a new
+        normal map is baked. The new layout has no stretched or overlapping
+        faces and its size is chosen here, but it needs the optional `xatlas`
+        package."""
+        if self.original_mesh is None or self.decimated_mesh is None:
+            return
+        size = int(self.bake_size_combo.currentText())
+        source_maps = dataclasses.replace(self.maps) if self.maps is not None else MaterialMaps()
+        if source_maps.base is None and self.texture is not None:
+            source_maps.base = np.ascontiguousarray(self.texture.to_array())
+        try:
+            with busy_cursor():
+                new_mesh = reparametrize(self.decimated_mesh, size=size)
+                new_maps = bake_material_maps(self.original_mesh, new_mesh, source_maps, size=size)
+        except Exception as exc:
+            QMessageBox.critical(self, "Error re-baking the textures", str(exc))
+            return
+        self._push_undo()
+        self.decimated_mesh = new_mesh
+        self.result_maps = new_maps
+        self.baked_normal = None
+        self.show_mesh(new_mesh, is_original=False)
+        self.update_stats(new_mesh)
+
     def open_comparison(self):
         """Opens the side-by-side comparison dialog; requires a decimation to already have been applied."""
         if self.original_mesh is None or self.decimated_mesh is None:
@@ -1330,6 +1423,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             background=bg_color,
             show_edges=self.show_edges_cb.isChecked(),
             texture=self.texture if self.show_texture_cb.isChecked() else None,
+            decimated_texture=self._texture_for(self.decimated_mesh) if self.show_texture_cb.isChecked() else None,
         )
         dialog.exec()
 
@@ -1337,11 +1431,9 @@ class AdaptiveRemesherWindow(QMainWindow):
         """The material maps that go with `mesh`: the loaded file's maps, with
         the baked normal map replacing the original's when `mesh` is the
         decimated result; None if there is nothing to keep."""
-        base = (
-            np.ascontiguousarray(np.flipud(self.texture.to_array()))
-            if self.texture is not None
-            else None
-        )
+        if mesh is self.decimated_mesh and self.result_maps is not None:
+            return dataclasses.replace(self.result_maps) if self.result_maps.available() else None
+        base = np.ascontiguousarray(self.texture.to_array()) if self.texture is not None else None
         maps = dataclasses.replace(self.maps) if self.maps is not None else MaterialMaps()
         if maps.base is None:
             maps.base = base
@@ -1369,9 +1461,8 @@ class AdaptiveRemesherWindow(QMainWindow):
             else:
                 mesh.save(path)
                 if mesh_has_texture_coords(mesh):
-                    save_texture_with_mesh(
-                        path, self.texture, normal_map=maps.normal if maps is not None else None
-                    )
+                    colour = map_to_texture(maps.base) if maps is not None and maps.base is not None else self.texture
+                    save_texture_with_mesh(path, colour, normal_map=maps.normal if maps is not None else None)
             if self.export_report_cb.isChecked() and self._last_run_info is not None:
                 report_path = f"{os.path.splitext(path)[0]}_report.json"
                 with open(report_path, "w", encoding="utf-8") as f:
@@ -1395,6 +1486,8 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         decimation = self._gather_decimation_settings()
         protection = self._gather_protection_settings()
+        if self._seam_auto and mesh_has_texture_coords(mesh):
+            protection.protect_uv_seams = should_protect_uv_seams(mesh)  # decided per file
         result = run_decimation_pipeline(mesh, decimation, protection, manual_mask=None)
 
         info = {
@@ -1590,6 +1683,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         )
         self.brush_slider.setValue(get("brush_radius_pct", self.brush_slider.value()))
         self.protect_uv_seams_cb.setChecked(get("protect_uv_seams", self.protect_uv_seams_cb.isChecked()))
+        self._seam_auto = False  # a preset is an explicit choice
         self.engine_combo.setCurrentIndex(get("engine_index", self.engine_combo.currentIndex()))
         self.reduction_slider.setValue(get("reduction_pct", self.reduction_slider.value()))
         self.angle_slider.setValue(get("feature_angle", self.angle_slider.value()))

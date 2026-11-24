@@ -213,6 +213,7 @@ class ComparisonDialog(QDialog):
         background: str = VIEWPORT_BACKGROUND_PRESETS[0][1],
         show_edges: bool = True,
         texture: Optional[pv.Texture] = None,
+        decimated_texture: Optional[pv.Texture] = None,
     ):
         """Builds the dialog with two sub-views of the same QtInteractor and
         frames the camera on the original. `background` matches the main
@@ -241,7 +242,7 @@ class ComparisonDialog(QDialog):
         )
 
         self.plotter.subplot(0, 1)
-        self.plotter.add_mesh(decimated, show_edges=show_edges, edge_color="#101114", **self._look(decimated, texture))
+        self.plotter.add_mesh(decimated, show_edges=show_edges, edge_color="#101114", **self._look(decimated, decimated_texture or texture))
         self.plotter.add_text(
             f"Decimated: {decimated.n_points} vert / {decimated.n_cells} tris",
             color="white",

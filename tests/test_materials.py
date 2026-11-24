@@ -9,9 +9,14 @@ from PIL import Image
 
 from materials import (
     MaterialMaps,
+    bake_material_maps,
+    bake_maps,
     bake_normal_map,
     load_material_maps,
+    map_to_texture,
     orm_image,
+    reparametrize,
+    xatlas_available,
     welded_vertex_normals,
     write_glb,
 )
@@ -64,7 +69,7 @@ def test_write_glb_keeps_geometry_uv_and_maps(tmp_path):
     maps = MaterialMaps(base=base, normal=normal, factors={"roughnessFactor": 0.4, "normalScale": 1.0})
     path = str(tmp_path / "out.glb")
 
-    write_glb(path, mesh, maps)
+    write_glb(path, mesh, maps, jpeg_quality=None)
 
     back = load_material_maps(path)
     assert back is not None and back.available() == ["base", "normal"]
@@ -168,3 +173,84 @@ def test_orm_image_without_occlusion_is_white_and_none_without_maps():
     mr = np.full((2, 2, 3), (7, 100, 200), dtype=np.uint8)
     assert (orm_image(MaterialMaps(metal_rough=mr))[..., 0] == 255).all()  # glTF: no occlusion map, no occlusion
     assert orm_image(MaterialMaps(base=mr)) is None
+
+
+def _gradient(size=256):
+    ramp = np.linspace(0, 255, size, dtype=np.uint8)
+    return np.stack([np.tile(ramp, (size, 1)), np.tile(ramp[:, None], (1, size)), np.full((size, size), 90, np.uint8)], axis=2)
+
+
+def test_write_glb_stores_colour_as_smaller_jpeg(tmp_path):
+    import os
+
+    mesh = _textured_sphere(12)
+    normal = np.full((256, 256, 3), (128, 128, 255), dtype=np.uint8)
+    # A photograph-like image (noisy): PNG cannot compress it, JPEG can.
+    photo = np.random.default_rng(0).integers(60, 200, (256, 256, 3), dtype=np.uint8)
+    png, jpg = str(tmp_path / "png.glb"), str(tmp_path / "jpg.glb")
+
+    write_glb(png, mesh, MaterialMaps(base=photo, normal=normal), jpeg_quality=None)
+    write_glb(jpg, mesh, MaterialMaps(base=photo, normal=normal))
+    assert os.path.getsize(jpg) < os.path.getsize(png)
+
+    smooth = MaterialMaps(base=_gradient(), normal=normal)
+    write_glb(jpg, mesh, smooth)
+    back = load_material_maps(jpg)
+    assert np.abs(back.base.astype(int) - smooth.base.astype(int)).mean() < 3  # close, not identical
+    np.testing.assert_array_equal(back.normal, normal)  # data maps stay lossless
+
+
+def test_bake_maps_resamples_a_colour_map_onto_the_same_layout():
+    high = _textured_sphere(24)
+    image = _gradient(128)
+
+    baked = bake_maps(high, high, {"base": image}, size=64, bake_normal=False)
+
+    assert set(baked) == {"base"} and baked["base"].shape == (64, 64, 3)
+    small = np.asarray(__import__("PIL.Image", fromlist=["Image"]).fromarray(image).resize((64, 64)))
+    assert np.abs(baked["base"].astype(int) - small.astype(int)).mean() < 12  # same picture at 64 px
+
+
+import pytest
+
+
+@pytest.mark.skipif(not xatlas_available(), reason="optional package xatlas not installed")
+def test_rebake_moves_the_colour_onto_a_new_atlas():
+    high = _textured_sphere(40)
+    image = _gradient(256)
+    maps = MaterialMaps(base=image)
+    bare = pv.PolyData(high.points.copy(), high.faces.copy())
+    low = reparametrize(decimate_qem(bare, 0.8, True, False, 1.0, False), size=128)
+    assert low.active_texture_coordinates is not None
+    assert low.active_texture_coordinates.min() >= -1e-6 and low.active_texture_coordinates.max() <= 1 + 1e-6
+
+    new = bake_material_maps(high, low, maps, size=128)
+
+    # Compare, at low's vertices, the colour read through the new atlas with the colour read through the old one.
+    from scipy.spatial import cKDTree
+
+    uv_new = np.asarray(low.active_texture_coordinates)
+    px = np.clip((uv_new[:, 0] * 127).round().astype(int), 0, 127)
+    py = np.clip(((1 - uv_new[:, 1]) * 127).round().astype(int), 0, 127)
+    colour_new = new.base[py, px].astype(float)
+    _, near = cKDTree(high.points).query(low.points)
+    uv_old = np.asarray(high.active_texture_coordinates)[near]
+    away_from_seam = (uv_old[:, 0] > 0.1) & (uv_old[:, 0] < 0.9)
+    ox = np.clip((uv_old[:, 0] * 255).round().astype(int), 0, 255)
+    oy = np.clip(((1 - uv_old[:, 1]) * 255).round().astype(int), 0, 255)
+    colour_old = image[oy, ox].astype(float)
+    assert np.abs(colour_new - colour_old)[away_from_seam].mean() < 25
+
+
+def test_map_to_texture_matches_pyvista_file_reader(tmp_path):
+    # Top half red, bottom half blue. pyvista's own reader is the ground truth for orientation:
+    # a texture built from the array must equal the one read from the saved image, not its mirror.
+    image = np.zeros((6, 4, 3), dtype=np.uint8)
+    image[:3] = (255, 0, 0)
+    image[3:] = (0, 0, 255)
+    Image.fromarray(image).save(tmp_path / "probe.png")
+
+    from_array = map_to_texture(image).to_array()
+    from_file = pv.read_texture(str(tmp_path / "probe.png")).to_array()
+
+    np.testing.assert_array_equal(from_array, from_file)

@@ -120,8 +120,13 @@ def build_protection_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
         "that form a UV seam (where the texture is cut when unwrapping) "
         "and protects them automatically, in addition to your manual "
         "marks. Without this, decimating can break the texture right "
-        "at the seam. Does nothing if the mesh has no UVs."
+        "at the seam. Does nothing if the mesh has no UVs. On loading, "
+        "it is turned off by itself when the seams cover 15% or more of "
+        "the vertices (a fragmented texture atlas), because freezing them "
+        "then limits the reduction and degrades the geometry; your own "
+        "choice is respected from then on."
     ))
+    window.protect_uv_seams_cb.clicked.connect(window._on_seam_option_clicked)
     protect_grid.addWidget(window.protect_uv_seams_cb, 5, 0, 1, 2)
 
     panel_layout.addWidget(protect_group)
