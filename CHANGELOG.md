@@ -24,8 +24,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   factors. Since the result keeps the original's UV, every map stays valid on
   it, and "Export mesh" can now write GLB, which keeps all of them (OBJ/PLY
   keep the colour texture and the normal map, the latter as `map_Bump`).
-- "Show normal map" option: shades the model with its normal map (VTK PBR with
-  tangents, which it needs for the map to have any effect).
+- "Show material maps (PBR)" option: shades the model with its normal,
+  roughness, metallic, occlusion and emissive maps (VTK PBR; tangents are
+  computed because a normal map has no effect without them, and roughness,
+  metallic and occlusion are packed into the ORM image VTK expects).
 - "Bake normal map" button (512 to 4096 px): bakes a tangent-space normal map
   for the decimated result from the original and the original's own normal map,
   so the shading of the removed detail comes back without triangles. Each

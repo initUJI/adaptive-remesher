@@ -327,3 +327,20 @@ def test_export_maps_use_the_baked_normal_for_the_result(loaded_window, tmp_path
     write_glb(path, window.decimated_mesh, maps)
     back = load_material_maps(path)
     np.testing.assert_array_equal(back.normal, window.baked_normal)
+
+
+def test_material_maps_option_draws_roughness_and_occlusion(loaded_window):
+    import numpy as np
+
+    window = _window_with_textured_model(loaded_window)
+    window.maps.normal = None
+    window.maps.metal_rough = np.full((8, 8, 3), (255, 120, 30), dtype=np.uint8)
+    window.maps.occlusion = np.full((8, 8, 3), 90, dtype=np.uint8)
+    window.texture = pv.Texture(np.full((8, 8, 3), 180, dtype=np.uint8))
+    window._refresh_availability()
+
+    assert window.show_normals_cb.isEnabled()  # roughness/occlusion alone are enough
+    found = window._pbr_maps_for(window.original_mesh)
+    assert set(found) == {"orm"}
+    window.show_normals_cb.setChecked(True)  # redraws through the PBR path without raising
+    assert window.plotter.renderer.actors

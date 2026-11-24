@@ -127,6 +127,33 @@ def map_to_texture(image: np.ndarray) -> pv.Texture:
     return pv.Texture(np.ascontiguousarray(np.flipud(image)))
 
 
+def orm_image(maps: MaterialMaps) -> Optional[np.ndarray]:
+    """The packed occlusion (R), roughness (G), metallic (B) image VTK's PBR
+    shading expects, built from glTF's separate maps: roughness and metallic
+    from `metal_rough`, occlusion from `occlusion` (white, i.e. none, if the
+    material has no occlusion map). None if it has neither map."""
+    if maps.metal_rough is None and maps.occlusion is None:
+        return None
+    reference = maps.metal_rough if maps.metal_rough is not None else maps.occlusion
+    out = np.empty_like(reference)
+    if maps.metal_rough is not None:
+        out[...] = maps.metal_rough
+    else:
+        out[...] = 255  # no roughness/metallic map: factors alone decide
+    if maps.occlusion is not None:
+        occlusion = maps.occlusion
+        if occlusion.shape[:2] != reference.shape[:2]:
+            from PIL import Image
+
+            occlusion = np.asarray(
+                Image.fromarray(occlusion).resize((reference.shape[1], reference.shape[0]))
+            )
+        out[..., 0] = occlusion[..., 0]
+    else:
+        out[..., 0] = 255
+    return out
+
+
 def with_tangents(mesh: pv.PolyData) -> pv.PolyData:
     """A copy of `mesh` with smooth normals and tangents, which VTK's PBR
     shading needs before it applies a normal map (without them the map has no

@@ -55,12 +55,10 @@ def build_view_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout
     window.show_texture_cb.toggled.connect(window._on_curvature_toggled)
     view_grid.addWidget(window.show_texture_cb, 3, 0)
 
-    window.show_normals_cb = QCheckBox("Show normal map")
+    window.show_normals_cb = QCheckBox("Show material maps (PBR)")
     window.show_normals_cb.setChecked(False)
     window.show_normals_cb.setToolTip(tip(
-        "Shades the model with its normal map (the loaded file's own, or "
-        "the one you baked after decimating) using physically based "
-        "lighting, which looks different from the plain view."
+        "Shades the model with the material maps of the loaded file -normal, roughness, metallic, occlusion and emissive- (and the normal map you baked after decimating) using physically based lighting, which looks different from the plain view."
     ))
     window.show_normals_cb.toggled.connect(window._on_curvature_toggled)
     view_grid.addWidget(window.show_normals_cb, 4, 0)

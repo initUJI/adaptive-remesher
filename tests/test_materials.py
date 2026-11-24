@@ -11,6 +11,7 @@ from materials import (
     MaterialMaps,
     bake_normal_map,
     load_material_maps,
+    orm_image,
     welded_vertex_normals,
     write_glb,
 )
@@ -149,3 +150,21 @@ def test_bake_normal_map_nearest_method_still_works():
 
     assert baked.shape == (32, 32, 3)
     assert np.abs(baked[..., 0].astype(int) - 128).mean() < 6
+
+
+def test_orm_image_packs_occlusion_roughness_metallic():
+    mr = np.zeros((4, 4, 3), dtype=np.uint8)
+    mr[..., 1], mr[..., 2] = 100, 200  # roughness, metallic
+    occ = np.zeros((2, 2, 3), dtype=np.uint8)
+    occ[..., 0] = 50  # smaller image: resized to the roughness map
+
+    packed = orm_image(MaterialMaps(metal_rough=mr, occlusion=occ))
+
+    assert packed.shape == (4, 4, 3)
+    assert (packed[..., 0] == 50).all() and (packed[..., 1] == 100).all() and (packed[..., 2] == 200).all()
+
+
+def test_orm_image_without_occlusion_is_white_and_none_without_maps():
+    mr = np.full((2, 2, 3), (7, 100, 200), dtype=np.uint8)
+    assert (orm_image(MaterialMaps(metal_rough=mr))[..., 0] == 255).all()  # glTF: no occlusion map, no occlusion
+    assert orm_image(MaterialMaps(base=mr)) is None

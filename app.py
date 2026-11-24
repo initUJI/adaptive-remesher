@@ -72,6 +72,7 @@ from materials import (
     bake_normal_map,
     load_material_maps,
     map_to_texture,
+    orm_image,
     with_tangents,
     write_glb,
 )
@@ -171,6 +172,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.maps: MaterialMaps | None = None  # every map of the loaded file's material
         self.baked_normal: np.ndarray | None = None  # normal map baked for the decimated result
         self._tangent_cache: tuple | None = None
+        self._map_texture_cache: dict = {}
         self.protected_mask: np.ndarray | None = None
         self.point_kdtree: cKDTree | None = None
         self.protected_actor = None
@@ -781,8 +783,8 @@ class AdaptiveRemesherWindow(QMainWindow):
                 edge_color="#101114",
                 scalar_bar_args={"color": "#e4e6eb"},
             )
-        elif self.show_normals_cb.isChecked() and self._normal_map_for(mesh) is not None:
-            self._add_normal_mapped_mesh(mesh, self._normal_map_for(mesh), edges)
+        elif self.show_normals_cb.isChecked() and self._pbr_maps_for(mesh) is not None:
+            self._add_material_mapped_mesh(mesh, self._pbr_maps_for(mesh), edges)
         elif (
             self.show_texture_cb.isChecked()
             and self.texture is not None
@@ -812,27 +814,75 @@ class AdaptiveRemesherWindow(QMainWindow):
             return self.baked_normal
         return self.maps.normal
 
-    def _add_normal_mapped_mesh(self, mesh: pv.PolyData, normal_map: np.ndarray, edges: bool):
-        """Draws `mesh` with VTK's PBR shading and `normal_map`. PBR needs
-        tangents on the mesh (cached per mesh) for the map to have any effect."""
+    def _pbr_maps_for(self, mesh: pv.PolyData) -> dict | None:
+        """The material maps the viewer can draw on `mesh` (normal, packed
+        occlusion-roughness-metallic, emissive); None if there are none or the
+        mesh has no UV."""
+        if self.maps is None or not mesh_has_texture_coords(mesh):
+            return None
+        found = {
+            "normal": self._normal_map_for(mesh),
+            "orm": orm_image(self.maps),
+            "emissive": self.maps.emissive,
+        }
+        found = {k: v for k, v in found.items() if v is not None}
+        return found or None
+
+    def _texture_of(self, image: np.ndarray) -> pv.Texture:
+        """A pyvista texture for `image`, cached by identity (4k maps are slow to flip and upload every redraw)."""
+        cache = self._map_texture_cache
+        entry = cache.get(id(image))
+        if entry is None or entry[0] is not image:
+            if len(cache) >= 8:
+                cache.clear()
+            entry = (image, map_to_texture(image))
+            cache[id(image)] = entry  # the entry keeps `image` alive, so its id stays unique
+        return entry[1]
+
+    def _albedo_texture(self) -> pv.Texture:
+        """The colour texture flagged as sRGB, which PBR shading expects (the
+        plain view must keep using `self.texture`, unflagged, or it darkens)."""
+        key = ("srgb", id(self.texture))
+        if self._map_texture_cache.get("albedo_key") != key:
+            albedo = pv.Texture(self.texture.to_array())
+            albedo.SetUseSRGBColorSpace(True)
+            self._map_texture_cache["albedo_key"] = key
+            self._map_texture_cache["albedo"] = albedo
+        return self._map_texture_cache["albedo"]
+
+    def _add_material_mapped_mesh(self, mesh: pv.PolyData, found: dict, edges: bool):
+        """Draws `mesh` with VTK's PBR shading and the maps in `found`. PBR needs
+        tangents on the mesh (cached per mesh) for a normal map to have any effect."""
         key = (id(mesh), mesh.n_points)
         if self._tangent_cache is None or self._tangent_cache[0] != key:
             self._tangent_cache = (key, with_tangents(mesh))
         factors = self.maps.factors if self.maps is not None else {}
+        has_orm = "orm" in found
+        # With a packed map the factors scale it (glTF: 1.0 when unspecified).
+        metallic = factors.get("metallicFactor")
+        roughness = factors.get("roughnessFactor")
         look = {"color": "#d8dadd"} if self.texture is None else {}
         actor = self.plotter.add_mesh(
             self._tangent_cache[1],
             pbr=True,
-            metallic=factors.get("metallicFactor") or 0.0,
-            roughness=factors.get("roughnessFactor") or 0.6,
+            metallic=(1.0 if metallic is None else metallic) if has_orm else (metallic or 0.0),
+            roughness=(1.0 if roughness is None else roughness) if has_orm else (roughness or 0.6),
             show_edges=edges,
             edge_color="#101114",
             **look,
         )
         if self.texture is not None:
-            actor.prop.SetBaseColorTexture(self.texture)
-        actor.prop.SetNormalTexture(map_to_texture(normal_map))
-        actor.prop.SetNormalScale(factors.get("normalScale") or 1.0)
+            actor.prop.SetBaseColorTexture(self._albedo_texture())
+        if "normal" in found:
+            actor.prop.SetNormalTexture(self._texture_of(found["normal"]))
+            actor.prop.SetNormalScale(factors.get("normalScale") or 1.0)
+        if has_orm:
+            actor.prop.SetORMTexture(self._texture_of(found["orm"]))
+            actor.prop.SetOcclusionStrength(factors.get("occlusionStrength") or 1.0)
+        if "emissive" in found:
+            actor.prop.SetEmissiveTexture(self._texture_of(found["emissive"]))
+            emissive = factors.get("emissiveFactor") or [1.0, 1.0, 1.0]
+            actor.prop.SetEmissiveFactor(*emissive[:3])
 
     def _refresh_availability(self, *_args):
         """Disables every control that cannot be used in the current state
@@ -909,11 +959,12 @@ class AdaptiveRemesherWindow(QMainWindow):
         if not has_mesh:
             normals_reason: Optional[str] = no_mesh
         elif not mesh_has_texture_coords(shown):
-            normals_reason = "This mesh has no texture coordinates (UV), which a normal map needs."
-        elif self._normal_map_for(shown) is None:
+            normals_reason = "This mesh has no texture coordinates (UV), which material maps need."
+        elif self._pbr_maps_for(shown) is None:
             normals_reason = (
-                "This model has no normal map. Decimate it and press "
-                "\"Bake normal map\" to create one."
+                "This model has no normal, roughness/metallic, occlusion or "
+                "emissive map. Decimate it and press \"Bake normal map\" to "
+                "create a normal map."
             )
         elif self.curvature_cb.isChecked() and self._viewing_original:
             normals_reason = "Not available while the curvature map is on."
