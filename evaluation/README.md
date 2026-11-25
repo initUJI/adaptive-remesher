@@ -66,23 +66,24 @@ current numbers are checked in, and also copied into
 `evaluation_tracker.xlsx`'s `Dataset`/`Exp_B_Refinement_Ablation` sheets).
 Re-run any module to regenerate after a code change.
 
-Real-dataset finding worth flagging: with the original interface repair,
-refinement raised the maximum error on four meshes (trilobite, blastoid,
-lion, heart) because the capping step closed openings that belong to the
-source mesh. The repair now leaves those openings alone and
-`refine_by_error` keeps the best pass, so refinement raises the error on no
-mesh; on the trilobite, blastoid and lion it returns the first result
-unchanged (no pass improved on it). Refinement is still a trade of
-reduction for fidelity, not a strict improvement.
-Aggregate result (current code): `error_max_pooled > threshold` (tau=1%) in
-12/19 models without refinement, vs. 10/19 with it.
+Real-dataset findings worth flagging (current code, results re-run after
+welding coincident vertices before decimation): without refinement 7/19
+meshes exceed tau=1% (median max error 0.80% of the diagonal, worst 3.55%),
+with refinement 5/19 (median 0.73%, worst 1.90%). Refinement lowers the
+error on 5 meshes (elephant, bolt cutters, drill, T. rex tooth, netsuke),
+leaves it unchanged on 14, raises it on none; on the elephant, bolt cutters
+and drill it protects 741-1,131 vertices and the achieved reduction falls to
+-0.3%, 41.9% and 12.0%. The pre-welding results (12/19 above tau, median
+1.96%, barrel 612%) are kept for reference in `results_prewelding/`
+(git-ignored): most of that error came from decimating meshes whose seams
+are stored as duplicated vertices, not from the repair stage.
 
 - **`experiment_d_threshold_sensitivity.py`** — Experiment D (error-
   threshold sensitivity). Sweeps `error_threshold_pct` (0.25/0.5/1.0/2.0/
-  5.0%) at a fixed 90% requested reduction, on 5 representative models
-  (`dataset_catalog.REPRESENTATIVE_MODELS` — a clean baseline, a small
-  model needing many refinement passes, a large organic scan, the "Loewe"
-  anomaly above, and the largest mesh in the dataset). Run:
+  5.0%) at a fixed 90% requested reduction, on the 5 meshes where refinement
+  acted in Experiment B (`dataset_catalog.REPRESENTATIVE_MODELS`: elephant,
+  bolt cutters, drill, T. rex tooth, rat netsuke; chosen after Experiment B,
+  not a random sample). Run:
   `python -u -m evaluation.experiment_d_threshold_sensitivity`.
 - **`experiment_e_reduction_sensitivity.py`** — Experiment E (requested-
   reduction sensitivity). Same 5 models, sweeps the requested reduction
@@ -161,23 +162,26 @@ Aggregate result (current code): `error_max_pooled > threshold` (tau=1%) in
   why), so the sheet's `T_Other = T_Total - SUM(...)` formula reports the
   whole refinement-loop time (error measurement + any repeat decimations
   + repair), not pure overhead — don't read it as the latter in the
-  paper. Total pipeline time ranged from 20 ms (Barrel, 1473 tris) to
-  32.7 s (electrocardiograph, 1.87M tris, and even then only because of
+  paper. Total pipeline time ranged from 18 ms (Barrel, 1473 tris) to
+  30.0 s (electrocardiograph, 1.87M tris, and even then only because of
   the sheer mesh size — 1 refinement iteration, no protection added),
-  median 0.52 s (after the interface-repair fix).
+  median 0.51 s. Total pipeline time ranged from 18 ms to 30.0 s in the latest run.
   Run: `python -u -m evaluation.experiment_runtime`.
 - **`experiment_baselines.py`** — the same 19 models simplified by
   PyMeshLab quadric edge collapse (default and with `preserveboundary`) and
   by fast-simplification, scored with the same bidirectional error, at a
   fixed 90% request and at the reduction Experiment B's refined run
   reached (read from `results/experiment_b.json`, so run Experiment B
-  first). At the same 90% request the median max error is 1.96% of the
-  diagonal for Adaptive Remesher unrefined, 1.94% for MeshLab and 1.69%
-  for fast-simplification; at the reduction refinement reached, MeshLab
-  deviates less than the refined result on all eight meshes below 80%
-  reduction. MeshLab with `preserveboundary` reduced nothing on four
-  meshes and produced a degenerate result on the bolt cutters, so treat it
-  as a note, not a baseline. Needs `pip install pymeshlab fast-simplification`.
+  first). Each baseline also runs on a welded copy of the
+  input (the step Adaptive Remesher applies). At the same 90% request the
+  median max error is 0.80% of the diagonal for Adaptive Remesher
+  unrefined, 1.94% for MeshLab and 1.69% for fast-simplification as loaded,
+  and 0.85% / 0.88% once welded; at the reduction refinement reached,
+  MeshLab (welded) deviates far less than the refined result on the three
+  meshes below 80% reduction (0.04% vs 1.31%, 0.20% vs 1.12%, 0.05% vs
+  1.90%). MeshLab with `preserveboundary` reduced nothing on four meshes
+  and produced a degenerate result on the bolt cutters, so treat it as a
+  note, not a baseline. Needs `pip install pymeshlab fast-simplification`.
   Run: `python -u -m evaluation.experiment_baselines`.
 
 All experiments write raw metrics to `results/*.{csv,json}` (already run

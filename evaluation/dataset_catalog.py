@@ -68,21 +68,16 @@ CATALOG = [
      "Own generation - no third-party license constraint", "Meshy AI text/image-to-3D"),
 ]
 
-# 5 models spanning size/category/behavior, used by the parameter-sweep
-# experiments (D, E) where the sheet templates only have room for a
-# "handful of representative models" x several parameter values, not the
-# full 19-model dataset: a clean, well-behaved baseline (bunny), a small
-# model that needed many refinement iterations in Experiment B (carrot
-# cake), a large organic scan (trilobite), the one real-dataset anomaly
-# where refinement made forward error worse instead of better (lion, see
-# experiment_b_refinement.py's results), and the largest mesh in the
-# dataset (electrocardiograph).
+# The five meshes on which error-guided refinement acted in Experiment B
+# (it protected vertices and lowered the error): the sensitivity sweeps are
+# only informative where the loop does something. Chosen after Experiment B,
+# not a random sample.
 REPRESENTATIVE_FILENAMES = {
-    "stanford_bunny.ply",
-    "carrot_cake.gltf",
-    "trilobite_fossil.glb",
-    "lion_scan_schoenbrunn.glb",
-    "meshy_ai_electrocardiograph.obj",
+    "wooden_elephant.gltf",
+    "bolt_cutters.gltf",
+    "drill.gltf",
+    "trex_tooth_fossil.glb",
+    "rat_netsuke_scan.glb",
 }
 REPRESENTATIVE_MODELS = [
     (cat, fname, display) for cat, fname, display, _url, _lic, _notes in CATALOG

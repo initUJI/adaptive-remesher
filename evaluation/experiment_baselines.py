@@ -76,10 +76,23 @@ def fast_simplification_qem(source: pv.PolyData, reduction_pct: float) -> pv.Pol
     return _faces_to_polydata(points, faces)
 
 
+def _welded(fn):
+    """Run a baseline on the source with coincident vertices welded first (the step Adaptive Remesher applies)."""
+    from remesh_core import _weld_coincident
+
+    def run(mesh, reduction_pct):
+        welded, _ = _weld_coincident(mesh, np.zeros(mesh.n_points, dtype=bool), keep_uv=False)
+        return fn(welded, reduction_pct)
+
+    return run
+
+
 METHODS = [
     ("MeshLab QEM", lambda m, r: meshlab_qem(m, r, False)),
     ("MeshLab QEM (boundary)", lambda m, r: meshlab_qem(m, r, True)),
     ("fast-simplification", fast_simplification_qem),
+    ("MeshLab QEM (welded input)", _welded(lambda m, r: meshlab_qem(m, r, False))),
+    ("fast-simplification (welded input)", _welded(fast_simplification_qem)),
 ]
 
 
