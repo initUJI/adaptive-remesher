@@ -845,6 +845,13 @@ happens when literally nothing is shared) and welds coincident points
 previously-stuck models now reduce normally (31–90%, engine/mesh-dependent);
 an already-connected control mesh (Stanford Bunny) was unaffected.
 
+**Scope note.** This fix is local to `decimate_pro` (plain `PolyData.clean()`, only
+when nothing is shared). It is separate from, and narrower than,
+`_weld_coincident` (section 5.1), which `decimate_with_mask` calls on every
+masked or unmasked decimation for both engines, with tolerance, mask carry-over
+and optional UV handling. The two do not conflict; the 5.6 guard now only matters
+when `decimate_pro` is called directly on an unwelded mesh.
+
 **Symptom 2 — non-manifold edges in the result**, from (it turned out) three
 distinct causes, the third found only after being asked to check this section
 more carefully (see the Update below):
