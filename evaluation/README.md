@@ -73,10 +73,9 @@ with refinement 5/19 (median 0.73%, worst 1.90%). Refinement lowers the
 error on 5 meshes (elephant, bolt cutters, drill, T. rex tooth, netsuke),
 leaves it unchanged on 14, raises it on none; on the elephant, bolt cutters
 and drill it protects 741-1,131 vertices and the achieved reduction falls to
--0.3%, 41.9% and 12.0%. The pre-welding results (12/19 above tau, median
-1.96%, barrel 612%) are kept for reference in `results_prewelding/`
-(git-ignored): most of that error came from decimating meshes whose seams
-are stored as duplicated vertices, not from the repair stage.
+-0.3%, 41.9% and 12.0%. The weld ablation (`experiment_weld_ablation.py`) shows that most of the
+error without the weld comes from decimating meshes whose seams are stored
+as duplicated vertices.
 
 - **`experiment_d_threshold_sensitivity.py`** — Experiment D (error-
   threshold sensitivity). Sweeps `error_threshold_pct` (0.25/0.5/1.0/2.0/
@@ -90,6 +89,13 @@ are stored as duplicated vertices, not from the repair stage.
   (50/70/80/90/95%) at a fixed 1% threshold, reporting whole-mesh vs.
   unprotected-zone-only reduction achieved. Run: `python -u -m
   evaluation.experiment_e_reduction_sensitivity`.
+- **`experiment_weld_ablation.py`** — Experiment B (QEM, 90%, empty mask,
+  tau 1%, 3 iterations) with the weld of coincident vertices switched off
+  (`remesh_core._weld_coincident` replaced by the identity); the weld-on rows
+  are Experiment B. Without the weld: 12/19 meshes above tau (7 with it),
+  median max error 1.96% (0.80%), barrel 612% (worst with weld 3.55%), the
+  loop runs >1 iteration on 12 meshes (7), median reduction of those 46%
+  (89.9%). Run: `python -u -m evaluation.experiment_weld_ablation`.
 - **`experiment_engine_comparison.py`** — vtkDecimatePro vs. QEM, same
   settings, all 19 models, no protection (isolates the engine choice).
   **Finding, now fixed** (`remesh_core.py`'s `_weld_if_fully_disconnected`,
@@ -149,11 +155,8 @@ are stored as duplicated vertices, not from the repair stage.
   seams sometimes survived a 70% decimation and sometimes didn't
   (model-dependent); with protection on, **zero seam vertices were ever
   geometrically lost** (verified by checking their exact coordinates
-  survive in the result, not just assumed) — but UV *data* itself never
-  survived the protected path either, on any model, confirming the
-  existing caveat (`_weld_seam_gaps` rebuilds the mesh from bare arrays
-  with no point_data) with real measured numbers instead of just a prose
-  note. Run: `python -u -m evaluation.experiment_uv_seam_detection`.
+  survive in the result, not just assumed) — and after `transfer_texture_coords` (as the app does) the result has exactly
+  the expected number of seam vertices on every model (12, 20, 32, 32, 40). Run: `python -u -m evaluation.experiment_uv_seam_detection`.
 - **`experiment_runtime.py`** — wall-clock cost of the default pipeline,
   all 19 models. Only `T_Decimation` (the single initial
   `decimate_with_mask` call) is cleanly separable from outside

@@ -52,6 +52,7 @@ from remesh_core import (
     DecimationSettings,
     decimate,
     decimate_with_mask,
+    transfer_texture_coords,
     uv_seam_point_mask,
 )
 from evaluation.uv_seam_test_meshes import all_seam_test_meshes
@@ -159,12 +160,15 @@ def run_model(seam_mesh, engine: int = ENGINE_QEM) -> list:
     if detected_n:
         on_result = decimate_with_mask(source, detected_mask, settings, zone_stats={})
         seam_points = source.points[detected_mask]
-        n_present = _points_present(on_result.points, seam_points, tol)
+        on_geometry = on_result
+        on_result = transfer_texture_coords(source, on_geometry)  # as the application does after decimation
+        n_present = _points_present(on_geometry.points, seam_points, tol)
         on_collapsed = "No" if n_present == detected_n else "Yes"
     else:
         on_result = decimate(source, settings, lock_boundary=False)
         on_collapsed = "No"
     on_uv_preserved = on_result.active_texture_coordinates is not None
+    on_seams_after = int(uv_seam_point_mask(on_result).sum()) if on_uv_preserved else 0
 
     return [
         {
@@ -172,12 +176,14 @@ def run_model(seam_mesh, engine: int = ENGINE_QEM) -> list:
             "detected_seam_vertices": detected_n, "uv_protection_on": "No",
             "seam_vertices_collapsed": off_collapsed,
             "uv_data_preserved_after_merge": "Yes" if off_uv_preserved else "No",
+            "seam_vertices_in_result": int(uv_seam_point_mask(off_result).sum()) if off_uv_preserved else 0,
         },
         {
             "model": seam_mesh.name, "expected_seam_vertices": expected_n,
             "detected_seam_vertices": detected_n, "uv_protection_on": "Yes",
             "seam_vertices_collapsed": on_collapsed,
             "uv_data_preserved_after_merge": "Yes" if on_uv_preserved else "No",
+            "seam_vertices_in_result": on_seams_after,
         },
     ]
 
