@@ -725,10 +725,35 @@ the best pass (strictly lower pooled maximum error than the current result;
 the first result is the baseline). After both changes refinement raised the
 error on none of the 19 meshes, but on three of them (trilobite, blastoid,
 lion) it returns the first result unchanged, and the evaluation did not
-separate how much is due to each change. Tests:
+separate how much is due to each change. (Superseded by the next paragraph:
+the dominant cause of those errors turned out to be unwelded input.) Tests:
 [`test_decimate_with_mask_leaves_source_opening_open`](tests/test_remesh_core.py)
 and
 [`test_refine_by_error_never_returns_worse_than_initial_result`](tests/test_remesh_core.py).
+
+**Coincident vertices are welded before every decimation — fixed (the dominant
+cause of the large errors).** Exports often store each face, or each texture
+seam, with its own copies of the vertices. The decimators treat the copies as
+unrelated points, so QEM collapses across them and the surface tears. At a 90%
+request on the 19 evaluation meshes, welding first lowered the median maximum
+error from 1.96% to 0.80% of the diagonal, the worst case from 612% to 3.55%,
+and the meshes above the 1% threshold from 12 to 7; refinement now acts
+(loop ran more than one iteration) on 7 meshes instead of 12, with a median
+reduction of 89.9% for those. `_weld_coincident(source, mask, keep_uv)`
+([remesh_core.py](remesh_core.py)) merges points within 1e-9 of the diagonal,
+drops degenerate faces, carries the mask (a merged point is protected if any
+copy was) and, only when a mask is active (`keep_uv=mask.any()`), keeps the
+first copy's UV so the UV term still regularizes the unprotected zone; with an
+empty mask it welds geometry alone (keeping UV there gave errors of 64–328%
+on fragmented seam masks). The weld moves no point, so error is still measured
+against the original source. Baselines (MeshLab, fast-simplification) run on a
+welded input reach 0.85% and 0.88% median, on par with the unrefined result
+(0.80%): the weld, not the split-decimate-merge procedure, explains the
+difference with the same simplifiers on unwelded input. The earlier diagnosis
+(capping of source openings, previous paragraph) was real but not the main
+cause. UV seam protection is now automatic: it is turned off when seam
+vertices exceed `SEAM_FREEZE_LIMIT` (15% of vertices) because frozen seams then
+cost more error than free ones in all 8 meshes tested.
 
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
