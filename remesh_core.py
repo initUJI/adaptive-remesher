@@ -9,7 +9,7 @@ button) and batch processing share a single pipeline instead of two
 nearly identical copies.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as dataclass_replace
 from typing import Optional
 
 import numpy as np
@@ -621,6 +621,10 @@ class ProtectionSettings:
     auto_error_protection: bool = True
     error_threshold_pct: float = 1.0
     error_max_iterations: int = 3
+    # If protecting violating zones cannot bring the error under the
+    # threshold, decimate less (in steps of `reduction_step_pct`) until it is.
+    lower_reduction_if_needed: bool = True
+    reduction_step_pct: float = 5.0
 
 
 @dataclass
@@ -685,6 +689,8 @@ class PipelineResult:
     error_p95_rev: float
     error_refine_iterations: int
     error_refine_added_points: int
+    # Requested reduction actually used when `lower_reduction_if_needed` had to lower it.
+    reduction_lowered_to_pct: Optional[float] = None
 
 
 def load_and_prepare_mesh(path: str, clean: Optional[CleanSettings]) -> pv.PolyData:
@@ -1288,6 +1294,38 @@ def refine_by_error(
     return result, mask, stats, iterations, added_total
 
 
+def lower_reduction_to_meet_error(
+    source: pv.PolyData,
+    mask: np.ndarray,
+    settings: DecimationSettings,
+    error_threshold_pct: float,
+    step_pct: float = 5.0,
+):
+    """Decimates less, in steps of `step_pct` below `settings.reduction_pct`,
+    and returns the first result whose pooled maximum error is within the
+    threshold: protecting violating zones cannot always reach it (a small
+    mesh simplified by 90% deviates everywhere), whereas a lower reduction
+    can. The error is not monotonic in the reduction, so the steps are
+    scanned in order and not bisected. Returns (result, ErrorStats, zone_stats,
+    requested reduction) or None if no step meets the threshold."""
+    threshold = (error_threshold_pct / 100.0) * source.length
+    distance_to_source = vtk.vtkImplicitPolyDataDistance()
+    distance_to_source.SetInput(source)
+    pct = settings.reduction_pct - step_pct
+    while pct >= step_pct:
+        zone: dict = {}
+        result = decimate_with_mask(
+            source, mask, dataclass_replace(settings, reduction_pct=pct), zone_stats=zone
+        )
+        if result.n_cells:
+            fwd, _, rev, _ = measure_bidirectional_error(source, result, distance_to_source)
+            stats = bidirectional_error_summary(fwd, rev)
+            if stats.max <= threshold:
+                return result, stats, zone, pct
+        pct -= step_pct
+    return None
+
+
 def run_decimation_pipeline(
     mesh: pv.PolyData,
     decimation: DecimationSettings,
@@ -1330,11 +1368,33 @@ def run_decimation_pipeline(
         )
 
     iterations = added = 0
+    lowered_to = None
     if protection.auto_error_protection:
+        mask_before_refinement = mask.copy()
         result, mask, error_stats, iterations, added = refine_by_error(
             mesh, result, mask, decimation, protection.error_threshold_pct,
             protection.error_max_iterations, zone_stats=zone_stats,
         )
+        threshold_abs = (protection.error_threshold_pct / 100.0) * mesh.length
+        refined_reduction = 100.0 * (1 - result.n_cells / mesh.n_cells)
+        within = error_stats.max <= threshold_abs
+        # Protecting violating zones either failed to reach the threshold or
+        # reached it by keeping most of the mesh: decimating less may do better.
+        if protection.lower_reduction_if_needed and (
+            not within or refined_reduction < decimation.reduction_pct - protection.reduction_step_pct
+        ):
+            lowered = lower_reduction_to_meet_error(
+                mesh, mask_before_refinement, decimation,
+                protection.error_threshold_pct, protection.reduction_step_pct,
+            )
+            if lowered is not None:
+                candidate, candidate_stats, candidate_zone, candidate_pct = lowered
+                if not within or 100.0 * (1 - candidate.n_cells / mesh.n_cells) > refined_reduction:
+                    result, error_stats, zone_stats, lowered_to = (
+                        candidate, candidate_stats, candidate_zone, candidate_pct,
+                    )
+                    mask = mask_before_refinement
+                    iterations = added = 0
         if result.n_cells == 0:
             raise ValueError(
                 "Decimation left the mesh with no faces. Try a lower "
@@ -1382,4 +1442,5 @@ def run_decimation_pipeline(
         error_p95_rev=error_stats.p95_rev,
         error_refine_iterations=iterations,
         error_refine_added_points=added,
+        reduction_lowered_to_pct=lowered_to,
     )

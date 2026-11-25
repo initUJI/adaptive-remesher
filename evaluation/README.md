@@ -96,6 +96,14 @@ as duplicated vertices.
   median max error 1.96% (0.80%), barrel 612% (worst with weld 3.55%), the
   loop runs >1 iteration on 12 meshes (7), median reduction of those 46%
   (89.9%). Run: `python -u -m evaluation.experiment_weld_ablation`.
+- **`experiment_error_bounded.py`** — Experiment B's configuration through
+  `run_decimation_pipeline` with `lower_reduction_if_needed` on. All 19 meshes
+  end within the 1% threshold (max 0.97%): 14 keep 90%; barrel 60.1%, carrot
+  cake 75.0%, elephant 75.0%, drill 75.0%, bolt cutters 85.1% (refinement
+  alone: 5 meshes above the threshold and -0.3%, 41.9%, 12.0% reduction on
+  three). MeshLab/fast-simplification on welded input at the same reduction
+  are comparable (0.73-1.26% / 0.75-1.54%). Run:
+  `python -u -m evaluation.experiment_error_bounded`.
 - **`experiment_engine_comparison.py`** — vtkDecimatePro vs. QEM, same
   settings, all 19 models, no protection (isolates the engine choice).
   **Finding, now fixed** (`remesh_core.py`'s `_weld_if_fully_disconnected`,

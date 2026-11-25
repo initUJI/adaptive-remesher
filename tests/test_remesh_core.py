@@ -762,3 +762,22 @@ def test_seam_vertex_fraction_and_policy(uv_seam_mesh, sphere_mesh):
     shattered.active_texture_coordinates = np.random.default_rng(0).random((len(points), 2))
     assert seam_vertex_fraction(shattered) > 0.9
     assert not should_protect_uv_seams(shattered)
+
+
+def test_pipeline_lowers_the_reduction_when_protection_cannot_meet_the_limit():
+    mesh = pv.Sphere(theta_resolution=40, phi_resolution=40).triangulate()
+    decimation = DecimationSettings(engine=ENGINE_QEM, reduction_pct=98.0)
+    off = run_decimation_pipeline(
+        mesh, decimation,
+        ProtectionSettings(protect_uv_seams=False, auto_error_protection=True,
+                           error_threshold_pct=0.1, lower_reduction_if_needed=False),
+    )
+    on = run_decimation_pipeline(
+        mesh, decimation,
+        ProtectionSettings(protect_uv_seams=False, auto_error_protection=True,
+                           error_threshold_pct=0.1, lower_reduction_if_needed=True),
+    )
+    assert off.reduction_real_pct < 50.0  # protecting the violations kept most of the mesh
+    assert on.reduction_lowered_to_pct is not None and on.reduction_lowered_to_pct < 98.0
+    assert on.error_max <= 0.001 * mesh.length
+    assert on.reduction_real_pct > off.reduction_real_pct

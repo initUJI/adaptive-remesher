@@ -4,6 +4,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (error-bounded reduction)
+- `ProtectionSettings.lower_reduction_if_needed` (default on, checkbox "Lower the
+  reduction if the limit cannot be met") and `lower_reduction_to_meet_error`:
+  when protecting violating zones cannot bring the error under the threshold,
+  or reaches it by keeping most of the mesh, the pipeline also tries requested
+  reductions lowered in steps of 5 points and keeps the result with the higher
+  reduction that meets the threshold. On the 19 evaluation meshes (QEM, 90%,
+  1%) all now meet the threshold: 14 keep 90%, the others get 60-85%, where
+  refinement alone left 5 above the threshold at -0.3% to 90%.
+  `reduction_lowered_to_pct` is in `PipelineResult` and the JSON report.
+- Evaluation: `experiment_error_bounded.py`, `experiment_weld_ablation.py`.
+
 ### Added (textures and viewer)
 - The decimated result keeps its texture coordinates. `transfer_texture_coords`
   (`remesh_core.py`) copies the source's UV onto a mesh rebuilt from bare

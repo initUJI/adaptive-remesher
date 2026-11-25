@@ -70,4 +70,16 @@ def build_validation_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     window.error_max_iterations_spin.setToolTip(error_max_iterations_tip)
     error_grid.addWidget(window.error_max_iterations_spin, 4, 0, 1, 2)
 
+    window.lower_reduction_cb = QCheckBox("Lower the reduction if the limit cannot be met")
+    window.lower_reduction_cb.setChecked(True)
+    window.lower_reduction_cb.setToolTip(tip(
+        "If protecting the high-error areas cannot bring the error "
+        "under the maximum, decimates less (in steps of 5 points below "
+        "the requested reduction) until it does. Small or detailed "
+        "meshes often cannot be reduced by 90% within 1% error; "
+        "protecting areas then keeps most of the mesh, whereas a "
+        "lower reduction keeps the error within the limit."
+    ))
+    error_grid.addWidget(window.lower_reduction_cb, 5, 0, 1, 2)
+
     panel_layout.addWidget(error_group)

@@ -162,6 +162,7 @@ class AdaptiveRemesherWindow(QMainWindow):
     auto_error_cb: QCheckBox
     error_threshold_spin: QDoubleSpinBox
     error_max_iterations_spin: QSpinBox
+    lower_reduction_cb: QCheckBox
     export_report_cb: QCheckBox
 
     def __init__(self) -> None:
@@ -988,6 +989,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             self.error_threshold_spin,
             self.error_max_iterations_label,
             self.error_max_iterations_spin,
+            self.lower_reduction_cb,
         ):
             set_available(w, auto_reason)
 
@@ -1219,6 +1221,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             auto_error_protection=self.auto_error_cb.isChecked(),
             error_threshold_pct=self.error_threshold_spin.value(),
             error_max_iterations=self.error_max_iterations_spin.value(),
+            lower_reduction_if_needed=self.lower_reduction_cb.isChecked(),
         )
 
     def apply_decimation(self):
@@ -1280,6 +1283,11 @@ class AdaptiveRemesherWindow(QMainWindow):
                 f"({result.error_refine_iterations} pass(es), "
                 f"+{result.error_refine_added_points} points auto-protected)"
                 f"{error_direction_note}"
+                + (
+                    "\nThe error limit needed a lower reduction: decimated with a request of "
+                    f"{result.reduction_lowered_to_pct:.0f}% instead of {decimation.reduction_pct:.0f}%."
+                    if result.reduction_lowered_to_pct is not None else ""
+                )
             )
         else:
             error_note = (
@@ -1337,6 +1345,7 @@ class AdaptiveRemesherWindow(QMainWindow):
                 "error_threshold_pct": protection.error_threshold_pct,
                 "error_refine_iterations": result.error_refine_iterations,
                 "error_refine_added_points": result.error_refine_added_points,
+                "reduction_lowered_to_pct": result.reduction_lowered_to_pct,
             })
 
     def reset_mesh(self):
@@ -1518,6 +1527,7 @@ class AdaptiveRemesherWindow(QMainWindow):
                 "error_threshold_pct": protection.error_threshold_pct,
                 "error_refine_iterations": result.error_refine_iterations,
                 "error_refine_added_points": result.error_refine_added_points,
+                "reduction_lowered_to_pct": result.reduction_lowered_to_pct,
             })
         return {"mesh": transfer_texture_coords(mesh, result.mesh), "info": info}
 
@@ -1660,6 +1670,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             "auto_error_protection": self.auto_error_cb.isChecked(),
             "error_threshold_pct": self.error_threshold_spin.value(),
             "error_max_iterations": self.error_max_iterations_spin.value(),
+            "lower_reduction_if_needed": self.lower_reduction_cb.isChecked(),
             "export_report": self.export_report_cb.isChecked(),
         }
 
@@ -1705,6 +1716,9 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.error_threshold_spin.setValue(get("error_threshold_pct", self.error_threshold_spin.value()))
         self.error_max_iterations_spin.setValue(
             get("error_max_iterations", self.error_max_iterations_spin.value())
+        )
+        self.lower_reduction_cb.setChecked(
+            get("lower_reduction_if_needed", self.lower_reduction_cb.isChecked())
         )
         self.export_report_cb.setChecked(get("export_report", self.export_report_cb.isChecked()))
 

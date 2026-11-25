@@ -755,6 +755,18 @@ cause. UV seam protection is now automatic: it is turned off when seam
 vertices exceed `SEAM_FREEZE_LIMIT` (15% of vertices) because frozen seams then
 cost more error than free ones in all 8 meshes tested.
 
+**Error-bounded reduction (`lower_reduction_if_needed`).** On small or detailed
+meshes a 90% request cannot meet a 1% error limit, and protecting violating
+vertices cannot help: partial protection leaves the error unchanged (tested with
+a worst-error-first budget, reverted) and full protection keeps the mesh.
+`lower_reduction_to_meet_error` scans requested reductions downward in steps of
+`reduction_step_pct` (5; the error is not monotonic in the reduction, so no
+bisection) with the pre-refinement mask and returns the first result within the
+threshold. `run_decimation_pipeline` runs it when refinement fails the threshold
+or keeps less than `reduction - step`, and keeps the candidate if refinement
+failed or the candidate reduces more. Evaluation: all 19 meshes within 1%
+(barrel 60.1%, carrot cake/elephant/drill 75%, bolt cutters 85.1%, others 90%).
+
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
 `_apply_rect_selection()` ([app.py:560](app.py:560)) kept its cheap
