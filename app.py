@@ -76,6 +76,7 @@ from materials import (
     bake_normal_map,
     best_normal_map,
     default_bake_size,
+    new_atlas,
     load_material_maps,
     map_to_texture,
     orm_image,
@@ -149,6 +150,7 @@ class AdaptiveRemesherWindow(QMainWindow):
     protect_uv_seams_cb: QCheckBox
     cut_seams_cb: QCheckBox
     auto_bake_cb: QCheckBox
+    new_atlas_cb: QCheckBox
     engine_combo: QComboBox
     reduction_slider: QSlider
     reduction_value_label: QLabel
@@ -1051,6 +1053,10 @@ class AdaptiveRemesherWindow(QMainWindow):
             bake_reason = None
         set_available(self.bake_btn, bake_reason)
         set_available(self.bake_size_combo, bake_reason)
+        set_available(
+            self.new_atlas_cb,
+            None if xatlas_available() else "The optional xatlas package is not installed (pip install xatlas).",
+        )
         if bake_reason is None and not xatlas_available():
             rebake_reason: Optional[str] = (
                 "Needs the optional xatlas package (pip install xatlas; it is built "
@@ -1496,6 +1502,18 @@ class AdaptiveRemesherWindow(QMainWindow):
             maps.normal = self.baked_normal
         return maps if maps.available() else None
 
+    def _wants_new_atlas(self, mesh: pv.PolyData, maps: MaterialMaps | None) -> bool:
+        """Whether an export should give `mesh` a new atlas: the option is on, xatlas is
+        installed, and there is a textured model to bake from."""
+        return (
+            self.new_atlas_cb.isChecked()
+            and self.new_atlas_cb.isEnabled()
+            and self.original_mesh is not None
+            and mesh_has_texture_coords(mesh)
+            and maps is not None
+            and maps.available()
+        )
+
     def export_mesh(self):
         """Saves the decimated mesh to disk (or the original if none has
         been decimated) in the chosen format. If checked and a previous
@@ -1511,6 +1529,9 @@ class AdaptiveRemesherWindow(QMainWindow):
             return
         try:
             maps = self._maps_for_export(mesh)
+            if mesh is self.decimated_mesh and self._wants_new_atlas(mesh, maps):
+                with busy_cursor():
+                    mesh, maps = new_atlas(self.original_mesh, mesh, maps)
             if path.lower().endswith(".glb"):
                 write_glb(path, mesh, maps)
             else:
@@ -1652,7 +1673,13 @@ class AdaptiveRemesherWindow(QMainWindow):
                 out_name = os.path.splitext(filename)[0] + f".{ext}"
                 out_path = os.path.join(output_dir, out_name)
                 file_maps = load_material_maps(src_path)
-                if self.auto_bake_cb.isChecked() and file_maps is not None and file_maps.normal is not None:
+                if (
+                    self.new_atlas_cb.isChecked() and self.new_atlas_cb.isEnabled()
+                    and file_maps is not None and file_maps.available()
+                    and mesh_has_texture_coords(processed["mesh"])
+                ):
+                    processed["mesh"], file_maps = new_atlas(processed["source"], processed["mesh"], file_maps)
+                elif self.auto_bake_cb.isChecked() and file_maps is not None and file_maps.normal is not None:
                     baked, _ = best_normal_map(
                         processed["source"], processed["mesh"], file_maps, self._bake_size(file_maps)
                     )

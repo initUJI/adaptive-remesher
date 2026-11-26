@@ -526,41 +526,40 @@ def shading_normal_error(source: pv.PolyData, result: pv.PolyData, source_normal
 
 
 def default_bake_size(maps: Optional["MaterialMaps"], cap: int = 2048) -> int:
-    """Pixels per side for a baked map: that of the model's own normal map, from 512
-    to `cap` (a 4096-pixel source map baked at 1024 loses its detail), or 1024
-    without one."""
-    if maps is None or maps.normal is None:
+    """Pixels per side for a baked map: that of the model's own normal map (or, without one,
+    of its colour map), from 512 to `cap` (a 4096-pixel source map baked at 1024 loses its
+    detail), or 1024 without either."""
+    image = None if maps is None else (maps.normal if maps.normal is not None else maps.base)
+    if image is None:
         return 1024
-    return int(min(cap, max(512, maps.normal.shape[0])))
+    return int(min(cap, max(512, image.shape[0])))
 
 
-BAKE_CANDIDATES = (("rays", 3.0), ("rays", 1.0), ("nearest", 3.0))
+BAKE_CANDIDATES = (("rays", 3.0), ("nearest", 3.0), ("compatible", 3.0))
+_CANDIDATE_NAMES = {"rays": "rays 3% cage", "nearest": "nearest point", "compatible": "nearest facing point"}
 
 
 def best_normal_map(high: pv.PolyData, low: pv.PolyData, maps: "MaterialMaps", size: int = 1024):
-    """Bakes normal maps for `low` from `high` (and `high`'s own normal map) with each
-    of `BAKE_CANDIDATES` (rays from a 3% and from a 1% cage, and the nearest point:
-    the right cage depends on the model, since a wide one hits parts close to the
-    surface and a narrow one misses thin parts) and keeps the one whose shading
-    normals (`shading_normal_error`, mean angle at sampled points) differ least from
-    `high`'s, unless `high`'s own map carried over on the transferred UV is closer.
-    `low` must share `high`'s atlas. Returns (baked image or None to keep the carried
-    map, info with the mean angles in degrees of the carried map, of the best baked one,
-    and the method that gave it)."""
+    """Bakes normal maps for `low` from `high` (and `high`'s own normal map) with each of
+    `BAKE_CANDIDATES` (rays from a cage, the nearest point, and the nearest point on a
+    triangle that faces the same way: a ray can hit a part close to the surface and a
+    plain nearest point can jump to a part behind it, and which one is right depends on
+    the model) and keeps the one whose shading normals (`shading_normal_error`, mean
+    angle at sampled points) differ least from `high`'s, unless `high`'s own map carried
+    over on the transferred UV is closer. The candidates are baked together, sharing
+    the texel positions and locators. `low` must share `high`'s atlas. Returns (baked
+    image or None to keep the carried map, info with the mean angles in degrees of the
+    carried map and of the best baked one, and the method that gave it)."""
     if maps is None or maps.normal is None:
         return None, {}
     scale = maps.factors.get("normalScale") or 1.0
-    candidates = {}
-    for method, cage in BAKE_CANDIDATES:
-        candidates[(method, cage)] = bake_normal_map(
-            high, low, size=size, high_normal_map=maps.normal, high_normal_scale=scale, method=method, cage_pct=cage
-        )
-    names = {key: "%s %g%%" % key if key[0] == "rays" else "nearest point" for key in candidates}
-    err = shading_normal_error(high, low, maps.normal, {"carried": maps.normal, **{names[k]: v for k, v in candidates.items()}})
-    best_key = min(candidates, key=lambda k: err[names[k]]["mean"])
-    baked_mean = err[names[best_key]]["mean"]
-    info = {"carried_mean_deg": err["carried"]["mean"], "baked_mean_deg": baked_mean, "baked_method": names[best_key]}
-    return (candidates[best_key] if baked_mean < err["carried"]["mean"] else None), info
+    images = bake_normal_variants(high, low, BAKE_CANDIDATES, size=size, high_normal_map=maps.normal, high_normal_scale=scale)
+    names = [_CANDIDATE_NAMES[method] for method, _ in BAKE_CANDIDATES]
+    err = shading_normal_error(high, low, maps.normal, {"carried": maps.normal, **dict(zip(names, images))})
+    best = min(range(len(images)), key=lambda i: err[names[i]]["mean"])
+    baked_mean = err[names[best]]["mean"]
+    info = {"carried_mean_deg": err["carried"]["mean"], "baked_mean_deg": baked_mean, "baked_method": names[best]}
+    return (images[best] if baked_mean < err["carried"]["mean"] else None), info
 
 
 def texture_error(source: pv.PolyData, result: pv.PolyData, image: np.ndarray, n: int = 20000, seed: int = 0) -> dict:
@@ -626,11 +625,31 @@ def bake_maps(
     `low`'s smooth normal from a cage `cage_pct` % of the bounding-box
     diagonal above the surface and takes the first triangle of `high` it meets;
     a texel whose ray misses keeps `low`'s own normal (identity) in the normal
-    map and the nearest point of `high` for the colour maps.
-    `method="nearest"` matches the nearest point instead (no cage to tune). The
-    colour maps always use the nearest point. Empty
-    texels are filled from the nearest covered one so bilinear filtering does
-    not bleed across charts."""
+    map. `method="nearest"` matches the nearest point instead (no cage to tune),
+    and `method="compatible"` the nearest point on a triangle that faces the same
+    way as `low` there (it does not jump to a part behind or beside it). The
+    colour maps always use the nearest point. Empty texels are filled from the
+    nearest covered one so bilinear filtering does not bleed across charts."""
+    return _bake([(method, cage_pct)], high, low, sources, size, bake_normal, high_normal_map, high_normal_scale, progress, chunk)[0]
+
+
+def bake_normal_variants(
+    high: pv.PolyData,
+    low: pv.PolyData,
+    variants,
+    size: int = 1024,
+    high_normal_map: Optional[np.ndarray] = None,
+    high_normal_scale: float = 1.0,
+    progress: Optional[Callable[[float], None]] = None,
+    chunk: int = 300_000,
+) -> list:
+    """Normal maps for `low` from `high`, one per entry of `variants` (pairs
+    (method, cage_pct), see `bake_maps`), computed together: the texel positions,
+    the locators and the frames are shared, which is most of the cost of a bake."""
+    return [out["normal"] for out in _bake(list(variants), high, low, None, size, True, high_normal_map, high_normal_scale, progress, chunk)]
+
+
+def _bake(variants, high, low, sources, size, bake_normal, high_normal_map, high_normal_scale, progress, chunk) -> list:
     import vtk
 
     from remesh_core import _closest_point_barycentric  # same module family; imported lazily
@@ -650,34 +669,74 @@ def bake_maps(
     h_n = welded_vertex_normals(high)
     h_t, h_b = _triangle_frames(h_pts, h_uv, h_tri)
     a, b, c = h_pts[h_tri[:, 0]], h_pts[h_tri[:, 1]], h_pts[h_tri[:, 2]]
+    h_face_n = _normalized(np.cross(b - a, c - a))
     tree = cKDTree((a + b + c) / 3.0)
     locator = None
-    if method == "rays":
+    if any(m == "rays" for m, _ in variants):
         locator = vtk.vtkStaticCellLocator()
         locator.SetDataSet(high)
         locator.BuildLocator()
-    cage = cage_pct / 100.0 * float(high.length)
+    diagonal = float(high.length)
 
-    def nearest(p):
-        _, cand = tree.query(p, k=min(8, len(h_tri)))
-        cand = np.asarray(cand).reshape(len(p), -1)
-        best = cand[:, 0].copy()
-        best_d = np.full(len(p), np.inf)
-        for j in range(cand.shape[1]):
-            ht = cand[:, j]
-            _, d = _closest_point_barycentric(p, a[ht], b[ht], c[ht])
-            better = d < best_d
-            best[better], best_d[better] = ht[better], d[better]
+    def nearest(p, n_low=None, base=None):
+        """Nearest triangle to each point (and its barycentric point). With `n_low`, a point
+        whose nearest triangle faces away from it (dot of normals under 0.5) takes the nearest
+        among more candidates that face the same way, when there is one. `base`, the result of
+        the plain call for the same points, saves repeating it."""
+        if base is not None:
+            best = base[0].copy()
+        else:
+            _, cand = tree.query(p, k=min(8, len(h_tri)))
+            cand = np.asarray(cand).reshape(len(p), -1)
+            best = cand[:, 0].copy()
+            best_d = np.full(len(p), np.inf)
+            for j in range(cand.shape[1]):
+                ht = cand[:, j]
+                _, d = _closest_point_barycentric(p, a[ht], b[ht], c[ht])
+                better = d < best_d
+                best[better], best_d[better] = ht[better], d[better]
+        if n_low is not None:
+            bad = np.flatnonzero(np.einsum("ij,ij->i", h_face_n[best], n_low) <= 0.5)
+            if bad.size:
+                pb, nb = p[bad], n_low[bad]
+                _, wide = tree.query(pb, k=min(32, len(h_tri)))
+                wide = np.asarray(wide).reshape(len(pb), -1)
+                new_best = best[bad].copy()
+                new_d = np.full(len(pb), np.inf)
+                for j in range(wide.shape[1]):
+                    ht = wide[:, j]
+                    _, d = _closest_point_barycentric(pb, a[ht], b[ht], c[ht])
+                    d = np.where(np.einsum("ij,ij->i", h_face_n[ht], nb) > 0.5, d, np.inf)
+                    better = d < new_d
+                    new_best[better], new_d[better] = ht[better], d[better]
+                found = np.isfinite(new_d)  # none facing the same way: keep the plain nearest
+                best[bad[found]] = new_best[found]
+        if base is not None and n_low is None:
+            return base
         hb, _ = _closest_point_barycentric(p, a[best], b[best], c[best])
         return best, hb
+
+    def match(method, cage_pct, p, n_low, base):
+        if method == "rays":
+            cage = cage_pct / 100.0 * diagonal
+            # From the cage inwards along -normal: the first hit is the outermost surface.
+            best, hit_points, hit = _ray_hits(locator, p + n_low * cage, -n_low, 2.0 * cage)
+            best = np.where(hit, best, 0)
+            hb, _ = _closest_point_barycentric(np.where(hit[:, None], hit_points, p), a[best], b[best], c[best])
+            return best, hb, hit
+        best, hb = nearest(p, n_low if method == "compatible" else None, base)
+        return best, hb, np.ones(len(p), dtype=bool)
 
     cover = _rasterize(l_uv, l_tri, size)
     ys, xs = np.nonzero(cover >= 0)
     tid_all = cover[ys, xs]
-    outputs: Dict[str, np.ndarray] = {name: np.zeros((size, size, 3), dtype=np.uint8) for name in sources}
-    if bake_normal:
-        outputs["normal"] = np.zeros((size, size, 3), dtype=np.uint8)
-        outputs["normal"][...] = (128, 128, 255)
+    outputs = []
+    for _ in variants:
+        out = {name: np.zeros((size, size, 3), dtype=np.uint8) for name in sources}
+        if bake_normal:
+            out["normal"] = np.zeros((size, size, 3), dtype=np.uint8)
+            out["normal"][...] = (128, 128, 255)
+        outputs.append(out)
     total = len(ys)
     for start in range(0, total, chunk):
         sl = slice(start, min(start + chunk, total))
@@ -695,50 +754,47 @@ def bake_maps(
         p = w[:, 0:1] * l_pts[i0] + w[:, 1:2] * l_pts[i1] + w[:, 2:3] * l_pts[i2]
         n_low = _normalized(w[:, 0:1] * l_n[i0] + w[:, 1:2] * l_n[i1] + w[:, 2:3] * l_n[i2])
 
-        if method == "rays":
-            # From the cage inwards along -normal: the first hit is the outermost surface.
-            best, hit_points, hit = _ray_hits(locator, p + n_low * cage, -n_low, 2.0 * cage)
-            best = np.where(hit, best, 0)
-            hb, _ = _closest_point_barycentric(np.where(hit[:, None], hit_points, p), a[best], b[best], c[best])
-        else:
-            best, hb = nearest(p)
-            hit = np.ones(len(p), dtype=bool)
-
+        # The nearest point: the colour maps and two of the normal methods use it.
+        base = nearest(p) if (sources or any(m != "rays" for m, _ in variants)) else None
         if sources:
             # A colour map resamples the surface where it is: the nearest point of `high`.
             # (Rays are for the normal map, which projects detail: along a cage they also
             # hit other parts close to the surface, such as limbs near a torso, and the
             # colour would come from there.)
-            c_best, c_hb = (best, hb) if method != "rays" else nearest(p)
+            c_best, c_hb = base
             k0, k1, k2 = h_tri[c_best, 0], h_tri[c_best, 1], h_tri[c_best, 2]
             q_uv = c_hb[:, 0:1] * h_uv[k0] + c_hb[:, 1:2] * h_uv[k1] + c_hb[:, 2:3] * h_uv[k2]
             for name, image in sources.items():
-                outputs[name][y, x] = np.clip(_sample(image, q_uv) + 0.5, 0, 255).astype(np.uint8)
+                colour = np.clip(_sample(image, q_uv) + 0.5, 0, 255).astype(np.uint8)
+                for out in outputs:
+                    out[name][y, x] = colour
 
         if bake_normal:
             t_low, b_low = _frame(n_low, l_t[tid], l_b[tid])
-            j0, j1, j2 = h_tri[best, 0], h_tri[best, 1], h_tri[best, 2]
-            n_high = _normalized(hb[:, 0:1] * h_n[j0] + hb[:, 1:2] * h_n[j1] + hb[:, 2:3] * h_n[j2])
-            if high_normal_map is not None:
-                q_uv = hb[:, 0:1] * h_uv[j0] + hb[:, 1:2] * h_uv[j1] + hb[:, 2:3] * h_uv[j2]
-                m = _sample(high_normal_map, q_uv) / 255.0 * 2.0 - 1.0
-                m[:, :2] *= high_normal_scale
-                t_h, b_h = _frame(n_high, h_t[best], h_b[best])
-                n_high = _normalized(t_h * m[:, 0:1] + b_h * m[:, 1:2] + n_high * m[:, 2:3])
-            local = _normalized(np.column_stack([
-                np.einsum("ij,ij->i", n_high, t_low),
-                np.einsum("ij,ij->i", n_high, b_low),
-                np.einsum("ij,ij->i", n_high, n_low),
-            ]))
-            local[~hit] = (0.0, 0.0, 1.0)  # ray missed: keep the low-poly normal
-            outputs["normal"][y, x] = np.clip((local * 0.5 + 0.5) * 255.0 + 0.5, 0, 255).astype(np.uint8)
+            for (method, cage_pct), out in zip(variants, outputs):
+                best, hb, hit = match(method, cage_pct, p, n_low, base)
+                j0, j1, j2 = h_tri[best, 0], h_tri[best, 1], h_tri[best, 2]
+                n_high = _normalized(hb[:, 0:1] * h_n[j0] + hb[:, 1:2] * h_n[j1] + hb[:, 2:3] * h_n[j2])
+                if high_normal_map is not None:
+                    q_uv = hb[:, 0:1] * h_uv[j0] + hb[:, 1:2] * h_uv[j1] + hb[:, 2:3] * h_uv[j2]
+                    m = _sample(high_normal_map, q_uv) / 255.0 * 2.0 - 1.0
+                    m[:, :2] *= high_normal_scale
+                    t_h, b_h = _frame(n_high, h_t[best], h_b[best])
+                    n_high = _normalized(t_h * m[:, 0:1] + b_h * m[:, 1:2] + n_high * m[:, 2:3])
+                local = _normalized(np.column_stack([
+                    np.einsum("ij,ij->i", n_high, t_low),
+                    np.einsum("ij,ij->i", n_high, b_low),
+                    np.einsum("ij,ij->i", n_high, n_low),
+                ]))
+                local[~hit] = (0.0, 0.0, 1.0)  # ray missed: keep the low-poly normal
+                out["normal"][y, x] = np.clip((local * 0.5 + 0.5) * 255.0 + 0.5, 0, 255).astype(np.uint8)
         if progress is not None:
             progress(min(1.0, sl.stop / max(total, 1)))
 
     empty = cover < 0
     if empty.any() and not empty.all():
         _, (iy, ix) = distance_transform_edt(empty, return_indices=True)
-        outputs = {name: image[iy, ix] for name, image in outputs.items()}
+        outputs = [{name: image[iy, ix] for name, image in out.items()} for out in outputs]
     return outputs
 
 
@@ -803,29 +859,48 @@ def bake_material_maps(
     maps: MaterialMaps,
     size: int = 1024,
     progress: Optional[Callable[[float], None]] = None,
-    method: str = "rays",
+    method: Optional[str] = None,
 ) -> MaterialMaps:
     """Moves a material onto `low`'s own UV layout (typically from
     `reparametrize`): the colour, metallic-roughness, occlusion and emissive
     maps are resampled from `high`'s, and a new normal map is baked that
-    includes `high`'s own normal map. The factors are kept (the normal scale is
-    already applied, so it is reset)."""
+    includes `high`'s own normal map. The normal map is baked with each of
+    `BAKE_CANDIDATES` together and the one whose shading normals are closest to
+    `high`'s is kept (`method` forces a single one: "rays", "nearest" or
+    "compatible"). The factors are kept (the normal scale is already applied,
+    so it is reset)."""
     sources = {
         name: getattr(maps, name)
         for name in ("base", "metal_rough", "occlusion", "emissive")
         if getattr(maps, name) is not None
     }
     scale = maps.factors.get("normalScale") or 1.0
-    baked = bake_maps(
-        high, low, sources, size, True, maps.normal, scale, progress, method=method
-    )
+    variants = list(BAKE_CANDIDATES) if method is None else [(method, 3.0)]
+    outputs = _bake(variants, high, low, sources, size, True, maps.normal, scale, progress, 300_000)
+    best = outputs[0]
+    if len(outputs) > 1:
+        errors = shading_normal_error(high, low, maps.normal, {str(i): out["normal"] for i, out in enumerate(outputs)})
+        best = outputs[min(range(len(outputs)), key=lambda i: errors[str(i)]["mean"])]
     factors = dict(maps.factors)
     factors["normalScale"] = None
     return MaterialMaps(
-        base=baked.get("base"),
-        normal=baked.get("normal"),
-        metal_rough=baked.get("metal_rough"),
-        occlusion=baked.get("occlusion"),
-        emissive=baked.get("emissive"),
+        base=best.get("base"),
+        normal=best.get("normal"),
+        metal_rough=best.get("metal_rough"),
+        occlusion=best.get("occlusion"),
+        emissive=best.get("emissive"),
         factors=factors,
     )
+
+
+def new_atlas(high: pv.PolyData, result: pv.PolyData, maps: MaterialMaps, size: Optional[int] = None,
+              progress: Optional[Callable[[float], None]] = None):
+    """The result of a decimation with a new texture layout and its maps: `result` is
+    parameterized again with xatlas (`reparametrize`: a few large charts packed without
+    overlap, no face stretched across a seam) and every map of `high`'s material is
+    baked onto it (`bake_material_maps`). At the size of the model's own maps (up to
+    2048 pixels) unless `size` says otherwise. Needs the optional `xatlas` package.
+    Returns (mesh with the new UV, MaterialMaps)."""
+    size = default_bake_size(maps) if size is None else size
+    low = reparametrize(result, size=size)
+    return low, bake_material_maps(high, low, maps, size=size, progress=progress)

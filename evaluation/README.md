@@ -134,9 +134,10 @@ exceeds it, and on 1 (vegetable garden) the reverse.
   pipeline, 20,000 points). Median mean: 21.1 deg with no normal map, 13.5 with
   the source map carried over, 6.4 with a map baked at the source map's size (up
   to 2048 px) with rays from a 3% cage, 5.7 with the application's choice
-  (`best_normal_map`: best of rays 3%, rays 1% and nearest point, or the carried map;
-  nearest point on 3 meshes, rays 1% on 2, rays 3% on 2; 95th pct 29.3 deg, worst mesh
-  the bolt cutters at 17.9). Run: `python -u -m evaluation.experiment_normal_shading`.
+  (`best_normal_map`: best of rays 3%, nearest point and nearest facing point, or the
+  carried map; nearest point on 3 meshes, facing point on 2, rays on 2; 95th pct 29.6 deg,
+  worst mesh the bolt cutters at 13.8) and 2.5 deg (95th pct 11.1, worst 10.9) with the
+  new-atlas export option (`new_atlas`, every map baked onto an xatlas layout). Run: `python -u -m evaluation.experiment_normal_shading`.
 - **`experiment_error_sampling.py`** — the unrefined 90% result measured again
   with a lattice of 105 points per result face and 28 per source face (meshes of up
   to 40,000 faces) as an independent reference for the sampled maximum. Result

@@ -72,6 +72,20 @@ def build_action_buttons(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLa
     ))
     panel_layout.addWidget(window.auto_bake_cb)
 
+    window.new_atlas_cb = QCheckBox("New texture atlas when exporting (xatlas)")
+    window.new_atlas_cb.setChecked(True)
+    window.new_atlas_cb.setToolTip(tip(
+        "When saving a textured result, gives it a new texture layout "
+        "(no face stretched across a seam, no overlaps) and bakes every map "
+        "of the model onto it from the original. It was the most faithful way "
+        "to keep the texture in the evaluation (0.4% median colour error at "
+        "90% reduction, against 1.0% for the original layout carried over) "
+        "but it replaces the model's own layout and takes from seconds to a "
+        "minute or two. The viewer keeps showing the carried layout. Needs "
+        "the optional xatlas package."
+    ))
+    panel_layout.addWidget(window.new_atlas_cb)
+
     window.rebake_btn = QPushButton("Re-bake all textures (new atlas)")
     window.rebake_btn.setToolTip(tip(
         "Gives the decimated result a new texture layout (no stretched "

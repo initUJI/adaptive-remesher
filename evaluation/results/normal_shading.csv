@@ -1,8 +1,8 @@
-model,category,output_tris,bake_size,carried_mean_deg,carried_p95_deg,baked_mean_deg,baked_p95_deg,none_mean_deg,none_p95_deg,application_keeps,choice_mean_deg,choice_p95_deg,choice_method
-"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,1882,1024,18.68,127.814,6.431,15.937,22.417,130.69,baked,2.327,6.941,nearest point
-Statuette of a Woman in Hunting Clothes,Characters,17000,1024,20.575,150.994,7.883,53.27,21.089,151.637,baked,3.601,10.513,nearest point
-Barrel 03,Objects,532,2048,8.756,45.983,5.88,29.629,8.86,42.625,baked,5.781,29.308,rays 1%
-Carrot Cake,Objects,2924,2048,7.326,33.482,5.707,15.781,21.597,52.391,baked,5.707,15.781,rays 3%
-Carved Wooden Elephant,Objects,602,2048,11.963,34.084,5.998,32.245,14.754,36.98,baked,5.472,32.007,nearest point
-Bolt Cutters 01,Mechanical,443,2048,20.746,62.664,17.872,72.722,24.851,60.747,baked,17.872,72.722,rays 3%
-Drill 01,Mechanical,693,2048,13.475,48.56,14.768,76.909,19.006,61.323,baked,11.198,65.564,rays 1%
+model,category,output_tris,bake_size,carried_mean_deg,carried_p95_deg,baked_mean_deg,baked_p95_deg,none_mean_deg,none_p95_deg,application_keeps,choice_mean_deg,choice_p95_deg,choice_method,new_atlas_mean_deg,new_atlas_p95_deg
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,1882,1024,18.68,127.814,6.431,15.937,22.417,130.69,baked,2.327,6.941,nearest point,1.548,5.322
+Statuette of a Woman in Hunting Clothes,Characters,17000,1024,20.575,150.994,7.883,53.27,21.089,151.637,baked,3.601,10.513,nearest point,1.034,3.175
+Barrel 03,Objects,532,2048,8.756,45.983,5.88,29.629,8.86,42.625,baked,5.88,29.629,rays 3% cage,2.487,11.146
+Carrot Cake,Objects,2924,2048,7.326,33.482,5.707,15.781,21.597,52.391,baked,5.707,15.781,rays 3% cage,5.898,16.221
+Carved Wooden Elephant,Objects,602,2048,11.963,34.084,5.998,32.245,14.754,36.98,baked,5.472,32.007,nearest point,1.299,4.731
+Bolt Cutters 01,Mechanical,443,2048,20.746,62.664,17.872,72.722,24.851,60.747,baked,13.766,63.623,nearest facing point,10.854,58.908
+Drill 01,Mechanical,693,2048,13.475,48.56,14.768,76.909,19.006,61.323,baked,9.533,55.071,nearest facing point,7.18,48.512

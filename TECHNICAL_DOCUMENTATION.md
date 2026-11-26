@@ -792,8 +792,8 @@ only part of the shading (shading-normal angle vs the source: 21.1 deg with none
 13.5 carried, 6.4 baked, median over the 7 meshes with a normal map). After each
 decimation the application bakes a map (`bake_normal_map`, size from the combo; "Auto"
 is the size of the model's normal map up to 2048 px, `default_bake_size`) and
-`best_normal_map` bakes with three methods (rays from a 3% and a 1% cage, nearest point;
-no single cage suits every model) and keeps the best one only if `shading_normal_error`
+`best_normal_map` bakes with three methods (rays from a 3% cage, nearest point, nearest point on
+a triangle that faces the same way; no single one suits every model) and keeps the best one only if `shading_normal_error`
 on sampled points is lower than for the carried map (baking loses on the drill; at 1024 px it also lost
 on the carrot cake, whose source map is 4096 px). Checkbox `auto_bake_cb`; the batch export does the same.
 
@@ -803,6 +803,13 @@ matched to the source by the nearest point of the source, not by a ray along the
 (10% mean error). Rays are kept for the normal map only. With that, a new xatlas atlas baked
 at 2048 px gives 0.40% median colour error at 89.9% reduction (carried UV: 1.03%; best of the
 configurations measured) but replaces the source's layout and needs xatlas.
+
+**New atlas on export (`materials.new_atlas`).** With the atlas of the source carried over, almost
+all appearance error is UV stretch at seams; a new xatlas layout with every map baked from the
+source removes it: 0.40% colour and 2.5 deg shading-normal error (medians, 13 / 7 meshes), against
+1.03% and 13.5 deg. It replaces the model's layout and takes seconds to minutes, so the app does it
+when exporting (checkbox `new_atlas_cb`, also in batch) and not at every Apply. `bake_material_maps`
+bakes the normal map with all candidates together (`_bake`, shared work) and keeps the best.
 
 ### 5.2. Rectangle selection now does real depth testing — fixed
 

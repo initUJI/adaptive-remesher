@@ -329,3 +329,20 @@ def test_map_errors_compares_the_source_image_with_the_result_image():
     assert map_errors(plane, plane, MaterialMaps(base=other_image), n=300, source_maps=source_maps)["base"]["mean"] > 5.0
     # The floor is geometric only and does not depend on the result's image.
     assert map_errors(plane, plane, MaterialMaps(base=other_image), n=300, source_maps=source_maps)["base"]["floor_mean"] < 1e-6
+
+
+@pytest.mark.skipif(not xatlas_available(), reason="xatlas is not installed")
+def test_new_atlas_gives_the_result_its_own_uv_and_maps():
+    from materials import MaterialMaps, default_bake_size, new_atlas
+
+    high = _textured_sphere(30)
+    image = (np.random.default_rng(3).random((64, 64, 3)) * 255).astype(np.uint8)
+    maps = MaterialMaps(base=image, normal=np.full((64, 64, 3), (128, 128, 255), np.uint8))
+    assert default_bake_size(maps) == 512  # at least 512 pixels
+
+    bare = pv.PolyData(np.asarray(high.points).copy(), high.faces.copy())
+    low, new_maps = new_atlas(high, decimate_qem(bare, 0.7, True, False, 1.0, False), maps, size=128)
+
+    assert low.active_texture_coordinates is not None
+    assert new_maps.base.shape == (128, 128, 3) and new_maps.normal.shape == (128, 128, 3)
+    assert default_bake_size(MaterialMaps(base=np.zeros((4096, 4096, 3), np.uint8))) == 2048

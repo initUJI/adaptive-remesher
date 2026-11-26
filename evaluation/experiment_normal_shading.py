@@ -19,7 +19,7 @@ import json
 import os
 
 import remesh_core as rc
-from materials import best_normal_map, bake_normal_map, default_bake_size, load_material_maps, shading_normal_error
+from materials import best_normal_map, bake_normal_map, default_bake_size, load_material_maps, new_atlas, shading_normal_error, xatlas_available
 from evaluation.dataset_catalog import CATALOG, MODELS_ROOT
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
@@ -42,6 +42,10 @@ def main():
         baked = bake_normal_map(source, low, size=size, high_normal_map=maps.normal, high_normal_scale=maps.factors.get("normalScale") or 1.0)
         err = shading_normal_error(source, low, maps.normal, {"carried": maps.normal, "baked": baked, "none": None})
         chosen, info = best_normal_map(source, low, maps, size)
+        atlas = None
+        if xatlas_available():  # the export option: a new atlas with every map baked onto it
+            new_mesh, new_maps = new_atlas(source, res.mesh, maps, size)
+            atlas = shading_normal_error(source, new_mesh, maps.normal, {"atlas": new_maps.normal})["atlas"]
         pick = shading_normal_error(source, low, maps.normal, {"choice": chosen if chosen is not None else maps.normal})["choice"]
         rows.append({
             "model": display, "category": cat, "output_tris": low.n_cells, "bake_size": size,
@@ -51,6 +55,8 @@ def main():
             "application_keeps": "baked" if chosen is not None else "carried",
             "choice_mean_deg": round(pick["mean"], 3), "choice_p95_deg": round(pick["p95"], 3),
             "choice_method": info["baked_method"] if chosen is not None else "carried",
+            "new_atlas_mean_deg": None if atlas is None else round(atlas["mean"], 3),
+            "new_atlas_p95_deg": None if atlas is None else round(atlas["p95"], 3),
         })
         r = rows[-1]
         print(f"{display[:28]:28} carried {r['carried_mean_deg']:6.2f}  baked {r['baked_mean_deg']:6.2f}  none {r['none_mean_deg']:6.2f}  keeps {r['application_keeps']}", flush=True)

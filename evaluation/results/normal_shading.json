@@ -13,7 +13,9 @@
     "application_keeps": "baked",
     "choice_mean_deg": 2.327,
     "choice_p95_deg": 6.941,
-    "choice_method": "nearest point"
+    "choice_method": "nearest point",
+    "new_atlas_mean_deg": 1.548,
+    "new_atlas_p95_deg": 5.322
   },
   {
     "model": "Statuette of a Woman in Hunting Clothes",
@@ -29,7 +31,9 @@
     "application_keeps": "baked",
     "choice_mean_deg": 3.601,
     "choice_p95_deg": 10.513,
-    "choice_method": "nearest point"
+    "choice_method": "nearest point",
+    "new_atlas_mean_deg": 1.034,
+    "new_atlas_p95_deg": 3.175
   },
   {
     "model": "Barrel 03",
@@ -43,9 +47,11 @@
     "none_mean_deg": 8.86,
     "none_p95_deg": 42.625,
     "application_keeps": "baked",
-    "choice_mean_deg": 5.781,
-    "choice_p95_deg": 29.308,
-    "choice_method": "rays 1%"
+    "choice_mean_deg": 5.88,
+    "choice_p95_deg": 29.629,
+    "choice_method": "rays 3% cage",
+    "new_atlas_mean_deg": 2.487,
+    "new_atlas_p95_deg": 11.146
   },
   {
     "model": "Carrot Cake",
@@ -61,7 +67,9 @@
     "application_keeps": "baked",
     "choice_mean_deg": 5.707,
     "choice_p95_deg": 15.781,
-    "choice_method": "rays 3%"
+    "choice_method": "rays 3% cage",
+    "new_atlas_mean_deg": 5.898,
+    "new_atlas_p95_deg": 16.221
   },
   {
     "model": "Carved Wooden Elephant",
@@ -77,7 +85,9 @@
     "application_keeps": "baked",
     "choice_mean_deg": 5.472,
     "choice_p95_deg": 32.007,
-    "choice_method": "nearest point"
+    "choice_method": "nearest point",
+    "new_atlas_mean_deg": 1.299,
+    "new_atlas_p95_deg": 4.731
   },
   {
     "model": "Bolt Cutters 01",
@@ -91,9 +101,11 @@
     "none_mean_deg": 24.851,
     "none_p95_deg": 60.747,
     "application_keeps": "baked",
-    "choice_mean_deg": 17.872,
-    "choice_p95_deg": 72.722,
-    "choice_method": "rays 3%"
+    "choice_mean_deg": 13.766,
+    "choice_p95_deg": 63.623,
+    "choice_method": "nearest facing point",
+    "new_atlas_mean_deg": 10.854,
+    "new_atlas_p95_deg": 58.908
   },
   {
     "model": "Drill 01",
@@ -107,8 +119,10 @@
     "none_mean_deg": 19.006,
     "none_p95_deg": 61.323,
     "application_keeps": "baked",
-    "choice_mean_deg": 11.198,
-    "choice_p95_deg": 65.564,
-    "choice_method": "rays 1%"
+    "choice_mean_deg": 9.533,
+    "choice_p95_deg": 55.071,
+    "choice_method": "nearest facing point",
+    "new_atlas_mean_deg": 7.18,
+    "new_atlas_p95_deg": 48.512
   }
 ]

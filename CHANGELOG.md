@@ -4,8 +4,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (new atlas on export) / Changed (normal candidates, speed)
+- "New texture atlas when exporting (xatlas)" (on when xatlas is installed): the saved result gets
+  a new xatlas layout with every map baked from the source (`materials.new_atlas`), single export
+  and batch. The viewer keeps the carried layout, so applying a decimation stays fast. Evaluated:
+  colour 0.40% median at 89.9% (carried UV 1.03%), shading-normal angle 2.5 deg (95th pct 11.1,
+  worst 10.9) vs 5.7 (29.6, 13.8) with the best carried-layout bake and 13.5 carried.
+- Normal bake candidates are now rays from a 3% cage, the nearest point, and the nearest point on a
+  triangle that faces the same way (`method="compatible"`); the 1% cage is gone (it never won once
+  the facing method existed). Bolt cutters 17.9 -> 13.8 deg, drill 14.8 -> 9.5. Median of the
+  choice 5.7 deg (95th pct 29.6).
+- `bake_normal_variants` / `_bake` bake several methods together sharing texel positions, locators,
+  frames and the nearest-point pass (the compatible method only searches more candidates where the
+  nearest triangle faces away): the selection costs about 25-27 s at 2048 px instead of 44-55 s.
+- `bake_material_maps` bakes the normal map with all candidates and keeps the best.
+- `default_bake_size` uses the colour map's size when there is no normal map.
+
 ### Changed (normal map: best of three bakes)
-- `best_normal_map` bakes with `BAKE_CANDIDATES` (rays from a 3% cage, rays from a 1% cage,
+- (superseded by the entry above) `best_normal_map` bakes with `BAKE_CANDIDATES` (rays from a 3% cage, rays from a 1% cage,
   nearest point) and keeps the one with the lowest shading-normal angle, or the carried map
   if that is closer: no single cage suits every model (1% or nearest: 7.9 -> 3.6 deg on the
   hunting-clothes statuette, 14.8 -> 11.2 on the drill; 1%: 17.9 -> 34.9 on the bolt cutters).
