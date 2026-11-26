@@ -372,14 +372,11 @@ def _sample(image: np.ndarray, uv: np.ndarray) -> np.ndarray:
     return top * (1 - fy) + bottom * fy
 
 
-def texture_error(source: pv.PolyData, result: pv.PolyData, image: np.ndarray, n: int = 20000, seed: int = 0) -> dict:
-    """Appearance error of a textured result: `n` points are drawn on the source
-    surface (area-weighted), each is coloured by `image` at its source UV and at
-    the UV of the closest point of `result` (the same image on the result's
-    transferred UV), and the colour difference is reported as a percentage of
-    the full RGB range (L2 norm over sqrt(3)). It captures both the displacement
-    of the geometry and the UV transfer (stretched faces near seams). Returns
-    mean, p95 and max in percent, plus the share of points above 10%."""
+def _uv_pairs(source: pv.PolyData, result: pv.PolyData, n: int, seed: int):
+    """`n` points drawn on the source surface (area-weighted) and, for each, the
+    UV it has on the source, the UV of the closest point of `result`, and the UV
+    of the source where that closest point projects back (the floor from the
+    geometry alone, which no UV transfer can improve on)."""
     from remesh_core import _closest_point_barycentric
 
     s_tri = np.asarray(source.regular_faces)
@@ -398,27 +395,84 @@ def texture_error(source: pv.PolyData, result: pv.PolyData, image: np.ndarray, n
     r_pts = np.asarray(result.points, dtype=float)
     r_uv = np.asarray(result.active_texture_coordinates, dtype=float)
     cell, near = result.find_closest_cell(pts, return_closest_point=True)
-    cell = np.asarray(cell)
+    cell, near = np.asarray(cell), np.asarray(near)
     ra, rb, rc = (r_pts[r_tri[cell, i]] for i in range(3))
     rw, _ = _closest_point_barycentric(pts, ra, rb, rc)
     uv_res = sum(rw[:, i : i + 1] * r_uv[r_tri[cell, i]] for i in range(3))
 
-    colour_src = _sample(image, uv_src)
-    scale = 100.0 / (255.0 * np.sqrt(3.0))
-    err = scale * np.linalg.norm(colour_src - _sample(image, uv_res), axis=1)
-
-    # Floor from the geometry alone: the colour the source has where the result's
-    # closest point projects back onto it, which no UV transfer can improve on.
-    back = np.asarray(source.find_closest_cell(np.asarray(near)))
+    back = np.asarray(source.find_closest_cell(near))
     fa, fb, fc = (s_pts[s_tri[back, i]] for i in range(3))
-    fw, _ = _closest_point_barycentric(np.asarray(near), fa, fb, fc)
+    fw, _ = _closest_point_barycentric(near, fa, fb, fc)
     uv_back = sum(fw[:, i : i + 1] * s_uv[s_tri[back, i]] for i in range(3))
-    floor = scale * np.linalg.norm(colour_src - _sample(image, uv_back), axis=1)
+    return uv_src, uv_res, uv_back
+
+
+def _summary(err: np.ndarray, floor: np.ndarray) -> dict:
     return {
         "mean": float(err.mean()), "p95": float(np.percentile(err, 95)),
         "max": float(err.max()), "share_above_10": float((err > 10.0).mean()),
         "floor_mean": float(floor.mean()), "floor_p95": float(np.percentile(floor, 95)),
     }
+
+
+def _colour_error(image: np.ndarray, uv_a: np.ndarray, uv_b: np.ndarray) -> np.ndarray:
+    """Colour difference between `image` at two sets of UV, in percent of the
+    full RGB range (L2 norm over sqrt(3))."""
+    diff = _sample(image, uv_a) - _sample(image, uv_b)
+    return 100.0 * np.linalg.norm(diff, axis=1) / (255.0 * np.sqrt(3.0))
+
+
+def _normal_angle(image: np.ndarray, uv_a: np.ndarray, uv_b: np.ndarray) -> np.ndarray:
+    """Angle in degrees between the tangent-space normals that `image` stores
+    at two sets of UV."""
+    def decode(uv):
+        v = _sample(image, uv) / 255.0 * 2.0 - 1.0
+        return v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
+
+    cos = np.clip(np.einsum("ij,ij->i", decode(uv_a), decode(uv_b)), -1.0, 1.0)
+    return np.degrees(np.arccos(cos))
+
+
+def _channel_error(image: np.ndarray, channel: int, uv_a: np.ndarray, uv_b: np.ndarray) -> np.ndarray:
+    """Absolute difference of one channel at two sets of UV, in percent."""
+    return 100.0 * np.abs(_sample(image, uv_a)[:, channel] - _sample(image, uv_b)[:, channel]) / 255.0
+
+
+def map_errors(source: pv.PolyData, result: pv.PolyData, maps: "MaterialMaps", n: int = 20000, seed: int = 0) -> dict:
+    """Appearance error of every map the material has, measured like
+    `texture_error` (same points, the same images on the result's transferred
+    UV): the base colour and the emissive map as a colour difference in percent
+    of the RGB range, the normal map as the angle in degrees between the stored
+    normals, roughness (G of the metallic-roughness map), metallic (B) and
+    occlusion (R) as an absolute difference in percent. Each entry has mean,
+    p95 and the floor from the geometry alone, in the same unit."""
+    uv_src, uv_res, uv_back = _uv_pairs(source, result, n, seed)
+    out = {}
+    if maps.base is not None:
+        out["base"] = _summary(_colour_error(maps.base, uv_src, uv_res), _colour_error(maps.base, uv_src, uv_back))
+    if maps.emissive is not None:
+        out["emissive"] = _summary(_colour_error(maps.emissive, uv_src, uv_res), _colour_error(maps.emissive, uv_src, uv_back))
+    if maps.normal is not None:
+        out["normal"] = _summary(_normal_angle(maps.normal, uv_src, uv_res), _normal_angle(maps.normal, uv_src, uv_back))
+    if maps.metal_rough is not None:
+        out["roughness"] = _summary(_channel_error(maps.metal_rough, 1, uv_src, uv_res), _channel_error(maps.metal_rough, 1, uv_src, uv_back))
+        out["metallic"] = _summary(_channel_error(maps.metal_rough, 2, uv_src, uv_res), _channel_error(maps.metal_rough, 2, uv_src, uv_back))
+    if maps.occlusion is not None:
+        out["occlusion"] = _summary(_channel_error(maps.occlusion, 0, uv_src, uv_res), _channel_error(maps.occlusion, 0, uv_src, uv_back))
+    return out
+
+
+def texture_error(source: pv.PolyData, result: pv.PolyData, image: np.ndarray, n: int = 20000, seed: int = 0) -> dict:
+    """Appearance error of a textured result: `n` points are drawn on the source
+    surface (area-weighted), each is coloured by `image` at its source UV and at
+    the UV of the closest point of `result` (the same image on the result's
+    transferred UV), and the colour difference is reported as a percentage of
+    the full RGB range (L2 norm over sqrt(3)). It captures both the displacement
+    of the geometry and the UV transfer (stretched faces near seams). Returns
+    mean, p95 and max in percent, the share of points above 10%, and the floor
+    from the geometry alone."""
+    uv_src, uv_res, uv_back = _uv_pairs(source, result, n, seed)
+    return _summary(_colour_error(image, uv_src, uv_res), _colour_error(image, uv_src, uv_back))
 
 
 def _ray_hits(locator, origins: np.ndarray, directions: np.ndarray, length: float):

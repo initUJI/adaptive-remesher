@@ -1245,22 +1245,52 @@ def _stitch_residual_boundary_gaps(mesh: pv.PolyData, src_boundary=None) -> pv.P
     return pv.PolyData(all_points, all_faces)
 
 
-def measure_error(result: pv.PolyData, distance_fn: "vtk.vtkImplicitPolyDataDistance"):
-    """Absolute distance from each face center of `result` to the
-    implicit surface `distance_fn` (approximates one-directional
-    Hausdorff error). Measured at face centers, not vertices: vertices
-    that survive vtkDecimatePro keep their exact original position, so
-    their distance to the original surface would always be ~0 and would
-    hide the real error, which occurs inside the large newly created
-    triangles. `distance_fn` is received already built (with SetInput
-    applied) so as not to rebuild the spatial locator on every
-    refinement pass. Returns (errors, sample_points) so the bad zones
-    can be located."""
-    centroids = result.cell_centers().points
+# Barycentric sample points of a triangle for the dense error: the centroid,
+# the three edge midpoints and three points near the corners.
+DENSE_SAMPLES = np.array(
+    [
+        [1 / 3, 1 / 3, 1 / 3],
+        [0.5, 0.5, 0.0], [0.0, 0.5, 0.5], [0.5, 0.0, 0.5],
+        [0.8, 0.1, 0.1], [0.1, 0.8, 0.1], [0.1, 0.1, 0.8],
+    ]
+)
+RESULT_SAMPLES = len(DENSE_SAMPLES)
+
+
+def measure_error(
+    result: pv.PolyData,
+    distance_fn: "vtk.vtkImplicitPolyDataDistance",
+    samples_per_face: int = 1,
+):
+    """Absolute distance from each face of `result` to the implicit surface
+    `distance_fn` (approximates one-directional Hausdorff error). With
+    `samples_per_face` 1 the face is sampled at its center; with more (up to
+    `RESULT_SAMPLES`) at the points of `DENSE_SAMPLES`, and the face takes the
+    largest distance among them: a large decimated face can lie far from the
+    surface at its edges while its center is close. Measured on the faces and
+    not on the vertices: vertices that survive vtkDecimatePro keep their exact
+    original position, so their distance to the original surface would always
+    be ~0 and would hide the real error, which occurs inside the large newly
+    created triangles. `distance_fn` is received already built (with SetInput
+    applied) so as not to rebuild the spatial locator on every refinement
+    pass. Returns (errors, sample_points), one per face (the worst sample), so
+    the bad zones can be located."""
+    if samples_per_face <= 1 or result.n_cells == 0:
+        points = result.cell_centers().points
+    else:
+        tri = np.asarray(result.regular_faces)
+        corners = np.asarray(result.points, dtype=float)[tri]  # (n, 3, 3)
+        weights = DENSE_SAMPLES[: min(samples_per_face, RESULT_SAMPLES)]
+        points = np.einsum("sk,nkd->nsd", weights, corners).reshape(-1, 3)
     dists = vtk.vtkDoubleArray()
-    distance_fn.FunctionValue(pv.convert_array(centroids), dists)
+    distance_fn.FunctionValue(pv.convert_array(points), dists)
     errors = np.abs(pv.convert_array(dists))
-    return errors, centroids
+    if samples_per_face <= 1 or result.n_cells == 0:
+        return errors, points
+    errors = errors.reshape(result.n_cells, -1)
+    worst = errors.argmax(axis=1)
+    rows = np.arange(result.n_cells)
+    return errors[rows, worst], points.reshape(result.n_cells, -1, 3)[rows, worst]
 
 
 def error_summary(errors: np.ndarray):
@@ -1294,6 +1324,7 @@ def measure_bidirectional_error(
     source: pv.PolyData,
     result: pv.PolyData,
     distance_to_source: Optional["vtk.vtkImplicitPolyDataDistance"] = None,
+    result_samples: int = RESULT_SAMPLES,
 ):
     """Measures the geometric error in both directions between `source`
     and `result`, not only `result` -> `source`: that single direction
@@ -1313,12 +1344,14 @@ def measure_bidirectional_error(
     correct vertices. `distance_to_source` can be passed already built
     (with SetInput applied) to reuse it across refinement passes, since
     `source` doesn't change between them; `result` does, so its locator
-    (`distance_to_result`) is always rebuilt. Returns (result_errors,
+    (`distance_to_result`) is always rebuilt. The faces of `result` are
+    sampled at `result_samples` points each (they are the large ones after
+    decimating), those of `source` at their centers. Returns (result_errors,
     result_centroids, source_errors, source_centroids)."""
     if distance_to_source is None:
         distance_to_source = vtk.vtkImplicitPolyDataDistance()
         distance_to_source.SetInput(source)
-    forward_errors, forward_centroids = measure_error(result, distance_to_source)
+    forward_errors, forward_centroids = measure_error(result, distance_to_source, result_samples)
 
     distance_to_result = vtk.vtkImplicitPolyDataDistance()
     distance_to_result.SetInput(result)

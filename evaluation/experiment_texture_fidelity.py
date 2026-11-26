@@ -22,18 +22,19 @@ import os
 import numpy as np
 
 import remesh_core as rc
-from materials import bake_material_maps, load_material_maps, reparametrize, texture_error, xatlas_available
+from materials import MaterialMaps, bake_material_maps, load_material_maps, map_errors, reparametrize, xatlas_available
 from evaluation.dataset_catalog import CATALOG, MODELS_ROOT
 from evaluation.experiment_baselines import meshlab_qem
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
 
 
-def _row(display, cat, config, source, result, image):
-    err = texture_error(source, result, image)
+def _row(display, cat, config, source, result, maps):
+    errors = map_errors(source, result, maps)
+    err = errors["base"]
     f, _, r, _ = rc.measure_bidirectional_error(source, result)
     st = rc.bidirectional_error_summary(f, r)
-    return {
+    row = {
         "model": display, "category": cat, "config": config, "input_tris": source.n_cells,
         "output_tris": result.n_cells, "reduction_pct": round(100 * (1 - result.n_cells / source.n_cells), 2),
         "geometry_error_pct": round(100 * max(st.max_fwd, st.max_rev) / source.length, 4),
@@ -41,6 +42,13 @@ def _row(display, cat, config, source, result, image):
         "texture_error_max_pct": round(err["max"], 4), "share_above_10pct": round(err["share_above_10"], 4),
         "geometry_floor_mean_pct": round(err["floor_mean"], 4), "geometry_floor_p95_pct": round(err["floor_p95"], 4),
     }
+    for name, e in errors.items():  # base colour is above; the other maps in their own unit
+        if name != "base":
+            unit = "deg" if name == "normal" else "pct"
+            row[f"{name}_error_mean_{unit}"] = round(e["mean"], 4)
+            row[f"{name}_error_p95_{unit}"] = round(e["p95"], 4)
+            row[f"{name}_floor_mean_{unit}"] = round(e["floor_mean"], 4)
+    return row
 
 
 def main():
@@ -52,29 +60,28 @@ def main():
         if not rc.mesh_has_texture_coords(source) or maps is None or maps.base is None:
             print(f"skip {display[:40]} (no UV or base colour image)", flush=True)
             continue
-        image = maps.base
         auto = rc.should_protect_uv_seams(source)
         decimation = rc.DecimationSettings(engine=rc.ENGINE_QEM, reduction_pct=90.0)
         for config, seams in (("Seams protected", True), ("Seams free", False)):
             protection = rc.ProtectionSettings(protect_uv_seams=seams)
             res = rc.run_decimation_pipeline(source, decimation, protection)
-            rows.append(_row(display, cat, config, source, rc.transfer_texture_coords(source, res.mesh), image))
+            rows.append(_row(display, cat, config, source, rc.transfer_texture_coords(source, res.mesh), maps))
             rows[-1]["seam_share_pct"] = round(100 * rc.seam_vertex_fraction(source), 2)
             rows[-1]["automatic_policy_protects"] = auto
             if not seams:
-                rows.append(_row(display, cat, 'Seams free, cut at seams', source, rc.transfer_texture_coords(source, res.mesh, cut_seams=True), image))
+                rows.append(_row(display, cat, 'Seams free, cut at seams', source, rc.transfer_texture_coords(source, res.mesh, cut_seams=True), maps))
                 rows[-1]['seam_share_pct'] = rows[-2]['seam_share_pct']
                 rows[-1]['automatic_policy_protects'] = auto
             if not seams and xatlas_available():  # new atlas baked from the source
                 low = reparametrize(res.mesh, size=2048)
                 baked = bake_material_maps(source, low, maps, size=2048)
                 low.active_texture_coordinates = low.active_texture_coordinates
-                rows.append(_row(display, cat, "Seams free, re-baked (new atlas)", source, low, baked.base))
+                rows.append(_row(display, cat, "Seams free, re-baked (new atlas)", source, low, baked))
                 rows[-1]["seam_share_pct"] = rows[-2]["seam_share_pct"]
                 rows[-1]["automatic_policy_protects"] = auto
         welded, _ = rc._weld_coincident(source, np.zeros(source.n_points, bool), keep_uv=False)
         ml = rc.transfer_texture_coords(source, meshlab_qem(welded, 90.0, False))
-        rows.append(_row(display, cat, "MeshLab (welded), UV transferred", source, ml, image))
+        rows.append(_row(display, cat, "MeshLab (welded), UV transferred", source, ml, maps))
         rows[-1]["seam_share_pct"] = rows[-2]["seam_share_pct"]
         rows[-1]["automatic_policy_protects"] = auto
         print(" | ".join(f"{r['config'][:14]} tex {r['texture_error_mean_pct']:.2f}% red {r['reduction_pct']:.0f}%" for r in rows[-5:]), display[:30], flush=True)

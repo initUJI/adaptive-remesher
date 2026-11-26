@@ -270,3 +270,24 @@ def test_texture_error_is_zero_for_the_source_and_positive_for_wrong_uv():
     shifted.active_texture_coordinates = uv + 0.25
     wrong = texture_error(plane, shifted, image, n=500)
     assert wrong["mean"] > 5.0 and wrong["floor_mean"] < 1e-6
+
+
+def test_map_errors_covers_every_map_and_is_zero_for_the_source():
+    from materials import MaterialMaps, map_errors
+
+    plane = pv.Plane(i_resolution=8, j_resolution=8).triangulate()
+    uv = np.asarray(plane.points)[:, :2] + 0.5
+    plane.active_texture_coordinates = uv
+    rng = np.random.default_rng(1)
+    image = lambda: (rng.random((64, 64, 3)) * 255).astype(np.uint8)
+    maps = MaterialMaps(base=image(), normal=image(), metal_rough=image(), occlusion=image(), emissive=image())
+
+    same = map_errors(plane, plane, maps, n=400)
+    assert set(same) == {"base", "emissive", "normal", "roughness", "metallic", "occlusion"}
+    assert all(v["mean"] < 1e-6 for v in same.values())
+
+    shifted = plane.copy()
+    shifted.active_texture_coordinates = uv + 0.25
+    wrong = map_errors(plane, shifted, maps, n=400)
+    assert wrong["normal"]["mean"] > 10.0  # degrees
+    assert wrong["roughness"]["mean"] > 5.0 and wrong["base"]["floor_mean"] < 1e-6

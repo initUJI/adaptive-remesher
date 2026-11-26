@@ -806,3 +806,17 @@ def test_cut_seams_splits_faces_that_straddle_a_seam():
     assert worst_centroid_error(cut) < 0.05
     assert cut.n_cells > coarse.n_cells
     assert cut.area == pytest.approx(coarse.area, rel=1e-9)  # re-triangulated, not changed
+
+
+def test_dense_error_sampling_never_reports_less_than_the_centroid():
+    source = pv.Sphere(theta_resolution=40, phi_resolution=40).triangulate()
+    coarse = decimate_qem(source, 0.97, True, False, 1.0, False)
+    distance = vtk.vtkImplicitPolyDataDistance()
+    distance.SetInput(source)
+
+    centre, _ = measure_error(coarse, distance)
+    dense, points = measure_error(coarse, distance, samples_per_face=7)
+
+    assert dense.shape == centre.shape and points.shape == (coarse.n_cells, 3)
+    assert np.all(dense >= centre - 1e-12)
+    assert dense.max() > centre.max()  # big faces bulge between centre and corners
