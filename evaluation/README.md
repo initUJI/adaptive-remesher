@@ -66,16 +66,19 @@ current numbers are checked in, and also copied into
 `evaluation_tracker.xlsx`'s `Dataset`/`Exp_B_Refinement_Ablation` sheets).
 Re-run any module to regenerate after a code change.
 
-Real-dataset findings worth flagging (current code, results re-run after
-welding coincident vertices before decimation): without refinement 7/19
-meshes exceed tau=1% (median max error 0.80% of the diagonal, worst 3.55%),
-with refinement 5/19 (median 0.73%, worst 1.90%). Refinement lowers the
-error on 5 meshes (elephant, bolt cutters, drill, T. rex tooth, netsuke),
-leaves it unchanged on 14, raises it on none; on the elephant, bolt cutters
-and drill it protects 741-1,131 vertices and the achieved reduction falls to
--0.3%, 41.9% and 12.0%. The weld ablation (`experiment_weld_ablation.py`) shows that most of the
-error without the weld comes from decimating meshes whose seams are stored
-as duplicated vertices.
+Real-dataset findings worth flagging (current code: the error of a result is
+sampled at 7 points per face, and coincident vertices are welded before
+decimation): without refinement 8/19 meshes exceed tau=1% (median max error
+0.80% of the diagonal, worst 3.55%), with refinement 6/19 (median 0.73%, worst
+2.16%). Refinement lowers the error on 5 meshes (barrel, elephant, drill,
+T. rex tooth, netsuke), leaves it unchanged on 14, raises it on none; on the
+barrel, elephant and drill it protects 495-1,168 vertices and the achieved
+reduction falls to 0.7%, -1.2% and 8.1%. The weld ablation
+(`experiment_weld_ablation.py`) shows that most of the error without the weld
+comes from decimating meshes whose seams are stored as duplicated vertices.
+On the real meshes the result-to-source direction is the larger on 13/19; on 4
+meshes source-to-result alone would stay below tau while result-to-source
+exceeds it, and on 1 (vegetable garden) the reverse.
 
 - **`experiment_d_threshold_sensitivity.py`** — Experiment D (error-
   threshold sensitivity). Sweeps `error_threshold_pct` (0.25/0.5/1.0/2.0/
@@ -92,17 +95,17 @@ as duplicated vertices.
 - **`experiment_weld_ablation.py`** — Experiment B (QEM, 90%, empty mask,
   tau 1%, 3 iterations) with the weld of coincident vertices switched off
   (`remesh_core._weld_coincident` replaced by the identity); the weld-on rows
-  are Experiment B. Without the weld: 12/19 meshes above tau (7 with it),
-  median max error 1.96% (0.80%), barrel 612% (worst with weld 3.55%), the
-  loop runs >1 iteration on 12 meshes (7), median reduction of those 46%
+  are Experiment B. Without the weld: 12/19 meshes above tau (8 with it),
+  median max error 1.96% (0.80%), barrel 1,469% (worst with weld 3.55%), the
+  loop runs >1 iteration on 12 meshes (8), median reduction of those 66%
   (89.9%). Run: `python -u -m evaluation.experiment_weld_ablation`.
 - **`experiment_error_bounded.py`** — Experiment B's configuration through
   `run_decimation_pipeline` with `lower_reduction_if_needed` on. All 19 meshes
-  end within the 1% threshold (max 0.97%): 14 keep 90%; barrel 63.9%, carrot
-  cake 78.8%, elephant 78.1%, drill 77.5%, bolt cutters 87.0% (refinement
-  alone: 5 meshes above the threshold and -0.3%, 41.9%, 12.0% reduction on
-  three). MeshLab/fast-simplification on welded input at the same reduction
-  are comparable (0.87-1.26% / 0.76-1.54%). Run:
+  end within the 1% threshold (max 0.98%): 13 keep 90%; barrel 63.9%, carrot
+  cake 78.8%, elephant 78.1%, drill 76.3%, bolt cutters 87.0%, vegetable garden
+  85.6% (refinement alone: 6 meshes above the threshold, and 0.7%, -1.2%, 8.1%
+  reduction on three). MeshLab/fast-simplification on welded input at the same
+  reduction are comparable (0.87-1.71% / 0.79-2.21%). Run:
   `python -u -m evaluation.experiment_error_bounded`.
 - **`experiment_texture_fidelity.py`** — appearance error of textured results
   (13 dataset meshes with UV and a base-colour image; 20,000 area-weighted
@@ -111,7 +114,7 @@ as duplicated vertices.
   reduction), 0.35% with seams protected (76% reduction), 0.59% under the
   automatic policy (cut at seams when <15% seam vertices, 87%), 1.06% for MeshLab on the welded input with the same
   transfer (90%). The geometry-only floor is 0.05%, so almost all of it comes
-  from the UV transfer. With the faces cut at the seams (`cut_seams=True`): 0.59% at 86.6% (0.35% at 88.7% on the 7 meshes with <15% seam vertices, vs 0.33% at 83.0% protected; on the 6 fragmented atlases no gain, 62.6% reduction vs 75.0%). A re-baked 2048 atlas (`reparametrize` + bake) gave
+  from the UV transfer. With the faces cut at the seams (`cut_seams=True`): 0.59% at 86.6% (0.35% at 88.7% on the 7 meshes with <15% seam vertices, vs 0.33% at 83.0% protected; on the 6 fragmented atlases no gain, 66.8% reduction vs 78.5%). Other maps (policy config, medians over the meshes that have them): normal 5.0 deg mean (95th pct 24 deg, floor 0.9) on 7 meshes, roughness 2.0%, metallic 0.8%, occlusion 0.8% (1 mesh), emissive 0.3% (2 meshes). A re-baked 2048 atlas (`reparametrize` + bake) gave
   10.1% (42% of the points above 10%): worse than the carried-over UV, since the
   new atlas has fewer texels per chart than the source's. Splitting the faces
   at their centroid (tried, not kept) recovered little (e.g. elephant 1.73 ->
@@ -185,10 +188,10 @@ as duplicated vertices.
   why), so the sheet's `T_Other = T_Total - SUM(...)` formula reports the
   whole refinement-loop time (error measurement + any repeat decimations
   + repair), not pure overhead — don't read it as the latter in the
-  paper. Total pipeline time ranged from 18 ms (Barrel, 1473 tris) to
-  30.0 s (electrocardiograph, 1.87M tris, and even then only because of
+  paper. Total pipeline time ranged from 32 ms (Barrel, 1473 tris) to
+  36.8 s (electrocardiograph, 1.87M tris, and even then only because of
   the sheer mesh size — 1 refinement iteration, no protection added),
-  median 0.51 s. Total pipeline time ranged from 18 ms to 30.0 s in the latest run.
+  median 0.98 s.
   Run: `python -u -m evaluation.experiment_runtime`.
 - **`experiment_baselines.py`** — the same 19 models simplified by
   PyMeshLab quadric edge collapse (default and with `preserveboundary`) and
@@ -198,11 +201,11 @@ as duplicated vertices.
   first). Each baseline also runs on a welded copy of the
   input (the step Adaptive Remesher applies). At the same 90% request the
   median max error is 0.80% of the diagonal for Adaptive Remesher
-  unrefined, 1.94% for MeshLab and 1.69% for fast-simplification as loaded,
-  and 0.85% / 0.88% once welded; at the reduction refinement reached,
+  unrefined, 2.29% for MeshLab and 1.69% for fast-simplification as loaded,
+  and 0.88% / 1.01% once welded; at the reduction refinement reached,
   MeshLab (welded) deviates far less than the refined result on the three
-  meshes below 80% reduction (0.04% vs 1.31%, 0.20% vs 1.12%, 0.05% vs
-  1.90%). MeshLab with `preserveboundary` reduced nothing on four meshes
+  meshes below 80% reduction (0.02% vs 1.58%, 0.04% vs 1.05%, 0.03% vs
+  2.16%). MeshLab with `preserveboundary` reduced nothing on four meshes
   and produced a degenerate result on the bolt cutters, so treat it as a
   note, not a baseline. Needs `pip install pymeshlab fast-simplification`.
   Run: `python -u -m evaluation.experiment_baselines`.

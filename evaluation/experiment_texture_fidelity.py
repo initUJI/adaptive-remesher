@@ -8,7 +8,7 @@ then colours 20,000 area-weighted source points with the image at the source
 UV and at the UV of the closest point of the result, and reports the colour
 difference as a percentage of the full RGB range. Configurations:
 UV seams protected, UV seams free, and the application's automatic policy
-(`should_protect_uv_seams`); MeshLab's quadric decimation on the welded input
+(`should_cut_uv_seams`); MeshLab's quadric decimation on the welded input
 (with the same UV transfer) is the baseline at 90%.
 
 Run: python -u -m evaluation.experiment_texture_fidelity
@@ -60,30 +60,30 @@ def main():
         if not rc.mesh_has_texture_coords(source) or maps is None or maps.base is None:
             print(f"skip {display[:40]} (no UV or base colour image)", flush=True)
             continue
-        auto = rc.should_protect_uv_seams(source)
+        auto = rc.should_cut_uv_seams(source)
         decimation = rc.DecimationSettings(engine=rc.ENGINE_QEM, reduction_pct=90.0)
         for config, seams in (("Seams protected", True), ("Seams free", False)):
             protection = rc.ProtectionSettings(protect_uv_seams=seams)
             res = rc.run_decimation_pipeline(source, decimation, protection)
             rows.append(_row(display, cat, config, source, rc.transfer_texture_coords(source, res.mesh), maps))
             rows[-1]["seam_share_pct"] = round(100 * rc.seam_vertex_fraction(source), 2)
-            rows[-1]["automatic_policy_protects"] = auto
+            rows[-1]["automatic_policy_cuts"] = auto
             if not seams:
                 rows.append(_row(display, cat, 'Seams free, cut at seams', source, rc.transfer_texture_coords(source, res.mesh, cut_seams=True), maps))
                 rows[-1]['seam_share_pct'] = rows[-2]['seam_share_pct']
-                rows[-1]['automatic_policy_protects'] = auto
+                rows[-1]['automatic_policy_cuts'] = auto
             if not seams and xatlas_available():  # new atlas baked from the source
                 low = reparametrize(res.mesh, size=2048)
                 baked = bake_material_maps(source, low, maps, size=2048)
                 low.active_texture_coordinates = low.active_texture_coordinates
                 rows.append(_row(display, cat, "Seams free, re-baked (new atlas)", source, low, baked))
                 rows[-1]["seam_share_pct"] = rows[-2]["seam_share_pct"]
-                rows[-1]["automatic_policy_protects"] = auto
+                rows[-1]["automatic_policy_cuts"] = auto
         welded, _ = rc._weld_coincident(source, np.zeros(source.n_points, bool), keep_uv=False)
         ml = rc.transfer_texture_coords(source, meshlab_qem(welded, 90.0, False))
         rows.append(_row(display, cat, "MeshLab (welded), UV transferred", source, ml, maps))
         rows[-1]["seam_share_pct"] = rows[-2]["seam_share_pct"]
-        rows[-1]["automatic_policy_protects"] = auto
+        rows[-1]["automatic_policy_cuts"] = auto
         print(" | ".join(f"{r['config'][:14]} tex {r['texture_error_mean_pct']:.2f}% red {r['reduction_pct']:.0f}%" for r in rows[-5:]), display[:30], flush=True)
     keys = sorted({k for r in rows for k in r}, key=lambda k: list(rows[0]).index(k) if k in rows[0] else 99)
     with open(os.path.join(RESULTS_DIR, "texture_fidelity.csv"), "w", newline="", encoding="utf-8") as fh:

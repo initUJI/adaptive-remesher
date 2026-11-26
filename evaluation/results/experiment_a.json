@@ -21,15 +21,15 @@
     "config": "handcrafted (no decimation engine involved)",
     "source_tris": 6960,
     "result_tris": 6960,
-    "error_max_fwd": 0.060573,
-    "error_mean_fwd": 0.002538,
-    "error_p95_fwd": 0.029117,
+    "error_max_fwd": 0.068024,
+    "error_mean_fwd": 0.003416,
+    "error_p95_fwd": 0.041361,
     "error_max_rev": 0.057543,
     "error_mean_rev": 0.002273,
     "error_p95_rev": 0.01859,
-    "error_max_pooled": 0.060573,
-    "error_mean_pooled": 0.002406,
-    "error_p95_pooled": 0.018591
+    "error_max_pooled": 0.068024,
+    "error_mean_pooled": 0.002845,
+    "error_p95_pooled": 0.024117
   },
   {
     "case": "case3_surface_relief",
@@ -37,15 +37,15 @@
     "config": "unprotected decimation, engine=QEM, reduction=90.0%",
     "source_tris": 6960,
     "result_tris": 696,
-    "error_max_fwd": 0.004793,
-    "error_mean_fwd": 0.001964,
-    "error_p95_fwd": 0.00323,
+    "error_max_fwd": 0.007742,
+    "error_mean_fwd": 0.00222,
+    "error_p95_fwd": 0.003459,
     "error_max_rev": 0.005657,
     "error_mean_rev": 0.001213,
     "error_p95_rev": 0.002728,
-    "error_max_pooled": 0.005657,
-    "error_mean_pooled": 0.001282,
-    "error_p95_pooled": 0.002783
+    "error_max_pooled": 0.007742,
+    "error_mean_pooled": 0.001305,
+    "error_p95_pooled": 0.002912
   },
   {
     "case": "case4_multi_region",
@@ -53,14 +53,14 @@
     "config": "unprotected decimation, engine=QEM, reduction=90.0%",
     "source_tris": 9520,
     "result_tris": 952,
-    "error_max_fwd": 0.00444,
-    "error_mean_fwd": 0.001526,
-    "error_p95_fwd": 0.002685,
+    "error_max_fwd": 0.006221,
+    "error_mean_fwd": 0.001906,
+    "error_p95_fwd": 0.003453,
     "error_max_rev": 0.005764,
     "error_mean_rev": 0.001035,
     "error_p95_rev": 0.002439,
-    "error_max_pooled": 0.005764,
-    "error_mean_pooled": 0.00108,
-    "error_p95_pooled": 0.002487
+    "error_max_pooled": 0.006221,
+    "error_mean_pooled": 0.001115,
+    "error_p95_pooled": 0.00261
   }
 ]

@@ -1,20 +1,20 @@
 model,source_tris,config,t_total_s,t_decimation_s,t_error_s,t_repair_s,t_refine_loop_s_informational,iterations,auto_added_vertices,result_tris
-Sculpture of man and woman (Egyptian excavation),59996,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.5009,0.2127,,,0.2758,1,0,20228
-"1993.165 Statuette of a Woman: ""The Stargazer""",15000,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.2105,0.0505,,,0.1573,2,66,6312
-Statuette of a Woman in Hunting Clothes,130504,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.9974,0.4299,,,0.5412,1,0,35946
-Barrel 03,1473,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.0177,0.0084,,,0.0087,1,0,1369
-Carrot Cake,13790,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.2716,0.0396,,,0.2285,2,14,11708
-Carved Wooden Elephant,2752,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.0497,0.0122,,,0.0367,2,4,2036
-Bolt Cutters 01,3410,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.0367,0.0166,,,0.0192,1,0,2928
-Drill 01,2926,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.0302,0.0138,,,0.0155,1,0,2302
-Trilobite: Agnostid,211874,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",1.8011,0.8745,,,0.8799,1,0,32048
-Blastoid: Pentremites godani (PRI 70771),446670,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",3.6741,2.1974,,,1.3651,1,0,56610
-Vertebrate: T. rex tooth (PRI 55205),108958,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.9863,0.3987,,,0.5649,1,0,21144
-Loewe (lion),405680,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",4.6832,1.4886,,,3.0733,1,0,226560
-Weisshai Great White Shark,5912,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.1206,0.0247,,,0.0877,2,52,3292
-Vegetable Garden,16694,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.1955,0.0587,,,0.1122,1,0,13858
-"Curled Rat netsuke, test scan",63998,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.512,0.2268,,,0.2718,1,0,23148
-Stanford Bunny (reconstruction),69451,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.766,0.2036,,,0.5623,2,10,7769
-Stanford Armadillo (reconstruction),345944,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",2.9395,1.6105,,,1.3289,1,0,48760
-Electrocardiograph Machine (AI-generated),1869988,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",30.0103,13.5122,,,16.4981,1,0,186994
-Realistic Heart (AI-generated),31400,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",1.0817,0.1201,,,0.9109,3,200,21386
+Sculpture of man and woman (Egyptian excavation),59996,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.7698,0.2464,,,0.5109,1,0,20228
+"1993.165 Statuette of a Woman: ""The Stargazer""",15000,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.3569,0.0498,,,0.3044,2,66,6312
+Statuette of a Woman in Hunting Clothes,130504,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",1.5631,0.4829,,,1.0538,1,0,35946
+Barrel 03,1473,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.0318,0.0085,,,0.0228,1,0,1369
+Carrot Cake,13790,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",1.0027,0.04,,,0.9592,3,16,11728
+Carved Wooden Elephant,2752,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.0934,0.0126,,,0.08,2,5,2048
+Bolt Cutters 01,3410,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.0714,0.017,,,0.0535,1,0,2928
+Drill 01,2926,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.0556,0.0142,,,0.0404,1,0,2302
+Trilobite: Agnostid,211874,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",2.5549,0.8952,,,1.6126,1,0,32048
+Blastoid: Pentremites godani (PRI 70771),446670,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",4.7119,2.2301,,,2.3705,1,0,56610
+Vertebrate: T. rex tooth (PRI 55205),108958,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",1.4644,0.4251,,,1.0163,1,0,21144
+Loewe (lion),405680,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",8.974,1.5417,,,7.3102,1,0,226560
+Weisshai Great White Shark,5912,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.2026,0.0248,,,0.1698,2,52,3292
+Vegetable Garden,16694,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.3858,0.0587,,,0.3025,1,0,13858
+"Curled Rat netsuke, test scan",63998,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.8186,0.2324,,,0.5728,1,0,23148
+Stanford Bunny (reconstruction),69451,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",0.9792,0.2186,,,0.7606,2,10,7769
+Stanford Armadillo (reconstruction),345944,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",3.947,1.6791,,,2.2678,1,0,48760
+Electrocardiograph Machine (AI-generated),1869988,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",36.8147,13.5068,,,23.3079,1,0,186994
+Realistic Heart (AI-generated),31400,"Default pipeline (DecimatePro, 90%, UV+auto-error protection)",2.4422,0.1204,,,2.2705,3,200,21402

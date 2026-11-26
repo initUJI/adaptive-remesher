@@ -6,7 +6,7 @@
     "result_tris": 1376,
     "unprotected_tris_before": 2752,
     "unprotected_tris_after": 1376,
-    "error_max": 0.000537,
+    "error_max": 0.000615,
     "iterations": 1
   },
   {
@@ -16,7 +16,7 @@
     "result_tris": 824,
     "unprotected_tris_before": 2752,
     "unprotected_tris_after": 824,
-    "error_max": 0.000895,
+    "error_max": 0.001023,
     "iterations": 1
   },
   {
@@ -33,20 +33,20 @@
     "model": "Carved Wooden Elephant",
     "requested_reduction_pct": 90.0,
     "source_tris": 2752,
-    "result_tris": 2760,
-    "unprotected_tris_before": 243,
-    "unprotected_tris_after": 24,
-    "error_max": 0.002042,
+    "result_tris": 2784,
+    "unprotected_tris_before": 208,
+    "unprotected_tris_after": 20,
+    "error_max": 0.001644,
     "iterations": 3
   },
   {
     "model": "Carved Wooden Elephant",
     "requested_reduction_pct": 95.0,
     "source_tris": 2752,
-    "result_tris": 2734,
-    "unprotected_tris_before": 274,
-    "unprotected_tris_after": 12,
-    "error_max": 0.00184,
+    "result_tris": 2748,
+    "unprotected_tris_before": 277,
+    "unprotected_tris_after": 13,
+    "error_max": 0.001779,
     "iterations": 3
   },
   {
@@ -56,7 +56,7 @@
     "result_tris": 1699,
     "unprotected_tris_before": 3410,
     "unprotected_tris_after": 1705,
-    "error_max": 0.000853,
+    "error_max": 0.000885,
     "iterations": 1
   },
   {
@@ -76,25 +76,25 @@
     "result_tris": 678,
     "unprotected_tris_before": 3410,
     "unprotected_tris_after": 681,
-    "error_max": 0.003177,
+    "error_max": 0.003648,
     "iterations": 1
   },
   {
     "model": "Bolt Cutters 01",
     "requested_reduction_pct": 90.0,
     "source_tris": 3410,
-    "result_tris": 1981,
-    "unprotected_tris_before": 1899,
-    "unprotected_tris_after": 189,
-    "error_max": 0.009196,
+    "result_tris": 339,
+    "unprotected_tris_before": 3410,
+    "unprotected_tris_after": 341,
+    "error_max": 0.012334,
     "iterations": 3
   },
   {
     "model": "Bolt Cutters 01",
     "requested_reduction_pct": 95.0,
     "source_tris": 3410,
-    "result_tris": 2494,
-    "unprotected_tris_before": 1207,
+    "result_tris": 2516,
+    "unprotected_tris_before": 1194,
     "unprotected_tris_after": 118,
     "error_max": 0.007058,
     "iterations": 3
@@ -106,7 +106,7 @@
     "result_tris": 1462,
     "unprotected_tris_before": 2926,
     "unprotected_tris_after": 1462,
-    "error_max": 0.00064,
+    "error_max": 0.000903,
     "iterations": 1
   },
   {
@@ -133,20 +133,20 @@
     "model": "Drill 01",
     "requested_reduction_pct": 90.0,
     "source_tris": 2926,
-    "result_tris": 2574,
-    "unprotected_tris_before": 636,
-    "unprotected_tris_after": 63,
-    "error_max": 0.005049,
+    "result_tris": 2688,
+    "unprotected_tris_before": 553,
+    "unprotected_tris_after": 54,
+    "error_max": 0.005746,
     "iterations": 3
   },
   {
     "model": "Drill 01",
     "requested_reduction_pct": 95.0,
     "source_tris": 2926,
-    "result_tris": 2744,
-    "unprotected_tris_before": 353,
-    "unprotected_tris_after": 31,
-    "error_max": 0.005821,
+    "result_tris": 2755,
+    "unprotected_tris_before": 354,
+    "unprotected_tris_after": 17,
+    "error_max": 0.01749,
     "iterations": 3
   },
   {
@@ -206,7 +206,7 @@
     "result_tris": 32004,
     "unprotected_tris_before": 63990,
     "unprotected_tris_after": 31994,
-    "error_max": 0.000335,
+    "error_max": 0.000588,
     "iterations": 2
   },
   {
@@ -226,7 +226,7 @@
     "result_tris": 12840,
     "unprotected_tris_before": 63948,
     "unprotected_tris_after": 12788,
-    "error_max": 0.001261,
+    "error_max": 0.00151,
     "iterations": 2
   },
   {

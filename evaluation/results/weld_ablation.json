@@ -6,7 +6,7 @@
     "weld": "off",
     "input_tris": 59996,
     "output_tris": 5999,
-    "error_max_pct_of_diagonal": 0.4505,
+    "error_max_pct_of_diagonal": 0.4954,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -17,7 +17,7 @@
     "weld": "off",
     "input_tris": 59996,
     "output_tris": 5999,
-    "error_max_pct_of_diagonal": 0.4505,
+    "error_max_pct_of_diagonal": 0.4954,
     "iterations": 1,
     "auto_added_vertices": 0
   },
@@ -28,7 +28,7 @@
     "weld": "off",
     "input_tris": 15000,
     "output_tris": 1500,
-    "error_max_pct_of_diagonal": 0.4547,
+    "error_max_pct_of_diagonal": 0.5051,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -39,7 +39,7 @@
     "weld": "off",
     "input_tris": 15000,
     "output_tris": 1500,
-    "error_max_pct_of_diagonal": 0.4547,
+    "error_max_pct_of_diagonal": 0.5051,
     "iterations": 1,
     "auto_added_vertices": 0
   },
@@ -50,7 +50,7 @@
     "weld": "off",
     "input_tris": 130504,
     "output_tris": 13049,
-    "error_max_pct_of_diagonal": 0.23,
+    "error_max_pct_of_diagonal": 0.2855,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -61,7 +61,7 @@
     "weld": "off",
     "input_tris": 130504,
     "output_tris": 13049,
-    "error_max_pct_of_diagonal": 0.23,
+    "error_max_pct_of_diagonal": 0.2855,
     "iterations": 1,
     "auto_added_vertices": 0
   },
@@ -72,7 +72,7 @@
     "weld": "off",
     "input_tris": 1473,
     "output_tris": 146,
-    "error_max_pct_of_diagonal": 611.5147,
+    "error_max_pct_of_diagonal": 1468.9627,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -82,10 +82,10 @@
     "config": "Bidirectional refinement",
     "weld": "off",
     "input_tris": 1473,
-    "output_tris": 1441,
-    "error_max_pct_of_diagonal": 3.8822,
+    "output_tris": 1445,
+    "error_max_pct_of_diagonal": 10.8414,
     "iterations": 3,
-    "auto_added_vertices": 616
+    "auto_added_vertices": 621
   },
   {
     "model": "Carrot Cake",
@@ -94,7 +94,7 @@
     "weld": "off",
     "input_tris": 13790,
     "output_tris": 1376,
-    "error_max_pct_of_diagonal": 6.2081,
+    "error_max_pct_of_diagonal": 8.6161,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -104,10 +104,10 @@
     "config": "Bidirectional refinement",
     "weld": "off",
     "input_tris": 13790,
-    "output_tris": 5136,
-    "error_max_pct_of_diagonal": 2.3179,
+    "output_tris": 5168,
+    "error_max_pct_of_diagonal": 3.7506,
     "iterations": 3,
-    "auto_added_vertices": 817
+    "auto_added_vertices": 819
   },
   {
     "model": "Carved Wooden Elephant",
@@ -116,7 +116,7 @@
     "weld": "off",
     "input_tris": 2752,
     "output_tris": 273,
-    "error_max_pct_of_diagonal": 6.5775,
+    "error_max_pct_of_diagonal": 10.554,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -126,10 +126,10 @@
     "config": "Bidirectional refinement",
     "weld": "off",
     "input_tris": 2752,
-    "output_tris": 2790,
-    "error_max_pct_of_diagonal": 1.226,
+    "output_tris": 2798,
+    "error_max_pct_of_diagonal": 1.5295,
     "iterations": 3,
-    "auto_added_vertices": 993
+    "auto_added_vertices": 968
   },
   {
     "model": "Bolt Cutters 01",
@@ -138,7 +138,7 @@
     "weld": "off",
     "input_tris": 3410,
     "output_tris": 341,
-    "error_max_pct_of_diagonal": 14.7905,
+    "error_max_pct_of_diagonal": 41.987,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -148,10 +148,10 @@
     "config": "Bidirectional refinement",
     "weld": "off",
     "input_tris": 3410,
-    "output_tris": 1014,
-    "error_max_pct_of_diagonal": 0.8398,
-    "iterations": 2,
-    "auto_added_vertices": 141
+    "output_tris": 1050,
+    "error_max_pct_of_diagonal": 1.2007,
+    "iterations": 3,
+    "auto_added_vertices": 150
   },
   {
     "model": "Drill 01",
@@ -160,7 +160,7 @@
     "weld": "off",
     "input_tris": 2926,
     "output_tris": 292,
-    "error_max_pct_of_diagonal": 17.1086,
+    "error_max_pct_of_diagonal": 33.05,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -170,10 +170,10 @@
     "config": "Bidirectional refinement",
     "weld": "off",
     "input_tris": 2926,
-    "output_tris": 2189,
-    "error_max_pct_of_diagonal": 3.6715,
+    "output_tris": 2243,
+    "error_max_pct_of_diagonal": 4.5198,
     "iterations": 3,
-    "auto_added_vertices": 702
+    "auto_added_vertices": 728
   },
   {
     "model": "Trilobite: Agnostid",
@@ -182,7 +182,7 @@
     "weld": "off",
     "input_tris": 211874,
     "output_tris": 21172,
-    "error_max_pct_of_diagonal": 2.1845,
+    "error_max_pct_of_diagonal": 4.2452,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -192,10 +192,10 @@
     "config": "Bidirectional refinement",
     "weld": "off",
     "input_tris": 211874,
-    "output_tris": 21172,
-    "error_max_pct_of_diagonal": 2.1845,
+    "output_tris": 44175,
+    "error_max_pct_of_diagonal": 2.472,
     "iterations": 3,
-    "auto_added_vertices": 0
+    "auto_added_vertices": 4730
   },
   {
     "model": "Blastoid: Pentremites godani (PRI 70771)",
@@ -226,7 +226,7 @@
     "weld": "off",
     "input_tris": 108958,
     "output_tris": 10890,
-    "error_max_pct_of_diagonal": 0.2343,
+    "error_max_pct_of_diagonal": 0.2419,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -237,7 +237,7 @@
     "weld": "off",
     "input_tris": 108958,
     "output_tris": 10890,
-    "error_max_pct_of_diagonal": 0.2343,
+    "error_max_pct_of_diagonal": 0.2419,
     "iterations": 1,
     "auto_added_vertices": 0
   },
@@ -280,10 +280,10 @@
     "config": "Bidirectional refinement",
     "weld": "off",
     "input_tris": 5912,
-    "output_tris": 4579,
-    "error_max_pct_of_diagonal": 3.4726,
+    "output_tris": 5078,
+    "error_max_pct_of_diagonal": 6.035,
     "iterations": 3,
-    "auto_added_vertices": 9561
+    "auto_added_vertices": 10335
   },
   {
     "model": "Vegetable Garden",
@@ -302,10 +302,10 @@
     "config": "Bidirectional refinement",
     "weld": "off",
     "input_tris": 16694,
-    "output_tris": 11807,
-    "error_max_pct_of_diagonal": 1.9961,
+    "output_tris": 11831,
+    "error_max_pct_of_diagonal": 2.1623,
     "iterations": 3,
-    "auto_added_vertices": 24206
+    "auto_added_vertices": 24222
   },
   {
     "model": "Curled Rat netsuke, test scan",
@@ -325,7 +325,7 @@
     "weld": "off",
     "input_tris": 63998,
     "output_tris": 6530,
-    "error_max_pct_of_diagonal": 0.927,
+    "error_max_pct_of_diagonal": 0.9529,
     "iterations": 2,
     "auto_added_vertices": 9
   },
@@ -336,7 +336,7 @@
     "weld": "off",
     "input_tris": 69451,
     "output_tris": 6945,
-    "error_max_pct_of_diagonal": 0.1669,
+    "error_max_pct_of_diagonal": 0.228,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -347,7 +347,7 @@
     "weld": "off",
     "input_tris": 69451,
     "output_tris": 6945,
-    "error_max_pct_of_diagonal": 0.1669,
+    "error_max_pct_of_diagonal": 0.228,
     "iterations": 1,
     "auto_added_vertices": 0
   },
@@ -358,7 +358,7 @@
     "weld": "off",
     "input_tris": 345944,
     "output_tris": 34594,
-    "error_max_pct_of_diagonal": 0.0765,
+    "error_max_pct_of_diagonal": 0.1032,
     "iterations": 0,
     "auto_added_vertices": 0
   },
@@ -369,7 +369,7 @@
     "weld": "off",
     "input_tris": 345944,
     "output_tris": 34594,
-    "error_max_pct_of_diagonal": 0.0765,
+    "error_max_pct_of_diagonal": 0.1032,
     "iterations": 1,
     "auto_added_vertices": 0
   },
@@ -412,9 +412,9 @@
     "config": "Bidirectional refinement",
     "weld": "off",
     "input_tris": 31400,
-    "output_tris": 22630,
-    "error_max_pct_of_diagonal": 5.0335,
+    "output_tris": 3140,
+    "error_max_pct_of_diagonal": 5.2518,
     "iterations": 3,
-    "auto_added_vertices": 42993
+    "auto_added_vertices": 0
   }
 ]

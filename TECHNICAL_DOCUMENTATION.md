@@ -777,6 +777,16 @@ removes the stretch and adds triangles only at seams. Option `cut_seams` of
 Splitting faces at their centroid instead recovered little at many more
 triangles and was not kept.
 
+**Dense error sampling.** `measure_error` takes a `samples_per_face` argument;
+`measure_bidirectional_error` samples the faces of the result at the 7 points of
+`DENSE_SAMPLES` (centroid, edge midpoints, points near the corners) and keeps the
+worst per face, because a large decimated face can lie far from the source at its
+edges while its centroid is close. The source faces keep their centroid, as they
+are small. On the 19 evaluation meshes the maximum error rises by 18-37% on 7
+(vegetable garden 0.93% to 1.20%) and is unchanged on the others; the cost is one
+distance evaluation per sample point of the result, a fraction of the pass over the
+source faces.
+
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
 `_apply_rect_selection()` ([app.py:560](app.py:560)) kept its cheap

@@ -4,6 +4,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed (dense error sampling) / Added (error of every map)
+- The faces of the result are sampled at 7 points each (`DENSE_SAMPLES`: centroid,
+  edge midpoints, points near the corners; the face takes the worst) in
+  `measure_error`/`measure_bidirectional_error`; the source faces keep their
+  centroid. It raises the error of 7 of 19 meshes by 18-37% (the vegetable garden
+  goes from 0.93% to 1.20%), so all experiments were re-run: 8/19 meshes above 1%
+  at the first pass, 6/19 with refinement, all 19 within 1% (max 0.98%) with the
+  lowered reduction (6 meshes at 63.9-87.0%).
+- `materials.map_errors`: appearance error of every map (colour, emissive,
+  normal as an angle, roughness, metallic, occlusion) with a geometry floor.
+  Median normal error 5.0 deg (floor 0.9), roughness 2.0%, metallic 0.8%.
+
 ### Changed (UV seam policy, finer reduction search)
 - Automatic seam policy: seams are no longer frozen by default. With <15% seam
   vertices the faces are cut along the seams after decimating (`should_cut_uv_seams`,

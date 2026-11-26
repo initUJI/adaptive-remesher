@@ -3,34 +3,34 @@
     "model": "Carved Wooden Elephant",
     "threshold_pct": 0.25,
     "source_tris": 2752,
-    "result_tris": 2762,
+    "result_tris": 2764,
     "iterations": 3,
-    "points_added": 1368,
-    "error_max_final": 0.000265,
-    "error_mean_final": 1e-06,
+    "points_added": 1373,
+    "error_max_final": 0.00035,
+    "error_mean_final": 0.0,
     "error_p95_final": 0.0
   },
   {
     "model": "Carved Wooden Elephant",
     "threshold_pct": 0.5,
     "source_tris": 2752,
-    "result_tris": 2768,
+    "result_tris": 2782,
     "iterations": 3,
-    "points_added": 1162,
-    "error_max_final": 0.000671,
-    "error_mean_final": 4e-06,
+    "points_added": 1052,
+    "error_max_final": 0.000767,
+    "error_mean_final": 7e-06,
     "error_p95_final": 0.0
   },
   {
     "model": "Carved Wooden Elephant",
     "threshold_pct": 1.0,
     "source_tris": 2752,
-    "result_tris": 2760,
+    "result_tris": 2784,
     "iterations": 3,
-    "points_added": 1064,
-    "error_max_final": 0.002042,
-    "error_mean_final": 2.1e-05,
-    "error_p95_final": 5.8e-05
+    "points_added": 1121,
+    "error_max_final": 0.001644,
+    "error_mean_final": 1.6e-05,
+    "error_p95_final": 0.0
   },
   {
     "model": "Carved Wooden Elephant",
@@ -40,8 +40,8 @@
     "iterations": 3,
     "points_added": 0,
     "error_max_final": 0.003343,
-    "error_mean_final": 0.000446,
-    "error_p95_final": 0.001124
+    "error_mean_final": 0.000494,
+    "error_p95_final": 0.001316
   },
   {
     "model": "Carved Wooden Elephant",
@@ -51,76 +51,76 @@
     "iterations": 1,
     "points_added": 0,
     "error_max_final": 0.003343,
-    "error_mean_final": 0.000446,
-    "error_p95_final": 0.001124
+    "error_mean_final": 0.000494,
+    "error_p95_final": 0.001316
   },
   {
     "model": "Bolt Cutters 01",
     "threshold_pct": 0.25,
     "source_tris": 3410,
-    "result_tris": 3379,
+    "result_tris": 3348,
     "iterations": 3,
-    "points_added": 1516,
-    "error_max_final": 0.002727,
-    "error_mean_final": 3.6e-05,
-    "error_p95_final": 2e-06
-  },
-  {
-    "model": "Bolt Cutters 01",
-    "threshold_pct": 0.5,
-    "source_tris": 3410,
-    "result_tris": 2928,
-    "iterations": 3,
-    "points_added": 1280,
-    "error_max_final": 0.004942,
-    "error_mean_final": 0.00018,
-    "error_p95_final": 0.001518
-  },
-  {
-    "model": "Bolt Cutters 01",
-    "threshold_pct": 1.0,
-    "source_tris": 3410,
-    "result_tris": 1981,
-    "iterations": 3,
-    "points_added": 741,
-    "error_max_final": 0.009196,
-    "error_mean_final": 0.000843,
-    "error_p95_final": 0.004438
-  },
-  {
-    "model": "Bolt Cutters 01",
-    "threshold_pct": 2.0,
-    "source_tris": 3410,
-    "result_tris": 339,
-    "iterations": 1,
-    "points_added": 0,
-    "error_max_final": 0.012334,
-    "error_mean_final": 0.001295,
-    "error_p95_final": 0.00403
-  },
-  {
-    "model": "Bolt Cutters 01",
-    "threshold_pct": 5.0,
-    "source_tris": 3410,
-    "result_tris": 339,
-    "iterations": 1,
-    "points_added": 0,
-    "error_max_final": 0.012334,
-    "error_mean_final": 0.001295,
-    "error_p95_final": 0.00403
-  },
-  {
-    "model": "Drill 01",
-    "threshold_pct": 0.25,
-    "source_tris": 2926,
-    "result_tris": 2901,
-    "iterations": 3,
-    "points_added": 1736,
-    "error_max_final": 0.00044,
-    "error_mean_final": 2e-06,
+    "points_added": 1550,
+    "error_max_final": 0.005024,
+    "error_mean_final": 4.6e-05,
     "error_p95_final": 0.0
   },
   {
+    "model": "Bolt Cutters 01",
+    "threshold_pct": 0.5,
+    "source_tris": 3410,
+    "result_tris": 2666,
+    "iterations": 3,
+    "points_added": 1116,
+    "error_max_final": 0.006621,
+    "error_mean_final": 0.000336,
+    "error_p95_final": 0.002392
+  },
+  {
+    "model": "Bolt Cutters 01",
+    "threshold_pct": 1.0,
+    "source_tris": 3410,
+    "result_tris": 339,
+    "iterations": 3,
+    "points_added": 0,
+    "error_max_final": 0.012334,
+    "error_mean_final": 0.001354,
+    "error_p95_final": 0.004126
+  },
+  {
+    "model": "Bolt Cutters 01",
+    "threshold_pct": 2.0,
+    "source_tris": 3410,
+    "result_tris": 339,
+    "iterations": 1,
+    "points_added": 0,
+    "error_max_final": 0.012334,
+    "error_mean_final": 0.001354,
+    "error_p95_final": 0.004126
+  },
+  {
+    "model": "Bolt Cutters 01",
+    "threshold_pct": 5.0,
+    "source_tris": 3410,
+    "result_tris": 339,
+    "iterations": 1,
+    "points_added": 0,
+    "error_max_final": 0.012334,
+    "error_mean_final": 0.001354,
+    "error_p95_final": 0.004126
+  },
+  {
+    "model": "Drill 01",
+    "threshold_pct": 0.25,
+    "source_tris": 2926,
+    "result_tris": 292,
+    "iterations": 3,
+    "points_added": 0,
+    "error_max_final": 0.009413,
+    "error_mean_final": 0.001174,
+    "error_p95_final": 0.003384
+  },
+  {
     "model": "Drill 01",
     "threshold_pct": 0.5,
     "source_tris": 2926,
@@ -128,19 +128,19 @@
     "iterations": 3,
     "points_added": 0,
     "error_max_final": 0.009413,
-    "error_mean_final": 0.001113,
-    "error_p95_final": 0.003338
+    "error_mean_final": 0.001174,
+    "error_p95_final": 0.003384
   },
   {
     "model": "Drill 01",
     "threshold_pct": 1.0,
     "source_tris": 2926,
-    "result_tris": 2574,
+    "result_tris": 2688,
     "iterations": 3,
-    "points_added": 1131,
-    "error_max_final": 0.005049,
-    "error_mean_final": 6.5e-05,
-    "error_p95_final": 0.000507
+    "points_added": 1168,
+    "error_max_final": 0.005746,
+    "error_mean_final": 7.2e-05,
+    "error_p95_final": 0.000498
   },
   {
     "model": "Drill 01",
@@ -150,8 +150,8 @@
     "iterations": 3,
     "points_added": 0,
     "error_max_final": 0.009413,
-    "error_mean_final": 0.001113,
-    "error_p95_final": 0.003338
+    "error_mean_final": 0.001174,
+    "error_p95_final": 0.003384
   },
   {
     "model": "Drill 01",
@@ -161,19 +161,19 @@
     "iterations": 1,
     "points_added": 0,
     "error_max_final": 0.009413,
-    "error_mean_final": 0.001113,
-    "error_p95_final": 0.003338
+    "error_mean_final": 0.001174,
+    "error_p95_final": 0.003384
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
     "threshold_pct": 0.25,
     "source_tris": 108958,
-    "result_tris": 11220,
+    "result_tris": 11238,
     "iterations": 3,
-    "points_added": 340,
+    "points_added": 343,
     "error_max_final": 0.003904,
-    "error_mean_final": 0.000308,
-    "error_p95_final": 0.000952
+    "error_mean_final": 0.000328,
+    "error_p95_final": 0.001015
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
@@ -183,8 +183,8 @@
     "iterations": 2,
     "points_added": 221,
     "error_max_final": 0.007761,
-    "error_mean_final": 0.000309,
-    "error_p95_final": 0.000949
+    "error_mean_final": 0.000329,
+    "error_p95_final": 0.001012
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
@@ -194,8 +194,8 @@
     "iterations": 2,
     "points_added": 100,
     "error_max_final": 0.011879,
-    "error_mean_final": 0.000313,
-    "error_p95_final": 0.000952
+    "error_mean_final": 0.000333,
+    "error_p95_final": 0.001016
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
@@ -205,8 +205,8 @@
     "iterations": 2,
     "points_added": 26,
     "error_max_final": 0.024811,
-    "error_mean_final": 0.000327,
-    "error_p95_final": 0.000957
+    "error_mean_final": 0.000347,
+    "error_p95_final": 0.001022
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
@@ -216,19 +216,19 @@
     "iterations": 1,
     "points_added": 0,
     "error_max_final": 0.037251,
-    "error_mean_final": 0.000144,
-    "error_p95_final": 0.000328
+    "error_mean_final": 0.000159,
+    "error_p95_final": 0.00039
   },
   {
     "model": "Curled Rat netsuke, test scan",
     "threshold_pct": 0.25,
     "source_tris": 63998,
-    "result_tris": 7588,
+    "result_tris": 7866,
     "iterations": 3,
-    "points_added": 752,
-    "error_max_final": 0.001892,
-    "error_mean_final": 0.000196,
-    "error_p95_final": 0.00057
+    "points_added": 828,
+    "error_max_final": 0.002174,
+    "error_mean_final": 0.000223,
+    "error_p95_final": 0.000655
   },
   {
     "model": "Curled Rat netsuke, test scan",
@@ -237,9 +237,9 @@
     "result_tris": 6576,
     "iterations": 3,
     "points_added": 322,
-    "error_max_final": 0.001898,
-    "error_mean_final": 0.000193,
-    "error_p95_final": 0.000563
+    "error_max_final": 0.001943,
+    "error_mean_final": 0.000209,
+    "error_p95_final": 0.00061
   },
   {
     "model": "Curled Rat netsuke, test scan",
@@ -249,8 +249,8 @@
     "iterations": 2,
     "points_added": 76,
     "error_max_final": 0.003327,
-    "error_mean_final": 0.000197,
-    "error_p95_final": 0.000574
+    "error_mean_final": 0.000213,
+    "error_p95_final": 0.00062
   },
   {
     "model": "Curled Rat netsuke, test scan",
@@ -260,8 +260,8 @@
     "iterations": 1,
     "points_added": 0,
     "error_max_final": 0.005036,
-    "error_mean_final": 0.000146,
-    "error_p95_final": 0.00039
+    "error_mean_final": 0.00016,
+    "error_p95_final": 0.000437
   },
   {
     "model": "Curled Rat netsuke, test scan",
@@ -271,7 +271,7 @@
     "iterations": 1,
     "points_added": 0,
     "error_max_final": 0.005036,
-    "error_mean_final": 0.000146,
-    "error_p95_final": 0.00039
+    "error_mean_final": 0.00016,
+    "error_p95_final": 0.000437
   }
 ]

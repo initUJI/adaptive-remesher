@@ -1,39 +1,39 @@
 model,category,config,input_tris,output_tris,error_max_fwd,error_mean_fwd,error_p95_fwd,error_max_rev,error_mean_rev,error_p95_rev,manually_protected_vertices,auto_added_vertices,iterations,runtime_s
-Sculpture of man and woman (Egyptian excavation),Characters,No refinement,59996,5998,0.699952,0.108385,0.285638,0.854661,0.083725,0.236209,0,0,0,0.448
-Sculpture of man and woman (Egyptian excavation),Characters,Bidirectional refinement,59996,5998,0.699952,0.108385,0.285638,0.854661,0.083725,0.236209,0,0,1,0.182
-"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,No refinement,15000,1498,0.053427,0.011209,0.027545,0.08986,0.008741,0.023141,0,0,0,0.1
-"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,Bidirectional refinement,15000,1498,0.053427,0.011209,0.027545,0.08986,0.008741,0.023141,0,0,1,0.045
-Statuette of a Woman in Hunting Clothes,Characters,No refinement,130504,13050,0.171116,0.029894,0.074267,0.194707,0.023453,0.062891,0,0,0,1.033
-Statuette of a Woman in Hunting Clothes,Characters,Bidirectional refinement,130504,13050,0.171116,0.029894,0.074267,0.194707,0.023453,0.062891,0,0,1,0.365
-Barrel 03,Objects,No refinement,1473,147,0.019803,0.004138,0.012378,0.02404,0.00755,0.016149,0,0,0,0.009
-Barrel 03,Objects,Bidirectional refinement,1473,147,0.019803,0.004138,0.012378,0.02404,0.00755,0.016149,0,0,3,0.067
-Carrot Cake,Objects,No refinement,13790,1372,0.001955,0.000298,0.000869,0.003953,0.00044,0.00146,0,0,0,0.087
-Carrot Cake,Objects,Bidirectional refinement,13790,1372,0.001955,0.000298,0.000869,0.003953,0.00044,0.00146,0,0,3,0.399
-Carved Wooden Elephant,Objects,No refinement,2752,274,0.002096,0.000518,0.001272,0.003343,0.000438,0.001112,0,0,0,0.016
-Carved Wooden Elephant,Objects,Bidirectional refinement,2752,2760,0.002032,2.4e-05,7.5e-05,0.002042,1.8e-05,3.8e-05,0,1064,3,0.095
-Bolt Cutters 01,Mechanical,No refinement,3410,339,0.004143,0.000885,0.002425,0.012334,0.001336,0.004275,0,0,0,0.021
-Bolt Cutters 01,Mechanical,Bidirectional refinement,3410,1981,0.005588,0.000325,0.001985,0.009196,0.001143,0.005499,0,741,3,0.119
-Drill 01,Mechanical,No refinement,2926,292,0.003336,0.000742,0.00209,0.009413,0.00115,0.003418,0,0,0,0.017
-Drill 01,Mechanical,Bidirectional refinement,2926,2574,0.005049,4.5e-05,0.000198,0.002787,8.4e-05,0.000645,0,1131,3,0.104
-Trilobite: Agnostid,Organic,No refinement,211874,21175,0.002214,0.000128,0.000343,0.018336,0.000113,0.000301,0,0,0,1.912
-Trilobite: Agnostid,Organic,Bidirectional refinement,211874,21175,0.002214,0.000128,0.000343,0.018336,0.000113,0.000301,0,0,1,0.683
-Blastoid: Pentremites godani (PRI 70771),Organic,No refinement,446670,44659,0.000948,0.000106,0.000277,0.006443,9.2e-05,0.000244,0,0,0,4.03
-Blastoid: Pentremites godani (PRI 70771),Organic,Bidirectional refinement,446670,44659,0.000948,0.000106,0.000277,0.006443,9.2e-05,0.000244,0,0,1,1.238
-Vertebrate: T. rex tooth (PRI 55205),Organic,No refinement,108958,10892,0.001646,0.000135,0.000379,0.037251,0.000144,0.000321,0,0,0,0.921
-Vertebrate: T. rex tooth (PRI 55205),Organic,Bidirectional refinement,108958,10980,0.003261,0.000211,0.000812,0.011879,0.000324,0.000963,0,100,2,1.48
-Loewe (lion),Organic,No refinement,405680,40563,0.003723,0.000466,0.001321,0.00939,0.000347,0.001046,0,0,0,4.105
-Loewe (lion),Organic,Bidirectional refinement,405680,40563,0.003723,0.000466,0.001321,0.00939,0.000347,0.001046,0,0,1,1.613
-Weisshai Great White Shark,Scanned,No refinement,5912,590,0.000813,0.000185,0.000457,0.001356,0.000172,0.000468,0,0,0,0.041
-Weisshai Great White Shark,Scanned,Bidirectional refinement,5912,590,0.000813,0.000185,0.000457,0.001356,0.000172,0.000468,0,0,1,0.025
-Vegetable Garden,Scanned,No refinement,16694,1668,0.002336,0.000243,0.000697,0.002802,0.000232,0.000689,0,0,0,0.116
-Vegetable Garden,Scanned,Bidirectional refinement,16694,1668,0.002336,0.000243,0.000697,0.002802,0.000232,0.000689,0,0,1,0.064
-"Curled Rat netsuke, test scan",Scanned,No refinement,63998,6397,0.001071,0.00017,0.000439,0.005036,0.000144,0.000381,0,0,0,0.459
-"Curled Rat netsuke, test scan",Scanned,Bidirectional refinement,63998,6450,0.001891,0.000185,0.000596,0.003327,0.000199,0.000571,0,76,2,0.713
-Stanford Bunny (reconstruction),Scanned,No refinement,69451,6945,0.000418,5.9e-05,0.000147,0.000351,4.6e-05,0.000122,0,0,0,0.493
-Stanford Bunny (reconstruction),Scanned,Bidirectional refinement,69451,6945,0.000418,5.9e-05,0.000147,0.000351,4.6e-05,0.000122,0,0,1,0.184
-Stanford Armadillo (reconstruction),Scanned,No refinement,345944,34594,0.174982,0.023869,0.058805,0.165635,0.018964,0.04939,0,0,0,3.903
-Stanford Armadillo (reconstruction),Scanned,Bidirectional refinement,345944,34594,0.174982,0.023869,0.058805,0.165635,0.018964,0.04939,0,0,1,1.555
-Electrocardiograph Machine (AI-generated),Generated,No refinement,1869988,186995,0.000325,1.6e-05,5.5e-05,0.00098,7e-06,2.5e-05,0,0,0,26.342
-Electrocardiograph Machine (AI-generated),Generated,Bidirectional refinement,1869988,186995,0.000325,1.6e-05,5.5e-05,0.00098,7e-06,2.5e-05,0,0,1,12.329
-Realistic Heart (AI-generated),Generated,No refinement,31400,3128,0.011704,0.001994,0.004961,0.02029,0.001958,0.005341,0,0,0,0.301
-Realistic Heart (AI-generated),Generated,Bidirectional refinement,31400,3128,0.011704,0.001994,0.004961,0.02029,0.001958,0.005341,0,0,1,0.163
+Sculpture of man and woman (Egyptian excavation),Characters,No refinement,59996,5998,1.012639,0.2137,0.426106,0.854661,0.083725,0.236209,0,0,0,0.566
+Sculpture of man and woman (Egyptian excavation),Characters,Bidirectional refinement,59996,5998,1.012639,0.2137,0.426106,0.854661,0.083725,0.236209,0,0,1,0.261
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,No refinement,15000,1498,0.06567,0.020673,0.037996,0.08986,0.008741,0.023141,0,0,0,0.111
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,Bidirectional refinement,15000,1498,0.06567,0.020673,0.037996,0.08986,0.008741,0.023141,0,0,1,0.065
+Statuette of a Woman in Hunting Clothes,Characters,No refinement,130504,13050,0.240816,0.061475,0.116481,0.194707,0.023453,0.062891,0,0,0,1.217
+Statuette of a Woman in Hunting Clothes,Characters,Bidirectional refinement,130504,13050,0.240816,0.061475,0.116481,0.194707,0.023453,0.062891,0,0,1,0.563
+Barrel 03,Objects,No refinement,1473,147,0.028749,0.009237,0.019662,0.02404,0.00755,0.016149,0,0,0,0.01
+Barrel 03,Objects,Bidirectional refinement,1473,1463,0.020463,0.00053,0.00491,0.011567,0.000182,0.001051,0,495,3,0.116
+Carrot Cake,Objects,No refinement,13790,1372,0.002365,0.000607,0.001277,0.003953,0.00044,0.00146,0,0,0,0.105
+Carrot Cake,Objects,Bidirectional refinement,13790,1372,0.002365,0.000607,0.001277,0.003953,0.00044,0.00146,0,0,3,0.624
+Carved Wooden Elephant,Objects,No refinement,2752,274,0.002632,0.001059,0.002076,0.003343,0.000438,0.001112,0,0,0,0.02
+Carved Wooden Elephant,Objects,Bidirectional refinement,2752,2784,0.001644,2.3e-05,2e-06,0.001171,8e-06,0.0,0,1121,3,0.178
+Bolt Cutters 01,Mechanical,No refinement,3410,339,0.005267,0.001531,0.003102,0.012334,0.001336,0.004275,0,0,0,0.027
+Bolt Cutters 01,Mechanical,Bidirectional refinement,3410,339,0.005267,0.001531,0.003102,0.012334,0.001336,0.004275,0,0,3,0.182
+Drill 01,Mechanical,No refinement,2926,292,0.005339,0.001418,0.003202,0.009413,0.00115,0.003418,0,0,0,0.022
+Drill 01,Mechanical,Bidirectional refinement,2926,2688,0.005746,8.5e-05,0.000462,0.001921,6e-05,0.000513,0,1168,3,0.187
+Trilobite: Agnostid,Organic,No refinement,211874,21175,0.003465,0.000288,0.000588,0.018336,0.000113,0.000301,0,0,0,2.372
+Trilobite: Agnostid,Organic,Bidirectional refinement,211874,21175,0.003465,0.000288,0.000588,0.018336,0.000113,0.000301,0,0,1,1.17
+Blastoid: Pentremites godani (PRI 70771),Organic,No refinement,446670,44659,0.001128,0.000244,0.000459,0.006443,9.2e-05,0.000244,0,0,0,4.893
+Blastoid: Pentremites godani (PRI 70771),Organic,Bidirectional refinement,446670,44659,0.001128,0.000244,0.000459,0.006443,9.2e-05,0.000244,0,0,1,2.049
+Vertebrate: T. rex tooth (PRI 55205),Organic,No refinement,108958,10892,0.002434,0.000302,0.000671,0.037251,0.000144,0.000321,0,0,0,1.146
+Vertebrate: T. rex tooth (PRI 55205),Organic,Bidirectional refinement,108958,10980,0.004892,0.000428,0.001435,0.011879,0.000324,0.000963,0,100,2,1.952
+Loewe (lion),Organic,No refinement,405680,40563,0.005821,0.000956,0.002014,0.00939,0.000347,0.001046,0,0,0,4.755
+Loewe (lion),Organic,Bidirectional refinement,405680,40563,0.005821,0.000956,0.002014,0.00939,0.000347,0.001046,0,0,1,2.415
+Weisshai Great White Shark,Scanned,No refinement,5912,590,0.001212,0.000376,0.00071,0.001356,0.000172,0.000468,0,0,0,0.046
+Weisshai Great White Shark,Scanned,Bidirectional refinement,5912,590,0.001212,0.000376,0.00071,0.001356,0.000172,0.000468,0,0,1,0.031
+Vegetable Garden,Scanned,No refinement,16694,1668,0.003638,0.000502,0.00107,0.002802,0.000232,0.000689,0,0,0,0.141
+Vegetable Garden,Scanned,Bidirectional refinement,16694,1668,0.003638,0.000502,0.00107,0.002802,0.000232,0.000689,0,0,3,1.069
+"Curled Rat netsuke, test scan",Scanned,No refinement,63998,6397,0.001397,0.000324,0.000654,0.005036,0.000144,0.000381,0,0,0,0.509
+"Curled Rat netsuke, test scan",Scanned,Bidirectional refinement,63998,6450,0.001943,0.000359,0.000901,0.003327,0.000199,0.000571,0,76,2,0.877
+Stanford Bunny (reconstruction),Scanned,No refinement,69451,6945,0.000571,0.000115,0.00022,0.000351,4.6e-05,0.000122,0,0,0,0.55
+Stanford Bunny (reconstruction),Scanned,Bidirectional refinement,69451,6945,0.000571,0.000115,0.00022,0.000351,4.6e-05,0.000122,0,0,1,0.274
+Stanford Armadillo (reconstruction),Scanned,No refinement,345944,34594,0.236168,0.047372,0.088048,0.165635,0.018964,0.04939,0,0,0,4.522
+Stanford Armadillo (reconstruction),Scanned,Bidirectional refinement,345944,34594,0.236168,0.047372,0.088048,0.165635,0.018964,0.04939,0,0,1,2.298
+Electrocardiograph Machine (AI-generated),Generated,No refinement,1869988,186995,0.000437,3.4e-05,9.5e-05,0.00098,7e-06,2.5e-05,0,0,0,36.38
+Electrocardiograph Machine (AI-generated),Generated,Bidirectional refinement,1869988,186995,0.000437,3.4e-05,9.5e-05,0.00098,7e-06,2.5e-05,0,0,1,22.853
+Realistic Heart (AI-generated),Generated,No refinement,31400,3128,0.018794,0.003987,0.008092,0.02029,0.001958,0.005341,0,0,0,0.337
+Realistic Heart (AI-generated),Generated,Bidirectional refinement,31400,3128,0.018794,0.003987,0.008092,0.02029,0.001958,0.005341,0,0,1,0.246
