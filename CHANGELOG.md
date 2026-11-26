@@ -4,6 +4,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Evaluated (other engine and request)
+- `experiment_error_bounded.py [qem|pro] [reduction]`: with the reduction lowered when needed
+  all 19 meshes end within 1% for QEM at 95% (8 lowered, netsuke 28.1%) and DecimatePro at
+  90% and 95% (median reduction 68%, the engine's own limit).
+
 ### Added (automatic normal map)
 - `materials.shading_normal_error` (angle between the world-space shading normal of
   the source and of the result, including the tangent frames) and

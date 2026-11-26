@@ -1,0 +1,20 @@
+model,category,input_tris,output_tris,reduction_pct,error_max_pct_of_diagonal,reduction_lowered_to_pct,refine_iterations,auto_added_vertices,runtime_s
+Sculpture of man and woman (Egyptian excavation),Characters,59996,2998,95.0,0.4373,,1,0,0.557
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,15000,750,95.0,0.5981,,1,0,0.1
+Statuette of a Woman in Hunting Clothes,Characters,130504,6524,95.0,0.3,,1,0,1.122
+Barrel 03,Objects,1473,532,63.88,0.9711,63.75,0,0,0.228
+Carrot Cake,Objects,13790,2924,78.8,0.7657,78.75,0,0,1.625
+Carved Wooden Elephant,Objects,2752,602,78.12,0.95,78.125,0,0,0.344
+Bolt Cutters 01,Mechanical,3410,443,87.01,0.6444,86.875,0,0,0.31
+Drill 01,Mechanical,2926,693,76.32,0.8372,76.25,0,0,0.355
+Trilobite: Agnostid,Organic,211874,10564,95.01,0.9082,,1,0,2.092
+Blastoid: Pentremites godani (PRI 70771),Organic,446670,22330,95.0,0.3503,,1,0,4.871
+Vertebrate: T. rex tooth (PRI 55205),Organic,108958,5714,94.76,0.9876,,3,174,3.617
+Loewe (lion),Organic,405680,20280,95.0,0.4395,,1,0,4.485
+Weisshai Great White Shark,Scanned,5912,294,95.03,0.9609,,1,0,0.049
+Vegetable Garden,Scanned,16694,2398,85.64,0.9751,85.625,0,0,1.859
+"Curled Rat netsuke, test scan",Scanned,63998,45997,28.13,0.3449,28.125,0,0,16.223
+Stanford Bunny (reconstruction),Scanned,69451,3472,95.0,0.408,,1,0,0.566
+Stanford Armadillo (reconstruction),Scanned,345944,17296,95.0,0.1923,,1,0,4.168
+Electrocardiograph Machine (AI-generated),Generated,1869988,93487,95.0,0.1044,,1,0,32.821
+Realistic Heart (AI-generated),Generated,31400,1755,94.41,0.9934,94.375,0,0,4.645

@@ -106,7 +106,11 @@ exceeds it, and on 1 (vegetable garden) the reverse.
   85.6% (refinement alone: 6 meshes above the threshold, and 0.7%, -1.2%, 8.1%
   reduction on three). MeshLab/fast-simplification on welded input at the same
   reduction are comparable (0.87-1.71% / 0.79-2.21%). Run:
-  `python -u -m evaluation.experiment_error_bounded`.
+  `python -u -m evaluation.experiment_error_bounded`. With arguments (`pro`/`qem` and a
+  request) it writes `error_bounded_<engine>_<request>.json`: all 19 meshes stay within 1%
+  with QEM at 95% (max 0.99%; 8 lowered, the rat netsuke down to 28.1% because the error
+  is not monotonic) and with DecimatePro at 90% and 95% (max 1.00%; 1-2 lowered, median
+  reduction 68%: the engine stops before the threshold does).
 - **`experiment_texture_fidelity.py`** — appearance error of textured results
   (13 dataset meshes with UV and a base-colour image; 20,000 area-weighted
   points; colour difference as % of the RGB range, with the source image on the
