@@ -6,9 +6,9 @@ the reduction on), the texture coordinates are transferred back (faces cut at th
 when the automatic policy says so) and `materials.shading_normal_error` measures the
 angle between the shading normal of the source (vertex normals and its normal map) and
 that of the result at 20,000 area-weighted points, for the result carrying: the source's
-normal map on the transferred UV, a normal map baked for it (the application's Auto
-size: that of the source map, up to 2048 pixels), and no normal map. `best_normal_map` is the application's choice
-between the first two.
+normal map on the transferred UV, a normal map baked for it with the rays of a 3% cage (the application's Auto size: that of the
+source map, up to 2048 pixels), and no normal map. `best_normal_map` is the application's choice:
+the best of three baking methods (rays from a 3% and a 1% cage, nearest point) or the carried map.
 
 Run: python -u -m evaluation.experiment_normal_shading
 Writes evaluation/results/normal_shading.{csv,json}
@@ -42,12 +42,15 @@ def main():
         baked = bake_normal_map(source, low, size=size, high_normal_map=maps.normal, high_normal_scale=maps.factors.get("normalScale") or 1.0)
         err = shading_normal_error(source, low, maps.normal, {"carried": maps.normal, "baked": baked, "none": None})
         chosen, info = best_normal_map(source, low, maps, size)
+        pick = shading_normal_error(source, low, maps.normal, {"choice": chosen if chosen is not None else maps.normal})["choice"]
         rows.append({
             "model": display, "category": cat, "output_tris": low.n_cells, "bake_size": size,
             "carried_mean_deg": round(err["carried"]["mean"], 3), "carried_p95_deg": round(err["carried"]["p95"], 3),
             "baked_mean_deg": round(err["baked"]["mean"], 3), "baked_p95_deg": round(err["baked"]["p95"], 3),
             "none_mean_deg": round(err["none"]["mean"], 3), "none_p95_deg": round(err["none"]["p95"], 3),
             "application_keeps": "baked" if chosen is not None else "carried",
+            "choice_mean_deg": round(pick["mean"], 3), "choice_p95_deg": round(pick["p95"], 3),
+            "choice_method": info["baked_method"] if chosen is not None else "carried",
         })
         r = rows[-1]
         print(f"{display[:28]:28} carried {r['carried_mean_deg']:6.2f}  baked {r['baked_mean_deg']:6.2f}  none {r['none_mean_deg']:6.2f}  keeps {r['application_keeps']}", flush=True)

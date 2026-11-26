@@ -1402,8 +1402,8 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.baked_normal = baked
         kept = "baked normal map kept" if baked is not None else "original normal map kept"
         return (
-            f"\nNormal map: {kept} (shading error {info['baked_mean_deg']:.1f}\u00b0 baked, "
-            f"{info['carried_mean_deg']:.1f}\u00b0 carried over)"
+            f"\nNormal map: {kept} (shading error {info['baked_mean_deg']:.1f}\u00b0 baked with "
+            f"{info['baked_method']}, {info['carried_mean_deg']:.1f}\u00b0 carried over)"
         )
 
     def bake_normal_map_now(self):

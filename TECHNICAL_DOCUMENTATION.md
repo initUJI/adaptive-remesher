@@ -792,8 +792,9 @@ only part of the shading (shading-normal angle vs the source: 21.1 deg with none
 13.5 carried, 6.4 baked, median over the 7 meshes with a normal map). After each
 decimation the application bakes a map (`bake_normal_map`, size from the combo; "Auto"
 is the size of the model's normal map up to 2048 px, `default_bake_size`) and
-`best_normal_map` keeps it only if `shading_normal_error` on sampled points is
-lower than for the carried map (baking loses on the drill; at 1024 px it also lost
+`best_normal_map` bakes with three methods (rays from a 3% and a 1% cage, nearest point;
+no single cage suits every model) and keeps the best one only if `shading_normal_error`
+on sampled points is lower than for the carried map (baking loses on the drill; at 1024 px it also lost
 on the carrot cake, whose source map is 4096 px). Checkbox `auto_bake_cb`; the batch export does the same.
 
 **Re-bake of colour maps (`bake_maps`).** Colour, emissive and metallic-roughness texels are

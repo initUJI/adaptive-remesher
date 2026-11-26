@@ -308,7 +308,7 @@ def test_shading_normal_error_is_zero_for_the_source_and_best_normal_map_keeps_a
     low = pv.Plane(i_resolution=2, j_resolution=2).triangulate()
     low.active_texture_coordinates = np.asarray(low.points)[:, :2] + 0.5
     chosen, info = best_normal_map(plane, low, maps, size=64)
-    assert set(info) == {"carried_mean_deg", "baked_mean_deg"}
+    assert set(info) == {"carried_mean_deg", "baked_mean_deg", "baked_method"}
     assert info["carried_mean_deg"] < 1.0  # a flat plane: the carried map is already right
     assert chosen is None or chosen.shape == (64, 64, 3)
 

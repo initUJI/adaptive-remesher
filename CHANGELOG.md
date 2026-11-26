@@ -4,6 +4,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed (normal map: best of three bakes)
+- `best_normal_map` bakes with `BAKE_CANDIDATES` (rays from a 3% cage, rays from a 1% cage,
+  nearest point) and keeps the one with the lowest shading-normal angle, or the carried map
+  if that is closer: no single cage suits every model (1% or nearest: 7.9 -> 3.6 deg on the
+  hunting-clothes statuette, 14.8 -> 11.2 on the drill; 1%: 17.9 -> 34.9 on the bolt cutters).
+  Median over the 7 meshes with a normal map: 5.7 deg (95th pct 29.3) vs 6.4 (32.2) with the
+  3% cage alone and 13.5 carried. Three bakes cost about 3x the time (about 30 s with 2048 px).
+
 ### Fixed (re-bake of colour maps)
 - `bake_maps` matched colour texels to the source with rays along a 3% cage, which hit other
   parts close to the surface (limbs near a torso): 10% mean colour error on the new atlas

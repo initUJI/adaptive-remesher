@@ -10,7 +10,10 @@
     "baked_p95_deg": 15.937,
     "none_mean_deg": 22.417,
     "none_p95_deg": 130.69,
-    "application_keeps": "baked"
+    "application_keeps": "baked",
+    "choice_mean_deg": 2.327,
+    "choice_p95_deg": 6.941,
+    "choice_method": "nearest point"
   },
   {
     "model": "Statuette of a Woman in Hunting Clothes",
@@ -23,7 +26,10 @@
     "baked_p95_deg": 53.27,
     "none_mean_deg": 21.089,
     "none_p95_deg": 151.637,
-    "application_keeps": "baked"
+    "application_keeps": "baked",
+    "choice_mean_deg": 3.601,
+    "choice_p95_deg": 10.513,
+    "choice_method": "nearest point"
   },
   {
     "model": "Barrel 03",
@@ -36,7 +42,10 @@
     "baked_p95_deg": 29.629,
     "none_mean_deg": 8.86,
     "none_p95_deg": 42.625,
-    "application_keeps": "baked"
+    "application_keeps": "baked",
+    "choice_mean_deg": 5.781,
+    "choice_p95_deg": 29.308,
+    "choice_method": "rays 1%"
   },
   {
     "model": "Carrot Cake",
@@ -49,7 +58,10 @@
     "baked_p95_deg": 15.781,
     "none_mean_deg": 21.597,
     "none_p95_deg": 52.391,
-    "application_keeps": "baked"
+    "application_keeps": "baked",
+    "choice_mean_deg": 5.707,
+    "choice_p95_deg": 15.781,
+    "choice_method": "rays 3%"
   },
   {
     "model": "Carved Wooden Elephant",
@@ -62,7 +74,10 @@
     "baked_p95_deg": 32.245,
     "none_mean_deg": 14.754,
     "none_p95_deg": 36.98,
-    "application_keeps": "baked"
+    "application_keeps": "baked",
+    "choice_mean_deg": 5.472,
+    "choice_p95_deg": 32.007,
+    "choice_method": "nearest point"
   },
   {
     "model": "Bolt Cutters 01",
@@ -75,7 +90,10 @@
     "baked_p95_deg": 72.722,
     "none_mean_deg": 24.851,
     "none_p95_deg": 60.747,
-    "application_keeps": "baked"
+    "application_keeps": "baked",
+    "choice_mean_deg": 17.872,
+    "choice_p95_deg": 72.722,
+    "choice_method": "rays 3%"
   },
   {
     "model": "Drill 01",
@@ -88,6 +106,9 @@
     "baked_p95_deg": 76.909,
     "none_mean_deg": 19.006,
     "none_p95_deg": 61.323,
-    "application_keeps": "carried"
+    "application_keeps": "baked",
+    "choice_mean_deg": 11.198,
+    "choice_p95_deg": 65.564,
+    "choice_method": "rays 1%"
   }
 ]

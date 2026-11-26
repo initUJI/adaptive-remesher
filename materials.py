@@ -534,21 +534,33 @@ def default_bake_size(maps: Optional["MaterialMaps"], cap: int = 2048) -> int:
     return int(min(cap, max(512, maps.normal.shape[0])))
 
 
+BAKE_CANDIDATES = (("rays", 3.0), ("rays", 1.0), ("nearest", 3.0))
+
+
 def best_normal_map(high: pv.PolyData, low: pv.PolyData, maps: "MaterialMaps", size: int = 1024):
-    """Bakes a normal map for `low` from `high` (and `high`'s own normal map) and
-    keeps it only if the shading normals of `low` then differ less from those of
-    `high` (mean angle at sampled points, `shading_normal_error`) than with
-    `high`'s map carried over on the transferred UV; baking can lose on thin or
-    small parts, and the carried map costs nothing. `low` must share `high`'s
-    atlas. Returns (baked image or None to keep the carried map, info with both
-    mean angles in degrees)."""
+    """Bakes normal maps for `low` from `high` (and `high`'s own normal map) with each
+    of `BAKE_CANDIDATES` (rays from a 3% and from a 1% cage, and the nearest point:
+    the right cage depends on the model, since a wide one hits parts close to the
+    surface and a narrow one misses thin parts) and keeps the one whose shading
+    normals (`shading_normal_error`, mean angle at sampled points) differ least from
+    `high`'s, unless `high`'s own map carried over on the transferred UV is closer.
+    `low` must share `high`'s atlas. Returns (baked image or None to keep the carried
+    map, info with the mean angles in degrees of the carried map, of the best baked one,
+    and the method that gave it)."""
     if maps is None or maps.normal is None:
         return None, {}
     scale = maps.factors.get("normalScale") or 1.0
-    baked = bake_normal_map(high, low, size=size, high_normal_map=maps.normal, high_normal_scale=scale)
-    err = shading_normal_error(high, low, maps.normal, {"carried": maps.normal, "baked": baked})
-    info = {"carried_mean_deg": err["carried"]["mean"], "baked_mean_deg": err["baked"]["mean"]}
-    return (baked if err["baked"]["mean"] < err["carried"]["mean"] else None), info
+    candidates = {}
+    for method, cage in BAKE_CANDIDATES:
+        candidates[(method, cage)] = bake_normal_map(
+            high, low, size=size, high_normal_map=maps.normal, high_normal_scale=scale, method=method, cage_pct=cage
+        )
+    names = {key: "%s %g%%" % key if key[0] == "rays" else "nearest point" for key in candidates}
+    err = shading_normal_error(high, low, maps.normal, {"carried": maps.normal, **{names[k]: v for k, v in candidates.items()}})
+    best_key = min(candidates, key=lambda k: err[names[k]]["mean"])
+    baked_mean = err[names[best_key]]["mean"]
+    info = {"carried_mean_deg": err["carried"]["mean"], "baked_mean_deg": baked_mean, "baked_method": names[best_key]}
+    return (candidates[best_key] if baked_mean < err["carried"]["mean"] else None), info
 
 
 def texture_error(source: pv.PolyData, result: pv.PolyData, image: np.ndarray, n: int = 20000, seed: int = 0) -> dict:
