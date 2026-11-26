@@ -129,4 +129,18 @@ def build_protection_panel(window: "AdaptiveRemesherWindow", panel_layout: QVBox
     window.protect_uv_seams_cb.clicked.connect(window._on_seam_option_clicked)
     protect_grid.addWidget(window.protect_uv_seams_cb, 5, 0, 1, 2)
 
+    window.cut_seams_cb = QCheckBox("Cut faces at UV seams")
+    window.cut_seams_cb.setChecked(False)
+    window.cut_seams_cb.setToolTip(tip(
+        "After decimating, splits the faces that straddle a UV seam of "
+        "the original along it, so the texture coordinates transferred "
+        "to the result do not stretch across the seam. It adds "
+        "triangles only where a face crosses a seam: with the seams "
+        "left free, a mesh whose seams cover few vertices keeps close to "
+        "the requested reduction and a texture error near that of "
+        "protecting the seams; on a fragmented atlas it adds many "
+        "triangles, so leave it off there."
+    ))
+    protect_grid.addWidget(window.cut_seams_cb, 6, 0, 1, 2)
+
     panel_layout.addWidget(protect_group)

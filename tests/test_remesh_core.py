@@ -781,3 +781,28 @@ def test_pipeline_lowers_the_reduction_when_protection_cannot_meet_the_limit():
     assert on.reduction_lowered_to_pct is not None and on.reduction_lowered_to_pct < 98.0
     assert on.error_max <= 0.001 * mesh.length
     assert on.reduction_real_pct > off.reduction_real_pct
+
+
+def test_cut_seams_splits_faces_that_straddle_a_seam():
+    left = pv.Plane(center=(0.5, 0, 0), i_size=1, j_size=1, i_resolution=4, j_resolution=4).triangulate()
+    right = pv.Plane(center=(1.5, 0, 0), i_size=1, j_size=1, i_resolution=4, j_resolution=4).triangulate()
+    source = left.merge(right, merge_points=False)
+    source.active_texture_coordinates = np.vstack([left.points[:, :2], right.points[:, :2] + [10.0, 0.0]])
+    coarse = pv.Plane(center=(1.0, 0, 0), i_size=2, j_size=1, i_resolution=1, j_resolution=1).triangulate()
+
+    plain = transfer_texture_coords(source, coarse)
+    cut = transfer_texture_coords(source, coarse, cut_seams=True)
+
+    def worst_centroid_error(mesh):
+        pts, uv = mesh.points, mesh.active_texture_coordinates
+        worst = 0.0
+        for tri in mesh.regular_faces:
+            x = pts[tri, 0].mean()
+            expected = x if x < 1.0 else x + 10.0
+            worst = max(worst, abs(uv[tri, 0].mean() - expected))
+        return worst
+
+    assert worst_centroid_error(plain) > 0.2  # the coarse faces stretch one chart over the seam
+    assert worst_centroid_error(cut) < 0.05
+    assert cut.n_cells > coarse.n_cells
+    assert cut.area == pytest.approx(coarse.area, rel=1e-9)  # re-triangulated, not changed

@@ -280,7 +280,116 @@ def _closest_point_barycentric(p: np.ndarray, a: np.ndarray, b: np.ndarray, c: n
     return w, np.einsum("ij,ij->i", p - pt, p - pt)
 
 
-def transfer_texture_coords(source: pv.PolyData, target: pv.PolyData, k: int = 8) -> pv.PolyData:
+def _source_charts(source: pv.PolyData):
+    """UV charts of `source` (triangles connected through vertices that share
+    position and UV) as (a, b, c corner arrays, centroid tree, chart per face)."""
+    s_pts = np.asarray(source.points, dtype=float)
+    s_tri = np.asarray(source.regular_faces)
+    s_uv = np.asarray(source.active_texture_coordinates, dtype=float)
+    scale = float(source.length) or 1.0
+    keys = np.column_stack([np.round(s_pts / (1e-6 * scale)), np.round(s_uv / 1e-6)])
+    _, weld = np.unique(keys, axis=0, return_inverse=True)
+    weld = weld.reshape(-1)
+    n = int(weld.max()) + 1
+    edges = np.concatenate([weld[s_tri[:, [0, 1]]], weld[s_tri[:, [1, 2]]]])
+    graph = coo_matrix((np.ones(len(edges)), (edges[:, 0], edges[:, 1])), shape=(n, n))
+    _, chart_of_vertex = connected_components(graph, directed=False)
+    chart = chart_of_vertex[weld[s_tri[:, 0]]]
+    a, b, c = s_pts[s_tri[:, 0]], s_pts[s_tri[:, 1]], s_pts[s_tri[:, 2]]
+    return a, b, c, cKDTree((a + b + c) / 3.0), chart
+
+
+def split_faces_at_seams(source: pv.PolyData, target: pv.PolyData, k: int = 8, min_t: float = 0.08) -> pv.PolyData:
+    """Cuts the faces of `target` along the UV seams of `source`. Every vertex
+    takes the chart of its nearest source triangle; each edge whose ends are in
+    different charts gets a vertex where the chart changes (found by bisection),
+    unless that point is within `min_t` of an end, and the faces that own cut
+    edges are re-triangulated conformingly. A face then lies in one chart, so
+    the transfer of the texture coordinates does not stretch it across the seam.
+    Only faces that cross a seam gain triangles."""
+    if not mesh_has_texture_coords(source) or target.n_cells == 0:
+        return target
+    a, b, c, tree, chart = _source_charts(source)
+    pts = np.asarray(target.points, dtype=float)
+    tri = np.asarray(target.regular_faces)
+
+    def chart_at(p: np.ndarray) -> np.ndarray:
+        _, cand = tree.query(p, k=min(k, len(chart)))
+        cand = np.asarray(cand).reshape(len(p), -1)
+        best, best_d = cand[:, 0].copy(), np.full(len(p), np.inf)
+        for j in range(cand.shape[1]):
+            f = cand[:, j]
+            _, d = _closest_point_barycentric(p, a[f], b[f], c[f])
+            better = d < best_d
+            best[better], best_d[better] = f[better], d[better]
+        return chart[best]
+
+    label = chart_at(pts)
+    edge_all = np.sort(np.concatenate([tri[:, [0, 1]], tri[:, [1, 2]], tri[:, [2, 0]]]), axis=1)
+    edges, inverse = np.unique(edge_all, axis=0, return_inverse=True)
+    inverse = inverse.reshape(-1)
+    differ = label[edges[:, 0]] != label[edges[:, 1]]
+    if not differ.any():
+        return target
+    e_idx = np.flatnonzero(differ)
+    p0, p1 = pts[edges[e_idx, 0]], pts[edges[e_idx, 1]]
+    l0 = label[edges[e_idx, 0]]
+    lo, hi = np.zeros(len(e_idx)), np.ones(len(e_idx))
+    for _ in range(10):
+        mid = 0.5 * (lo + hi)
+        same = chart_at(p0 + mid[:, None] * (p1 - p0)) == l0
+        lo = np.where(same, mid, lo)
+        hi = np.where(same, hi, mid)
+    tcut = 0.5 * (lo + hi)
+    keep = (tcut > min_t) & (tcut < 1 - min_t)
+    cut_edge = e_idx[keep]
+    if cut_edge.size == 0:
+        return target
+    new_pts = p0[keep] + tcut[keep, None] * (p1[keep] - p0[keep])
+    mid_of_edge = np.full(len(edges), -1, dtype=np.int64)
+    mid_of_edge[cut_edge] = len(pts) + np.arange(cut_edge.size)
+    n_faces = len(tri)
+    # inverse lists the edges as [(01) of all faces, (12) of all faces, (20) of all faces]
+    face_edge = inverse.reshape(3, n_faces).T
+    m = mid_of_edge[face_edge]
+    n_cuts = (m >= 0).sum(axis=1)
+    out_faces = [tri[n_cuts == 0]]
+    for count in (1, 2, 3):
+        sel = np.flatnonzero(n_cuts == count)
+        if sel.size == 0:
+            continue
+        v, mm = tri[sel], m[sel]
+        idx = np.arange(len(sel))
+        if count == 1:
+            rot = np.argmax(mm >= 0, axis=1)  # the cut edge (rot) joins corners rot and rot+1
+            va, vb, vc = v[idx, rot], v[idx, (rot + 1) % 3], v[idx, (rot + 2) % 3]
+            mid = mm[idx, rot]
+            out_faces += [np.column_stack([va, mid, vc]), np.column_stack([mid, vb, vc])]
+        elif count == 2:
+            rot = np.argmax(mm < 0, axis=1)  # the uncut edge joins corners rot and rot+1
+            va, vc, vb = v[idx, rot], v[idx, (rot + 1) % 3], v[idx, (rot + 2) % 3]
+            m_ab = mm[idx, (rot + 2) % 3]  # edge between corners rot+2 (b) and rot (a)
+            m_bc = mm[idx, (rot + 1) % 3]  # edge between corners rot+1 (c) and rot+2 (b)
+            out_faces += [
+                np.column_stack([m_ab, vb, m_bc]),
+                np.column_stack([va, m_ab, m_bc]),
+                np.column_stack([va, m_bc, vc]),
+            ]
+        else:
+            va, vb, vc = v[:, 0], v[:, 1], v[:, 2]
+            m01, m12, m20 = mm[:, 0], mm[:, 1], mm[:, 2]
+            out_faces += [
+                np.column_stack([va, m01, m20]), np.column_stack([vb, m12, m01]),
+                np.column_stack([vc, m20, m12]), np.column_stack([m01, m12, m20]),
+            ]
+    faces = np.vstack(out_faces)
+    return pv.PolyData(
+        np.vstack([pts, new_pts]),
+        np.hstack([np.full((len(faces), 1), 3), faces]).astype(np.int64),
+    )
+
+
+def transfer_texture_coords(source: pv.PolyData, target: pv.PolyData, k: int = 8, cut_seams: bool = False) -> pv.PolyData:
     """Returns a copy of `target` carrying the texture coordinates of
     `source`, so a result that lost its UV (cleaning, welding and repair
     rebuild the mesh from geometry alone) can be textured again.
@@ -296,6 +405,8 @@ def transfer_texture_coords(source: pv.PolyData, target: pv.PolyData, k: int = 8
     unchanged if `source` has no UV."""
     if not mesh_has_texture_coords(source) or target.n_cells == 0:
         return target
+    if cut_seams:
+        target = split_faces_at_seams(source, target, k)
     s_pts = np.asarray(source.points, dtype=float)
     s_tri = np.asarray(source.regular_faces)
     s_uv = np.asarray(source.active_texture_coordinates, dtype=float)

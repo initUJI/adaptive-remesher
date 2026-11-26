@@ -61,6 +61,10 @@ def main():
             rows.append(_row(display, cat, config, source, rc.transfer_texture_coords(source, res.mesh), image))
             rows[-1]["seam_share_pct"] = round(100 * rc.seam_vertex_fraction(source), 2)
             rows[-1]["automatic_policy_protects"] = auto
+            if not seams:
+                rows.append(_row(display, cat, 'Seams free, cut at seams', source, rc.transfer_texture_coords(source, res.mesh, cut_seams=True), image))
+                rows[-1]['seam_share_pct'] = rows[-2]['seam_share_pct']
+                rows[-1]['automatic_policy_protects'] = auto
             if not seams and xatlas_available():  # new atlas baked from the source
                 low = reparametrize(res.mesh, size=2048)
                 baked = bake_material_maps(source, low, maps, size=2048)
@@ -73,7 +77,7 @@ def main():
         rows.append(_row(display, cat, "MeshLab (welded), UV transferred", source, ml, image))
         rows[-1]["seam_share_pct"] = rows[-2]["seam_share_pct"]
         rows[-1]["automatic_policy_protects"] = auto
-        print(" | ".join(f"{r['config'][:14]} tex {r['texture_error_mean_pct']:.2f}% red {r['reduction_pct']:.0f}%" for r in rows[-4:]), display[:30], flush=True)
+        print(" | ".join(f"{r['config'][:14]} tex {r['texture_error_mean_pct']:.2f}% red {r['reduction_pct']:.0f}%" for r in rows[-5:]), display[:30], flush=True)
     keys = sorted({k for r in rows for k in r}, key=lambda k: list(rows[0]).index(k) if k in rows[0] else 99)
     with open(os.path.join(RESULTS_DIR, "texture_fidelity.csv"), "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=keys)

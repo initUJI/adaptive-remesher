@@ -4,6 +4,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (cut faces at UV seams)
+- `split_faces_at_seams` and `transfer_texture_coords(..., cut_seams=True)`; checkbox
+  "Cut faces at UV seams" (off by default). Each vertex takes the chart of its
+  nearest source triangle, each edge between charts gets a vertex where the chart
+  changes (bisection, ignored within 8% of an end) and the faces on cut edges are
+  re-triangulated conformingly, so no face is stretched across a seam. On the 7
+  textured meshes with <15% seam vertices: 0.35% texture error at 88.7% reduction
+  vs 0.33% at 83.0% with seams protected; on fragmented atlases it only adds
+  triangles.
+
 ### Added (texture fidelity)
 - `materials.texture_error`: colours points drawn on the source with its image at
   the source UV and at the UV of the closest point of the result, and reports the

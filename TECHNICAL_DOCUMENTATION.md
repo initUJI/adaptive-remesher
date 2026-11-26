@@ -767,6 +767,16 @@ or keeps less than `reduction - step`, and keeps the candidate if refinement
 failed or the candidate reduces more. Evaluation: all 19 meshes within 1%
 (barrel 60.1%, carrot cake/elephant/drill 75%, bolt cutters 85.1%, others 90%).
 
+**Cutting faces at UV seams (`split_faces_at_seams`).** The texture error of a
+decimated result comes almost entirely from the UV transfer (geometry floor 0.05%
+vs 1.03% measured), concentrated in faces that cross a seam. Cutting those faces
+along the seam before the transfer (vertex per chart-changing edge, bisection on
+the chart of the nearest source triangle, conforming 1/2/3-cut triangulation)
+removes the stretch and adds triangles only at seams. Option `cut_seams` of
+`transfer_texture_coords`, off by default (checkbox in the protection panel).
+Splitting faces at their centroid instead recovered little at many more
+triangles and was not kept.
+
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
 `_apply_rect_selection()` ([app.py:560](app.py:560)) kept its cheap

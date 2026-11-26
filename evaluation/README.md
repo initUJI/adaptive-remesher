@@ -111,10 +111,10 @@ as duplicated vertices.
   reduction), 0.35% with seams protected (76% reduction), 0.51% under the
   automatic policy (81%), 1.06% for MeshLab on the welded input with the same
   transfer (90%). The geometry-only floor is 0.05%, so almost all of it comes
-  from the UV transfer. A re-baked 2048 atlas (`reparametrize` + bake) gave
+  from the UV transfer. With the faces cut at the seams (`cut_seams=True`): 0.59% at 86.6% (0.35% at 88.7% on the 7 meshes with <15% seam vertices, vs 0.33% at 83.0% protected; on the 6 fragmented atlases no gain, 62.6% reduction vs 75.0%). A re-baked 2048 atlas (`reparametrize` + bake) gave
   10.1% (42% of the points above 10%): worse than the carried-over UV, since the
   new atlas has fewer texels per chart than the source's. Splitting the faces
-  that straddle seams (tried, not kept) recovered little (e.g. elephant 1.73 ->
+  at their centroid (tried, not kept) recovered little (e.g. elephant 1.73 ->
   1.23% at 8x the triangles). Run: `python -u -m evaluation.experiment_texture_fidelity`.
 - **`experiment_engine_comparison.py`** — vtkDecimatePro vs. QEM, same
   settings, all 19 models, no protection (isolates the engine choice).

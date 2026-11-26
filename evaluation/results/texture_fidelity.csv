@@ -1,53 +1,66 @@
 model,category,config,input_tris,output_tris,reduction_pct,geometry_error_pct,texture_error_mean_pct,texture_error_p95_pct,texture_error_max_pct,share_above_10pct,geometry_floor_mean_pct,geometry_floor_p95_pct,seam_share_pct,automatic_policy_protects
 Sculpture of man and woman (Egyptian excavation),Characters,Seams protected,59996,14314,76.14,0.4508,0.511,1.9762,13.7497,0.0001,0.0756,0.3614,13.31,True
 Sculpture of man and woman (Egyptian excavation),Characters,Seams free,59996,5998,90.0,0.2029,0.8905,3.0065,39.5079,0.018,0.032,0.1286,13.31,True
+Sculpture of man and woman (Egyptian excavation),Characters,"Seams free, cut at seams",59996,8068,86.55,0.2029,0.5374,1.7008,36.8604,0.006,0.032,0.1286,13.31,True
 Sculpture of man and woman (Egyptian excavation),Characters,"Seams free, re-baked (new atlas)",59996,5998,90.0,0.2029,12.8621,31.5585,51.7234,0.5225,0.0299,0.1048,13.31,True
 Sculpture of man and woman (Egyptian excavation),Characters,"MeshLab (welded), UV transferred",59996,6000,90.0,0.2559,0.8007,2.5882,41.4352,0.0149,0.0375,0.1516,13.31,True
 "1993.165 Statuette of a Woman: ""The Stargazer""",Characters,Seams protected,15000,2814,81.24,0.5023,1.2075,5.2247,30.8249,0.0123,0.2123,0.9086,8.96,True
 "1993.165 Statuette of a Woman: ""The Stargazer""",Characters,Seams free,15000,1498,90.01,0.4603,1.2466,5.1603,42.7672,0.0189,0.135,0.5745,8.96,True
+"1993.165 Statuette of a Woman: ""The Stargazer""",Characters,"Seams free, cut at seams",15000,1882,87.45,0.4603,0.9081,3.5993,54.7917,0.0074,0.135,0.5745,8.96,True
 "1993.165 Statuette of a Woman: ""The Stargazer""",Characters,"Seams free, re-baked (new atlas)",15000,1498,90.01,0.4603,11.5888,29.8787,58.9565,0.4659,0.1067,0.4606,8.96,True
 "1993.165 Statuette of a Woman: ""The Stargazer""",Characters,"MeshLab (welded), UV transferred",15000,1500,90.0,0.3502,1.1654,4.7749,54.7917,0.0195,0.1456,0.6507,8.96,True
 Statuette of a Woman in Hunting Clothes,Characters,Seams protected,130504,25518,80.45,0.2518,0.3472,1.4123,32.3146,0.0011,0.0476,0.1918,10.31,True
 Statuette of a Woman in Hunting Clothes,Characters,Seams free,130504,13050,90.0,0.1244,1.0292,3.0266,76.8671,0.0258,0.0347,0.1003,10.31,True
+Statuette of a Woman in Hunting Clothes,Characters,"Seams free, cut at seams",130504,17000,86.97,0.1319,0.3516,1.013,76.8671,0.0042,0.0347,0.1003,10.31,True
 Statuette of a Woman in Hunting Clothes,Characters,"Seams free, re-baked (new atlas)",130504,13050,90.0,0.1244,21.3282,47.2769,78.7976,0.7762,0.037,0.1136,10.31,True
 Statuette of a Woman in Hunting Clothes,Characters,"MeshLab (welded), UV transferred",130504,13050,90.0,0.1637,1.0553,3.3467,76.9616,0.0278,0.0363,0.1182,10.31,True
 Barrel 03,Objects,Seams protected,1473,1186,19.48,0.7811,0.2726,1.2248,43.309,0.005,0.1028,0.1253,60.39,False
 Barrel 03,Objects,Seams free,1473,588,60.08,0.9711,2.4167,13.6617,60.5368,0.0661,0.3706,0.9998,60.39,False
+Barrel 03,Objects,"Seams free, cut at seams",1473,999,32.18,0.9711,2.5746,13.9885,60.5368,0.0671,0.3706,0.9998,60.39,False
 Barrel 03,Objects,"Seams free, re-baked (new atlas)",1473,588,60.08,0.9711,5.8946,24.2927,65.1373,0.1447,0.1641,0.4356,60.39,False
 Barrel 03,Objects,"MeshLab (welded), UV transferred",1473,146,90.09,1.9712,3.7319,16.9514,60.0164,0.0851,1.0431,6.2233,60.39,False
 Carrot Cake,Objects,Seams protected,13790,9766,29.18,0.5334,0.3756,1.8596,32.4471,0.0011,0.1231,0.6012,45.7,False
 Carrot Cake,Objects,Seams free,13790,3442,75.04,0.7793,1.0751,3.4448,53.949,0.0202,0.2092,0.528,45.7,False
+Carrot Cake,Objects,"Seams free, cut at seams",13790,5214,62.19,0.7793,0.7498,2.3812,51.5566,0.0124,0.2092,0.528,45.7,False
 Carrot Cake,Objects,"Seams free, re-baked (new atlas)",13790,3442,75.04,0.7793,17.246,45.565,58.3472,0.5034,0.1713,0.3619,45.7,False
 Carrot Cake,Objects,"MeshLab (welded), UV transferred",13790,1378,90.01,1.3576,2.6901,11.2211,53.7476,0.0535,0.6331,2.097,45.7,False
 Carved Wooden Elephant,Objects,Seams protected,2752,1808,34.3,0.7343,0.8506,3.5419,25.4717,0.0022,0.2133,1.0809,33.29,False
 Carved Wooden Elephant,Objects,Seams free,2752,688,75.0,0.6477,1.7314,5.6871,19.2115,0.008,0.3063,1.3195,33.29,False
+Carved Wooden Elephant,Objects,"Seams free, cut at seams",2752,1018,63.01,0.6477,1.487,4.7906,18.2312,0.0044,0.3063,1.3195,33.29,False
 Carved Wooden Elephant,Objects,"Seams free, re-baked (new atlas)",2752,688,75.0,0.6477,4.9492,10.3762,29.5722,0.0595,0.2137,0.9586,33.29,False
 Carved Wooden Elephant,Objects,"MeshLab (welded), UV transferred",2752,274,90.04,2.711,2.4015,6.9533,32.0495,0.0138,0.8659,3.4617,33.29,False
 Bolt Cutters 01,Mechanical,Seams protected,3410,2151,36.92,0.7285,2.0301,8.1104,38.9273,0.0282,0.6734,4.2582,36.51,False
 Bolt Cutters 01,Mechanical,Seams free,3410,508,85.1,0.6256,3.3612,10.046,39.8089,0.0508,0.5502,3.4161,36.51,False
+Bolt Cutters 01,Mechanical,"Seams free, cut at seams",3410,986,71.09,0.6256,2.9077,9.2777,37.8971,0.0405,0.5502,3.4161,36.51,False
 Bolt Cutters 01,Mechanical,"Seams free, re-baked (new atlas)",3410,508,85.1,0.6256,6.2348,13.4669,39.1827,0.1335,0.493,3.0582,36.51,False
 Bolt Cutters 01,Mechanical,"MeshLab (welded), UV transferred",3410,340,90.03,1.0293,3.3942,10.1541,41.4536,0.0522,1.1835,6.9354,36.51,False
 Drill 01,Mechanical,Seams protected,2926,2008,31.37,0.9752,1.5359,2.3212,66.9577,0.0316,0.3028,0.3954,49.93,False
 Drill 01,Mechanical,Seams free,2926,731,75.02,0.7969,3.1856,29.8175,68.6671,0.0621,0.5924,0.4667,49.93,False
+Drill 01,Mechanical,"Seams free, cut at seams",2926,1174,59.88,0.7969,3.57,45.2515,69.243,0.0708,0.5924,0.4667,49.93,False
 Drill 01,Mechanical,"Seams free, re-baked (new atlas)",2926,731,75.02,0.7969,28.2293,53.891,67.9776,0.5696,0.7931,0.5515,49.93,False
 Drill 01,Mechanical,"MeshLab (welded), UV transferred",2926,292,90.02,3.6132,6.9322,51.9915,67.3217,0.1331,2.2546,3.8434,49.93,False
 Trilobite: Agnostid,Organic,Seams protected,211874,32058,84.87,0.7955,0.0923,0.359,3.9877,0.0,0.0032,0.0143,5.69,True
 Trilobite: Agnostid,Organic,Seams free,211874,21175,90.01,0.7993,0.261,0.813,36.2531,0.0031,0.0038,0.0094,5.69,True
+Trilobite: Agnostid,Organic,"Seams free, cut at seams",211874,23998,88.67,0.7993,0.1744,0.5988,42.6238,0.0011,0.0038,0.0094,5.69,True
 Trilobite: Agnostid,Organic,"Seams free, re-baked (new atlas)",211874,21175,90.01,0.7993,8.4311,27.1527,64.358,0.271,0.003,0.0084,5.69,True
 Trilobite: Agnostid,Organic,"MeshLab (welded), UV transferred",211874,21186,90.0,0.8491,0.2833,0.7955,40.9,0.0051,0.0054,0.0112,5.69,True
 Blastoid: Pentremites godani (PRI 70771),Organic,Seams protected,446670,56624,87.32,0.3428,0.0213,0.0956,1.4295,0.0,0.0017,0.0074,2.72,True
 Blastoid: Pentremites godani (PRI 70771),Organic,Seams free,446670,44659,90.0,0.3431,0.0434,0.124,11.0473,0.0002,0.0018,0.0067,2.72,True
+Blastoid: Pentremites godani (PRI 70771),Organic,"Seams free, cut at seams",446670,47554,89.35,0.3431,0.0326,0.1132,10.3904,0.0001,0.0018,0.0067,2.72,True
 Blastoid: Pentremites godani (PRI 70771),Organic,"Seams free, re-baked (new atlas)",446670,44659,90.0,0.3431,4.2516,10.8604,30.6327,0.0655,0.0014,0.0052,2.72,True
 Blastoid: Pentremites godani (PRI 70771),Organic,"MeshLab (welded), UV transferred",446670,44666,90.0,0.349,0.0474,0.1346,12.4047,0.0003,0.0017,0.0077,2.72,True
 Vertebrate: T. rex tooth (PRI 55205),Organic,Seams protected,108958,18562,82.96,0.7234,0.331,1.2913,13.4409,0.0001,0.013,0.052,7.79,True
 Vertebrate: T. rex tooth (PRI 55205),Organic,Seams free,108958,10980,89.92,0.7359,0.5921,2.2823,50.7092,0.0008,0.0362,0.1348,7.79,True
+Vertebrate: T. rex tooth (PRI 55205),Organic,"Seams free, cut at seams",108958,11924,89.06,0.7359,0.5879,2.2779,28.4143,0.0006,0.0362,0.1348,7.79,True
 Vertebrate: T. rex tooth (PRI 55205),Organic,"Seams free, re-baked (new atlas)",108958,10980,89.92,0.7359,18.1472,45.2895,86.8894,0.6732,0.0452,0.1399,7.79,True
 Vertebrate: T. rex tooth (PRI 55205),Organic,"MeshLab (welded), UV transferred",108958,10896,90.0,2.3125,0.801,2.4982,66.2471,0.0123,0.0117,0.0327,7.79,True
 Loewe (lion),Organic,Seams protected,405680,236691,41.66,0.6646,0.054,0.2157,16.6934,0.0003,0.0812,0.0458,38.17,False
 Loewe (lion),Organic,Seams free,405680,40563,90.0,0.193,0.3441,0.4274,29.7425,0.0135,0.0217,0.012,38.17,False
+Loewe (lion),Organic,"Seams free, cut at seams",405680,66914,83.51,0.193,0.2336,0.1781,31.6251,0.0089,0.0217,0.012,38.17,False
 Loewe (lion),Organic,"Seams free, re-baked (new atlas)",405680,40563,90.0,0.193,9.0652,21.2232,37.5941,0.3051,0.0253,0.0183,38.17,False
 Loewe (lion),Organic,"MeshLab (welded), UV transferred",405680,40568,90.0,0.3834,0.3616,0.5043,34.6621,0.014,0.0254,0.0141,38.17,False
 "Curled Rat netsuke, test scan",Scanned,Seams protected,63998,9184,85.65,0.3834,0.1027,0.4288,13.1297,0.0001,0.0306,0.1345,5.46,True
 "Curled Rat netsuke, test scan",Scanned,Seams free,63998,6450,89.92,0.729,0.1401,0.5638,16.9628,0.0003,0.0456,0.1823,5.46,True
+"Curled Rat netsuke, test scan",Scanned,"Seams free, cut at seams",63998,6862,89.28,0.729,0.1375,0.5628,14.1169,0.0001,0.0456,0.1823,5.46,True
 "Curled Rat netsuke, test scan",Scanned,"Seams free, re-baked (new atlas)",63998,6450,89.92,0.729,10.0555,25.148,42.8178,0.4252,0.0417,0.1447,5.46,True
 "Curled Rat netsuke, test scan",Scanned,"MeshLab (welded), UV transferred",63998,6400,90.0,1.1055,0.3528,0.7941,38.337,0.0086,0.0544,0.1209,5.46,True

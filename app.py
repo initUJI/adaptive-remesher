@@ -145,6 +145,7 @@ class AdaptiveRemesherWindow(QMainWindow):
     brush_spin: QSpinBox
     protected_count_label: QLabel
     protect_uv_seams_cb: QCheckBox
+    cut_seams_cb: QCheckBox
     engine_combo: QComboBox
     reduction_slider: QSlider
     reduction_value_label: QLabel
@@ -961,6 +962,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         else:
             uv_reason = None
         set_available(self.protect_uv_seams_cb, uv_reason)
+        set_available(self.cut_seams_cb, uv_reason)
         set_available(self.uv_attribute_metric_cb, uv_reason)
         uv_cost_on = self.uv_attribute_metric_cb.isChecked()
         uv_weight_reason = uv_reason or (
@@ -1251,7 +1253,9 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         self._push_undo()
         # The pipeline works on bare geometry; give the result the source's UV back.
-        self.decimated_mesh = transfer_texture_coords(self.original_mesh, result.mesh)
+        self.decimated_mesh = transfer_texture_coords(
+            self.original_mesh, result.mesh, cut_seams=self.cut_seams_cb.isChecked()
+        )
         self.baked_normal = None  # a new result needs its own bake
         self.result_maps = None
         self.show_mesh(self.decimated_mesh, is_original=False)
@@ -1529,7 +1533,7 @@ class AdaptiveRemesherWindow(QMainWindow):
                 "error_refine_added_points": result.error_refine_added_points,
                 "reduction_lowered_to_pct": result.reduction_lowered_to_pct,
             })
-        return {"mesh": transfer_texture_coords(mesh, result.mesh), "info": info}
+        return {"mesh": transfer_texture_coords(mesh, result.mesh, cut_seams=self.cut_seams_cb.isChecked()), "info": info}
 
     def run_batch(self):
         """Applies the panel's current settings to every compatible mesh
@@ -1656,6 +1660,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             "viewport_bg_index": self.viewport_bg_combo.currentIndex(),
             "brush_radius_pct": self.brush_slider.value(),
             "protect_uv_seams": self.protect_uv_seams_cb.isChecked(),
+            "cut_seams": self.cut_seams_cb.isChecked(),
             "engine_index": self.engine_combo.currentIndex(),
             "reduction_pct": self.reduction_slider.value(),
             "feature_angle": self.angle_slider.value(),
@@ -1694,6 +1699,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         )
         self.brush_slider.setValue(get("brush_radius_pct", self.brush_slider.value()))
         self.protect_uv_seams_cb.setChecked(get("protect_uv_seams", self.protect_uv_seams_cb.isChecked()))
+        self.cut_seams_cb.setChecked(get("cut_seams", self.cut_seams_cb.isChecked()))
         self._seam_auto = False  # a preset is an explicit choice
         self.engine_combo.setCurrentIndex(get("engine_index", self.engine_combo.currentIndex()))
         self.reduction_slider.setValue(get("reduction_pct", self.reduction_slider.value()))
