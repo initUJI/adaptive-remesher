@@ -113,11 +113,13 @@ def seam_vertex_fraction(mesh: pv.PolyData) -> float:
     return float(uv_seam_point_mask(mesh).sum()) / mesh.n_points
 
 
-def should_protect_uv_seams(mesh: pv.PolyData) -> bool:
-    """Whether freezing the UV seams of `mesh` is worth it: yes while they are
-    a small share of its vertices (`SEAM_FREEZE_LIMIT`), no when a fragmented
-    texture atlas would freeze so much that it limits the reduction and
-    degrades the geometry."""
+def should_cut_uv_seams(mesh: pv.PolyData) -> bool:
+    """Whether the faces of a result should be cut along the UV seams of `mesh`
+    (`transfer_texture_coords(..., cut_seams=True)`) instead of freezing the
+    seams: yes while they are a small share of its vertices
+    (`SEAM_FREEZE_LIMIT`), where the cut gives the colour error of protected
+    seams at a higher reduction; no on a fragmented texture atlas, where it
+    only adds triangles."""
     return seam_vertex_fraction(mesh) < SEAM_FREEZE_LIMIT
 
 
@@ -1411,28 +1413,46 @@ def lower_reduction_to_meet_error(
     settings: DecimationSettings,
     error_threshold_pct: float,
     step_pct: float = 5.0,
+    fine_steps: int = 3,
 ):
     """Decimates less, in steps of `step_pct` below `settings.reduction_pct`,
-    and returns the first result whose pooled maximum error is within the
-    threshold: protecting violating zones cannot always reach it (a small
-    mesh simplified by 90% deviates everywhere), whereas a lower reduction
-    can. The error is not monotonic in the reduction, so the steps are
-    scanned in order and not bisected. Returns (result, ErrorStats, zone_stats,
-    requested reduction) or None if no step meets the threshold."""
+    until the pooled maximum error is within the threshold, then bisects
+    `fine_steps` times between that step and the failing one above it to
+    recover the reduction the coarse step gave up. Protecting violating zones
+    cannot always reach the threshold (a small mesh simplified by 90%
+    deviates everywhere), whereas a lower reduction can. The error is not
+    monotonic in the reduction, so the coarse steps are scanned in order
+    and the bisection keeps the best valid result found. Returns (result,
+    ErrorStats, zone_stats, requested reduction) or None if no step meets
+    the threshold."""
     threshold = (error_threshold_pct / 100.0) * source.length
     distance_to_source = vtk.vtkImplicitPolyDataDistance()
     distance_to_source.SetInput(source)
-    pct = settings.reduction_pct - step_pct
-    while pct >= step_pct:
+
+    def attempt(pct: float):
         zone: dict = {}
         result = decimate_with_mask(
             source, mask, dataclass_replace(settings, reduction_pct=pct), zone_stats=zone
         )
-        if result.n_cells:
-            fwd, _, rev, _ = measure_bidirectional_error(source, result, distance_to_source)
-            stats = bidirectional_error_summary(fwd, rev)
-            if stats.max <= threshold:
-                return result, stats, zone, pct
+        if not result.n_cells:
+            return None
+        fwd, _, rev, _ = measure_bidirectional_error(source, result, distance_to_source)
+        stats = bidirectional_error_summary(fwd, rev)
+        return (result, stats, zone, pct) if stats.max <= threshold else None
+
+    pct = settings.reduction_pct - step_pct
+    while pct >= step_pct:
+        best = attempt(pct)
+        if best is not None:
+            lo, hi = pct, pct + step_pct
+            for _ in range(fine_steps):
+                mid = 0.5 * (lo + hi)
+                candidate = attempt(mid)
+                if candidate is not None:
+                    best, lo = candidate, mid
+                else:
+                    hi = mid
+            return best
         pct -= step_pct
     return None
 

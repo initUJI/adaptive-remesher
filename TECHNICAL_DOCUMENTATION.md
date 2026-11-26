@@ -765,7 +765,7 @@ bisection) with the pre-refinement mask and returns the first result within the
 threshold. `run_decimation_pipeline` runs it when refinement fails the threshold
 or keeps less than `reduction - step`, and keeps the candidate if refinement
 failed or the candidate reduces more. Evaluation: all 19 meshes within 1%
-(barrel 60.1%, carrot cake/elephant/drill 75%, bolt cutters 85.1%, others 90%).
+(barrel 63.9%, carrot cake 78.8%, elephant 78.1%, drill 77.5%, bolt cutters 87.0%, others 90%; after the coarse scan, 3 bisection steps recover part of the 5-point step).
 
 **Cutting faces at UV seams (`split_faces_at_seams`).** The texture error of a
 decimated result comes almost entirely from the UV transfer (geometry floor 0.05%

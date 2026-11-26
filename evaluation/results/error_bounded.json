@@ -9,7 +9,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 0.48
+    "runtime_s": 0.467
   },
   {
     "model": "1993.165 Statuette of a Woman: \"The Stargazer\"",
@@ -21,7 +21,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 0.096
+    "runtime_s": 0.099
   },
   {
     "model": "Statuette of a Woman in Hunting Clothes",
@@ -33,67 +33,67 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 1.055
+    "runtime_s": 1.04
   },
   {
     "model": "Barrel 03",
     "category": "Objects",
     "input_tris": 1473,
-    "output_tris": 588,
-    "reduction_pct": 60.08,
+    "output_tris": 532,
+    "reduction_pct": 63.88,
     "error_max_pct_of_diagonal": 0.9711,
-    "reduction_lowered_to_pct": 60.0,
+    "reduction_lowered_to_pct": 63.75,
     "refine_iterations": 0,
     "auto_added_vertices": 0,
-    "runtime_s": 0.122
+    "runtime_s": 0.149
   },
   {
     "model": "Carrot Cake",
     "category": "Objects",
     "input_tris": 13790,
-    "output_tris": 3442,
-    "reduction_pct": 75.04,
-    "error_max_pct_of_diagonal": 0.7793,
-    "reduction_lowered_to_pct": 75.0,
+    "output_tris": 2924,
+    "reduction_pct": 78.8,
+    "error_max_pct_of_diagonal": 0.7657,
+    "reduction_lowered_to_pct": 78.75,
     "refine_iterations": 0,
     "auto_added_vertices": 0,
-    "runtime_s": 0.707
+    "runtime_s": 1.0
   },
   {
     "model": "Carved Wooden Elephant",
     "category": "Objects",
     "input_tris": 2752,
-    "output_tris": 688,
-    "reduction_pct": 75.0,
-    "error_max_pct_of_diagonal": 0.6477,
-    "reduction_lowered_to_pct": 75.0,
+    "output_tris": 602,
+    "reduction_pct": 78.12,
+    "error_max_pct_of_diagonal": 0.8684,
+    "reduction_lowered_to_pct": 78.125,
     "refine_iterations": 0,
     "auto_added_vertices": 0,
-    "runtime_s": 0.147
+    "runtime_s": 0.198
   },
   {
     "model": "Bolt Cutters 01",
     "category": "Mechanical",
     "input_tris": 3410,
-    "output_tris": 508,
-    "reduction_pct": 85.1,
+    "output_tris": 443,
+    "reduction_pct": 87.01,
     "error_max_pct_of_diagonal": 0.6256,
-    "reduction_lowered_to_pct": 85.0,
+    "reduction_lowered_to_pct": 86.875,
     "refine_iterations": 0,
     "auto_added_vertices": 0,
-    "runtime_s": 0.151
+    "runtime_s": 0.244
   },
   {
     "model": "Drill 01",
     "category": "Mechanical",
     "input_tris": 2926,
-    "output_tris": 731,
-    "reduction_pct": 75.02,
+    "output_tris": 657,
+    "reduction_pct": 77.55,
     "error_max_pct_of_diagonal": 0.7969,
-    "reduction_lowered_to_pct": 75.0,
+    "reduction_lowered_to_pct": 77.5,
     "refine_iterations": 0,
     "auto_added_vertices": 0,
-    "runtime_s": 0.164
+    "runtime_s": 0.215
   },
   {
     "model": "Trilobite: Agnostid",
@@ -105,7 +105,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 1.945
+    "runtime_s": 1.97
   },
   {
     "model": "Blastoid: Pentremites godani (PRI 70771)",
@@ -117,7 +117,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 4.226
+    "runtime_s": 4.214
   },
   {
     "model": "Vertebrate: T. rex tooth (PRI 55205)",
@@ -129,7 +129,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 2,
     "auto_added_vertices": 100,
-    "runtime_s": 2.148
+    "runtime_s": 2.183
   },
   {
     "model": "Loewe (lion)",
@@ -141,7 +141,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 4.3
+    "runtime_s": 4.279
   },
   {
     "model": "Weisshai Great White Shark",
@@ -153,7 +153,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 0.048
+    "runtime_s": 0.047
   },
   {
     "model": "Vegetable Garden",
@@ -165,7 +165,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 0.141
+    "runtime_s": 0.135
   },
   {
     "model": "Curled Rat netsuke, test scan",
@@ -177,7 +177,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 2,
     "auto_added_vertices": 76,
-    "runtime_s": 1.034
+    "runtime_s": 1.042
   },
   {
     "model": "Stanford Bunny (reconstruction)",
@@ -189,7 +189,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 0.52
+    "runtime_s": 0.568
   },
   {
     "model": "Stanford Armadillo (reconstruction)",
@@ -201,7 +201,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 4.255
+    "runtime_s": 3.999
   },
   {
     "model": "Electrocardiograph Machine (AI-generated)",
@@ -213,7 +213,7 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 29.315
+    "runtime_s": 29.038
   },
   {
     "model": "Realistic Heart (AI-generated)",
@@ -225,6 +225,6 @@
     "reduction_lowered_to_pct": null,
     "refine_iterations": 1,
     "auto_added_vertices": 0,
-    "runtime_s": 0.324
+    "runtime_s": 0.309
   }
 ]

@@ -28,7 +28,7 @@ from remesh_core import (
     save_texture_with_mesh,
     seam_protection_limits_reduction,
     seam_vertex_fraction,
-    should_protect_uv_seams,
+    should_cut_uv_seams,
     transfer_texture_coords,
     uv_seam_point_mask,
 )
@@ -750,7 +750,7 @@ def test_decimate_with_mask_welds_private_vertex_copies():
 
 def test_seam_vertex_fraction_and_policy(uv_seam_mesh, sphere_mesh):
     assert seam_vertex_fraction(sphere_mesh) == 0.0  # no UV
-    assert should_protect_uv_seams(sphere_mesh)
+    assert should_cut_uv_seams(sphere_mesh)
 
     few = seam_vertex_fraction(uv_seam_mesh)
     assert 0.0 < few < 1.0
@@ -761,7 +761,7 @@ def test_seam_vertex_fraction_and_policy(uv_seam_mesh, sphere_mesh):
     shattered = pv.PolyData(points, np.hstack([np.full((len(tri), 1), 3), np.arange(len(points)).reshape(-1, 3)]).astype(np.int64))
     shattered.active_texture_coordinates = np.random.default_rng(0).random((len(points), 2))
     assert seam_vertex_fraction(shattered) > 0.9
-    assert not should_protect_uv_seams(shattered)
+    assert not should_cut_uv_seams(shattered)
 
 
 def test_pipeline_lowers_the_reduction_when_protection_cannot_meet_the_limit():

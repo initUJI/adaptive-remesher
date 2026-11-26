@@ -98,18 +98,18 @@ as duplicated vertices.
   (89.9%). Run: `python -u -m evaluation.experiment_weld_ablation`.
 - **`experiment_error_bounded.py`** — Experiment B's configuration through
   `run_decimation_pipeline` with `lower_reduction_if_needed` on. All 19 meshes
-  end within the 1% threshold (max 0.97%): 14 keep 90%; barrel 60.1%, carrot
-  cake 75.0%, elephant 75.0%, drill 75.0%, bolt cutters 85.1% (refinement
+  end within the 1% threshold (max 0.97%): 14 keep 90%; barrel 63.9%, carrot
+  cake 78.8%, elephant 78.1%, drill 77.5%, bolt cutters 87.0% (refinement
   alone: 5 meshes above the threshold and -0.3%, 41.9%, 12.0% reduction on
   three). MeshLab/fast-simplification on welded input at the same reduction
-  are comparable (0.73-1.26% / 0.75-1.54%). Run:
+  are comparable (0.87-1.26% / 0.76-1.54%). Run:
   `python -u -m evaluation.experiment_error_bounded`.
 - **`experiment_texture_fidelity.py`** — appearance error of textured results
   (13 dataset meshes with UV and a base-colour image; 20,000 area-weighted
   points; colour difference as % of the RGB range, with the source image on the
   result's transferred UV). Median mean error: 1.03% with seams free (90%
-  reduction), 0.35% with seams protected (76% reduction), 0.51% under the
-  automatic policy (81%), 1.06% for MeshLab on the welded input with the same
+  reduction), 0.35% with seams protected (76% reduction), 0.59% under the
+  automatic policy (cut at seams when <15% seam vertices, 87%), 1.06% for MeshLab on the welded input with the same
   transfer (90%). The geometry-only floor is 0.05%, so almost all of it comes
   from the UV transfer. With the faces cut at the seams (`cut_seams=True`): 0.59% at 86.6% (0.35% at 88.7% on the 7 meshes with <15% seam vertices, vs 0.33% at 83.0% protected; on the 6 fragmented atlases no gain, 62.6% reduction vs 75.0%). A re-baked 2048 atlas (`reparametrize` + bake) gave
   10.1% (42% of the points above 10%): worse than the carried-over UV, since the

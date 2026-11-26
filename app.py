@@ -66,7 +66,7 @@ from remesh_core import (
     SEAM_FREEZE_LIMIT,
     seam_protection_limits_reduction,
     seam_vertex_fraction,
-    should_protect_uv_seams,
+    should_cut_uv_seams,
     transfer_texture_coords,
     uv_seam_point_mask,
 )
@@ -840,22 +840,28 @@ class AdaptiveRemesherWindow(QMainWindow):
         self._seam_auto = False
 
     def _apply_seam_policy(self, mesh: pv.PolyData):
-        """While the option is still automatic, sets "Protect UV seams" for the
-        loaded mesh: on unless the seams cover `SEAM_FREEZE_LIMIT` or more of its
-        vertices, where freezing them gives less reduction and worse geometry.
-        Says so in the stats; ticking or unticking it afterwards is respected."""
+        """While the options are still automatic, sets the UV-seam options for
+        the loaded mesh: seams are not frozen, and the faces are cut along them
+        when they cover less than `SEAM_FREEZE_LIMIT` of the vertices (the colour
+        error of protected seams at a higher reduction); on a fragmented atlas
+        neither is used, since both only cost triangles or reduction. Says so in
+        the stats; ticking or unticking either option afterwards is respected."""
         if not self._seam_auto or not mesh_has_texture_coords(mesh):
             return
         fraction = seam_vertex_fraction(mesh)
-        protect = fraction < SEAM_FREEZE_LIMIT
-        self.protect_uv_seams_cb.setChecked(protect)
-        if not protect:
-            self.stats_label.setText(
-                self.stats_label.text()
-                + f"\nUV seams cover {100 * fraction:.0f}% of the vertices, so \"Protect UV "
-                "seams\" was turned off: it would limit the reduction and degrade the geometry. "
-                "Tick it to protect them anyway."
-            )
+        cut = should_cut_uv_seams(mesh)
+        self.protect_uv_seams_cb.setChecked(False)
+        self.cut_seams_cb.setChecked(cut)
+        how = (
+            "the faces that cross a seam are cut along it after decimating"
+            if cut else
+            "neither freezing nor cutting them is used, since a fragmented atlas would lose reduction or gain triangles"
+        )
+        self.stats_label.setText(
+            self.stats_label.text()
+            + f"\nUV seams cover {100 * fraction:.0f}% of the vertices: {how}. "
+            "\"Protect UV seams\" and \"Cut faces at UV seams\" can be ticked to override."
+        )
 
     def _normal_map_for(self, mesh: pv.PolyData) -> np.ndarray | None:
         """The normal map that belongs on `mesh`: the one baked for the
@@ -1499,8 +1505,10 @@ class AdaptiveRemesherWindow(QMainWindow):
 
         decimation = self._gather_decimation_settings()
         protection = self._gather_protection_settings()
-        if self._seam_auto and mesh_has_texture_coords(mesh):
-            protection.protect_uv_seams = should_protect_uv_seams(mesh)  # decided per file
+        cut_seams = self.cut_seams_cb.isChecked()
+        if self._seam_auto and mesh_has_texture_coords(mesh):  # decided per file
+            protection.protect_uv_seams = False
+            cut_seams = should_cut_uv_seams(mesh)
         result = run_decimation_pipeline(mesh, decimation, protection, manual_mask=None)
 
         info = {
@@ -1533,7 +1541,7 @@ class AdaptiveRemesherWindow(QMainWindow):
                 "error_refine_added_points": result.error_refine_added_points,
                 "reduction_lowered_to_pct": result.reduction_lowered_to_pct,
             })
-        return {"mesh": transfer_texture_coords(mesh, result.mesh, cut_seams=self.cut_seams_cb.isChecked()), "info": info}
+        return {"mesh": transfer_texture_coords(mesh, result.mesh, cut_seams=cut_seams), "info": info}
 
     def run_batch(self):
         """Applies the panel's current settings to every compatible mesh

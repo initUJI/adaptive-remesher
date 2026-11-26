@@ -4,6 +4,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed (UV seam policy, finer reduction search)
+- Automatic seam policy: seams are no longer frozen by default. With <15% seam
+  vertices the faces are cut along the seams after decimating (`should_cut_uv_seams`,
+  replaces `should_protect_uv_seams`): the colour error of protected seams (0.35% vs
+  0.33% median) at 88.7% reduction instead of 83.0%; on fragmented atlases neither
+  is used. Both checkboxes override it.
+- `lower_reduction_to_meet_error` bisects 3 times between the first valid step and
+  the failing one above it. The five lowered meshes now keep 63.9% (barrel),
+  78.8% (carrot cake), 78.1% (elephant), 87.0% (bolt cutters), 77.5% (drill) instead
+  of 60.1%, 75.0%, 75.0%, 85.1%, 75.0%; all 19 stay within 1% (max 0.97%).
+
 ### Added (cut faces at UV seams)
 - `split_faces_at_seams` and `transfer_texture_coords(..., cut_seams=True)`; checkbox
   "Cut faces at UV seams" (off by default). Each vertex takes the chart of its

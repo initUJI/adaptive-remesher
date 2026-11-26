@@ -422,3 +422,23 @@ def test_seam_policy_leaves_meshes_without_uv_alone(loaded_window):
     window._apply_seam_policy(window.original_mesh)  # the sphere has no UV
 
     assert window.protect_uv_seams_cb.isChecked() == before
+
+
+def test_seam_policy_cuts_instead_of_freezing_when_seams_are_few(loaded_window):
+    import numpy as np
+
+    window = loaded_window
+    plane = pv.Plane(i_resolution=6, j_resolution=6).triangulate()
+    plane.active_texture_coordinates = np.asarray(plane.points)[:, :2] + 0.5  # UV, no seams
+    window.original_mesh = plane
+    window._refresh_availability()
+
+    window._apply_seam_policy(plane)
+    assert window.cut_seams_cb.isChecked() and not window.protect_uv_seams_cb.isChecked()
+
+    fragmented = _fragmented_uv_mesh()
+    window._apply_seam_policy(fragmented)
+    assert not window.cut_seams_cb.isChecked() and not window.protect_uv_seams_cb.isChecked()
+
+    window.cut_seams_cb.click()  # the user's choice is kept
+    assert window.cut_seams_cb.isChecked() and not window._seam_auto
