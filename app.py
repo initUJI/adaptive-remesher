@@ -150,6 +150,7 @@ class AdaptiveRemesherWindow(QMainWindow):
     protect_uv_seams_cb: QCheckBox
     cut_seams_cb: QCheckBox
     auto_bake_cb: QCheckBox
+    auto_flow_cb: QCheckBox
     new_atlas_cb: QCheckBox
     engine_combo: QComboBox
     reduction_slider: QSlider
@@ -432,6 +433,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.show_mesh(mesh, is_original=True)
         self.update_stats(mesh)
         self._apply_seam_policy(mesh)
+        self._apply_auto_flow(mesh)
 
     def clean_now(self):
         """Re-cleans the current mesh with the configured fragment threshold and resets protection."""
@@ -464,6 +466,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.show_mesh(cleaned, is_original=True)
         self.update_stats(cleaned)
         self._apply_seam_policy(cleaned)
+        self._apply_auto_flow(cleaned)
 
     # --- manual protection (paint/erase) ---
 
@@ -844,6 +847,59 @@ class AdaptiveRemesherWindow(QMainWindow):
         """The user chose; from now on the loaded mesh no longer decides."""
         self._seam_auto = False
 
+    def _auto_flow_widgets(self) -> list:
+        """The controls the automatic flow chooses (and locks while it is on)."""
+        widgets = [
+            self.engine_combo, self.auto_error_cb, self.error_max_iterations_label, self.error_max_iterations_spin,
+            self.lower_reduction_cb, self.protect_uv_seams_cb, self.cut_seams_cb, self.auto_bake_cb,
+            self.bake_size_combo,
+        ]
+        if xatlas_available():
+            widgets.append(self.new_atlas_cb)
+        return widgets
+
+    def _on_auto_flow_toggled(self, checked: bool):
+        if checked and self.original_mesh is not None:
+            self._apply_auto_flow(self.original_mesh)
+        self._refresh_availability()
+
+    def _apply_auto_flow(self, mesh: pv.PolyData):
+        """With the automatic flow on, sets the options for the loaded `mesh` from what the
+        evaluation found best: the QEM engine (it reaches the requested reduction), error
+        validation with the reduction lowered when the limit cannot be met, UV seams cut when
+        they cover few vertices and left alone on a fragmented atlas (never frozen), the
+        normal map baked after decimating when the model has one, and a new texture atlas
+        on export when xatlas is installed and the model is textured. The reduction and the
+        error limit are the user's. Says what it chose in the stats."""
+        if not self.auto_flow_cb.isChecked() or mesh is None:
+            return
+        self.engine_combo.setCurrentIndex(ENGINE_QEM)
+        self.auto_error_cb.setChecked(True)
+        self.error_max_iterations_spin.setValue(3)
+        self.lower_reduction_cb.setChecked(True)
+        has_uv = mesh_has_texture_coords(mesh)
+        has_material = self.maps is not None and self.maps.available() or self.texture is not None
+        chosen = ["QEM engine", "error limit with the reduction lowered when needed"]
+        if has_uv:
+            self._seam_auto = True  # the per-file policy of the batch export follows the flow too
+            self.protect_uv_seams_cb.setChecked(False)
+            self.cut_seams_cb.setChecked(should_cut_uv_seams(mesh))
+            chosen.append(
+                "UV seams cut along after decimating" if self.cut_seams_cb.isChecked()
+                else "UV seams left alone (fragmented atlas)"
+            )
+        has_normal_map = self.maps is not None and self.maps.normal is not None
+        self.auto_bake_cb.setChecked(has_normal_map)
+        if has_normal_map:
+            chosen.append("normal map baked after decimating")
+        self.bake_size_combo.setCurrentText("Auto")
+        wants_atlas = bool(xatlas_available() and has_uv and has_material)
+        self.new_atlas_cb.setChecked(wants_atlas)
+        if wants_atlas:
+            chosen.append("new texture atlas on export")
+        self.stats_label.setText(self.stats_label.text() + "\nAutomatic flow: " + ", ".join(chosen) + ".")
+        self._refresh_availability()
+
     def _apply_seam_policy(self, mesh: pv.PolyData):
         """While the options are still automatic, sets the UV-seam options for
         the loaded mesh: seams are not frozen, and the faces are cut along them
@@ -1084,6 +1140,16 @@ class AdaptiveRemesherWindow(QMainWindow):
         )
         set_available(self.reset_btn, result_reason)
         set_available(self.compare_btn, result_reason)
+        if self.auto_flow_cb.isChecked():
+            for w in self._auto_flow_widgets():
+                set_available(
+                    w,
+                    "Chosen by the automatic flow from the loaded model. "
+                    "Untick \"Automatic flow\" to set it by hand.",
+                )
+        else:  # the controls only the flow manages (the others are re-evaluated above)
+            for w in (self.engine_combo, self.auto_error_cb, self.auto_bake_cb):
+                set_available(w, None)
 
     def _update_curvature_availability(self):
         """Enables the curvature-map checkbox only while the original mesh
@@ -1673,13 +1739,15 @@ class AdaptiveRemesherWindow(QMainWindow):
                 out_name = os.path.splitext(filename)[0] + f".{ext}"
                 out_path = os.path.join(output_dir, out_name)
                 file_maps = load_material_maps(src_path)
+                auto_flow = self.auto_flow_cb.isChecked()
                 if (
-                    self.new_atlas_cb.isChecked() and self.new_atlas_cb.isEnabled()
+                    (self.new_atlas_cb.isChecked() or (auto_flow and xatlas_available()))
+                    and (self.new_atlas_cb.isEnabled() or auto_flow)
                     and file_maps is not None and file_maps.available()
                     and mesh_has_texture_coords(processed["mesh"])
                 ):
                     processed["mesh"], file_maps = new_atlas(processed["source"], processed["mesh"], file_maps)
-                elif self.auto_bake_cb.isChecked() and file_maps is not None and file_maps.normal is not None:
+                elif (self.auto_bake_cb.isChecked() or auto_flow) and file_maps is not None and file_maps.normal is not None:
                     baked, _ = best_normal_map(
                         processed["source"], processed["mesh"], file_maps, self._bake_size(file_maps)
                     )
@@ -1765,6 +1833,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             return data[key] if key in data else current
 
         self.auto_clean_cb.setChecked(get("auto_clean", self.auto_clean_cb.isChecked()))
+        self.auto_flow_cb.setChecked(False)  # a preset is an explicit choice
         self.min_fragment_slider.setValue(get("min_fragment_pct", self.min_fragment_slider.value()))
         self.close_holes_cb.setChecked(get("close_holes", self.close_holes_cb.isChecked()))
         self.max_hole_size_spin.setValue(get("max_hole_size", self.max_hole_size_spin.value()))

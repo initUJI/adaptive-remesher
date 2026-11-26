@@ -9,12 +9,14 @@ import pyvista as pv
 import pytest
 
 from app import AdaptiveRemesherWindow
+from remesh_core import ENGINE_DECIMATE_PRO, ENGINE_QEM
 
 
 @pytest.fixture
 def window(qtbot):
     win = AdaptiveRemesherWindow()
     qtbot.addWidget(win)
+    win.auto_flow_cb.setChecked(False)  # the tests set the options by hand; the flow has its own tests
     return win
 
 
@@ -454,3 +456,34 @@ def test_decimating_bakes_the_normal_map_and_says_which_one_it_kept(loaded_windo
     window.apply_decimation()
 
     assert "Normal map:" in window.stats_label.text()
+
+
+def test_automatic_flow_chooses_the_options_from_the_model_and_locks_them(loaded_window):
+    window = _window_with_textured_model(loaded_window)
+    window.engine_combo.setCurrentIndex(ENGINE_DECIMATE_PRO)  # by hand
+    window.protect_uv_seams_cb.setChecked(True)
+    window.auto_error_cb.setChecked(False)
+
+    window.auto_flow_cb.setChecked(True)
+
+    assert window.engine_combo.currentIndex() == ENGINE_QEM
+    assert window.auto_error_cb.isChecked() and window.lower_reduction_cb.isChecked()
+    assert not window.protect_uv_seams_cb.isChecked()
+    assert window.auto_bake_cb.isChecked()  # the model has a normal map
+    assert "Automatic flow:" in window.stats_label.text()
+    for widget in (window.engine_combo, window.auto_error_cb, window.protect_uv_seams_cb, window.cut_seams_cb, window.auto_bake_cb):
+        assert not widget.isEnabled()
+        assert "automatic flow" in widget.toolTip().lower()
+    assert window.reduction_slider.isEnabled()  # the reduction and the error limit stay the user's
+
+    window.auto_flow_cb.setChecked(False)
+    assert window.engine_combo.isEnabled() and window.auto_error_cb.isEnabled()
+
+
+def test_automatic_flow_leaves_a_model_without_uv_to_the_geometry_options(loaded_window):
+    window = loaded_window  # a sphere: no UV, no maps
+    window.auto_flow_cb.setChecked(True)
+
+    assert window.engine_combo.currentIndex() == ENGINE_QEM and window.auto_error_cb.isChecked()
+    assert not window.auto_bake_cb.isChecked() and not window.new_atlas_cb.isChecked()
+    assert "UV seams" not in window.stats_label.text().split("Automatic flow:")[-1]

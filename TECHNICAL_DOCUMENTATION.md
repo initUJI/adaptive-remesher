@@ -811,6 +811,15 @@ source removes it: 0.40% colour and 2.5 deg shading-normal error (medians, 13 / 
 when exporting (checkbox `new_atlas_cb`, also in batch) and not at every Apply. `bake_material_maps`
 bakes the normal map with all candidates together (`_bake`, shared work) and keeps the best.
 
+**Automatic flow (`_apply_auto_flow`).** One checkbox that applies, per loaded model, the choices the
+evaluation supports: QEM (reaches the requested reduction; DecimatePro stops at a median 68%),
+error validation + `lower_reduction_if_needed`, `should_cut_uv_seams` (cut at <15% seam vertices,
+nothing on a fragmented atlas, no freezing), `best_normal_map` when there is a normal map, bake
+size Auto, new atlas on export if xatlas is available and the model is textured. The widgets it
+decides are locked through `set_available` (`_auto_flow_widgets`); the reduction slider and the
+error limit are not. Runs on load/clean and when the box is ticked; batch export decides the atlas
+and the normal bake per file; loading a preset unticks it.
+
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
 `_apply_rect_selection()` ([app.py:560](app.py:560)) kept its cheap

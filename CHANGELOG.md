@@ -4,6 +4,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (automatic flow)
+- "Automatic flow (choose the options from the model)" (on by default; `_apply_auto_flow`): for
+  each loaded model it sets the QEM engine, error validation with the reduction lowered when
+  needed (3 passes), UV seams cut when they cover <15% of the vertices and left alone on a
+  fragmented atlas (never frozen), the normal map baked after decimating when the model has one,
+  bake size Auto, and a new atlas on export when xatlas is installed and the model is textured.
+  The options it chooses are locked (tooltip says why) until it is unticked; the reduction and the
+  error limit stay the user's. It says what it chose in the stats, applies per file in the batch
+  export, and loading a preset turns it off (a preset is an explicit choice).
+
 ### Added (new atlas on export) / Changed (normal candidates, speed)
 - "New texture atlas when exporting (xatlas)" (on when xatlas is installed): the saved result gets
   a new xatlas layout with every map baked from the source (`materials.new_atlas`), single export

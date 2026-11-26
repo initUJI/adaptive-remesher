@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
 from ui.common import tip
 
@@ -25,6 +25,20 @@ def build_header(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLayout) ->
     ))
     load_btn.clicked.connect(window.load_mesh)
     panel_layout.addWidget(load_btn)
+
+    window.auto_flow_cb = QCheckBox("Automatic flow (choose the options from the model)")
+    window.auto_flow_cb.setChecked(True)
+    window.auto_flow_cb.setToolTip(tip(
+        "Chooses by itself, for each loaded model, the options that gave the "
+        "best results in the evaluation: the quadric engine, error validation "
+        "that lowers the reduction when the limit cannot be met, UV seams cut "
+        "(or left alone on a fragmented texture atlas), the normal map baked "
+        "after decimating, and a new texture atlas when exporting. The options "
+        "it chooses are locked while it is on; your own reduction and error "
+        "limit are kept. Untick it to set everything by hand."
+    ))
+    window.auto_flow_cb.toggled.connect(window._on_auto_flow_toggled)
+    panel_layout.addWidget(window.auto_flow_cb)
 
     undo_redo_row = QHBoxLayout()
     window.undo_btn = QPushButton("Undo")
