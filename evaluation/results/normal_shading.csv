@@ -1,8 +1,8 @@
 model,category,output_tris,bake_size,carried_mean_deg,carried_p95_deg,baked_mean_deg,baked_p95_deg,none_mean_deg,none_p95_deg,application_keeps
 "1993.165 Statuette of a Woman: ""The Stargazer""",Characters,1882,1024,18.68,127.814,6.431,15.937,22.417,130.69,baked
 Statuette of a Woman in Hunting Clothes,Characters,17000,1024,20.575,150.994,7.883,53.27,21.089,151.637,baked
-Barrel 03,Objects,532,1024,8.756,45.983,6.244,30.128,8.86,42.625,baked
-Carrot Cake,Objects,2924,1024,7.326,33.482,9.53,24.387,21.597,52.391,carried
-Carved Wooden Elephant,Objects,602,1024,11.963,34.084,6.33,32.454,14.754,36.98,baked
-Bolt Cutters 01,Mechanical,443,1024,20.746,62.664,18.728,72.527,24.851,60.747,baked
-Drill 01,Mechanical,693,1024,13.475,48.56,15.14,76.074,19.006,61.323,carried
+Barrel 03,Objects,532,2048,8.756,45.983,5.88,29.629,8.86,42.625,baked
+Carrot Cake,Objects,2924,2048,7.326,33.482,5.707,15.781,21.597,52.391,baked
+Carved Wooden Elephant,Objects,602,2048,11.963,34.084,5.998,32.245,14.754,36.98,baked
+Bolt Cutters 01,Mechanical,443,2048,20.746,62.664,17.872,72.722,24.851,60.747,baked
+Drill 01,Mechanical,693,2048,13.475,48.56,14.768,76.909,19.006,61.323,carried

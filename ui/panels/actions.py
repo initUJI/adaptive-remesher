@@ -52,11 +52,12 @@ def build_action_buttons(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLa
     window.bake_btn.clicked.connect(window.bake_normal_map_now)
     bake_row.addWidget(window.bake_btn, 1)
     window.bake_size_combo = QComboBox()
-    window.bake_size_combo.addItems(["512", "1024", "2048", "4096"])
-    window.bake_size_combo.setCurrentText("1024")
+    window.bake_size_combo.addItems(["Auto", "512", "1024", "2048", "4096"])
+    window.bake_size_combo.setCurrentText("Auto")
     window.bake_size_combo.setToolTip(tip(
         "Resolution of the baked normal map in pixels per side. Larger "
-        "maps keep finer detail and take longer to bake."
+        "maps keep finer detail and take longer to bake. Auto uses the "
+        "size of the model's own normal map, up to 2048."
     ))
     bake_row.addWidget(window.bake_size_combo)
     panel_layout.addLayout(bake_row)

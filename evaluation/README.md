@@ -122,9 +122,17 @@ exceeds it, and on 1 (vegetable garden) the reverse.
 - **`experiment_normal_shading.py`** — angle between the world-space shading
   normal of the source and of the result (7 meshes with a normal map, default
   pipeline, 20,000 points). Median mean: 21.1 deg with no normal map, 13.5 with
-  the source map carried over, 7.9 with a map baked at 1024 px, 7.3 with the
-  application's choice (`best_normal_map`: baked kept on 5 meshes, carried on
-  the carrot cake and the drill). Run: `python -u -m evaluation.experiment_normal_shading`.
+  the source map carried over, 6.4 with a map baked at the source map's size (up
+  to 2048 px), 6.4 with the application's choice (`best_normal_map`: baked kept
+  on 6 meshes, carried on the drill). Run: `python -u -m evaluation.experiment_normal_shading`.
+- **`experiment_error_sampling.py`** — the unrefined 90% result measured again
+  with a lattice of 105 points per result face and 28 per source face (meshes of up
+  to 40,000 faces) as an independent reference for the sampled maximum. Result
+  side: the application's 7 points capture a median 98.5% of the reference
+  (78.7-107.6%; drill worst), the centroid alone 68.7% (min 49.2%). Source side
+  (centroids): 85.4-96.9%. Both sides, 9 meshes: 89-101% (median 95.7%); no mesh is
+  below the 1% threshold in the application and above it in the reference. Run:
+  `python -u -m evaluation.experiment_error_sampling`.
 - **`experiment_engine_comparison.py`** — vtkDecimatePro vs. QEM, same
   settings, all 19 models, no protection (isolates the engine choice).
   **Finding, now fixed** (`remesh_core.py`'s `_weld_if_fully_disconnected`,

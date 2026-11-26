@@ -11,8 +11,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   kept only if it shades closer to the source than the source's map carried over.
   Checkbox "Bake the normal map after decimating (keeps the better one)" (on),
   also used by batch export. On the 7 dataset meshes with a normal map the median
-  mean angle is 21.1 deg with no map, 13.5 carried, 7.9 baked, 7.3 with the choice
-  (baked kept on 5, carried on 2). `experiment_normal_shading.py`.
+  mean angle is 21.1 deg with no map, 13.5 carried, 6.4 baked and with the choice
+  (baked kept on 6, carried on the drill). `experiment_normal_shading.py`.
+- The bake size combo has "Auto" (default): the size of the model's own normal map, from
+  512 to 2048 px (`default_bake_size`); a 4096 px source map baked at 1024 lost detail
+  (carrot cake 9.5 deg vs 5.7 at 2048). `experiment_error_sampling.py` checks the error
+  against a lattice reference: the application's 7 points per result face capture a
+  median 98.5% of it (centroid alone 68.7%); on 9 small meshes the application's
+  maximum is 89-101% of the reference, with no mesh crossing the 1% threshold.
 
 ### Changed (dense error sampling) / Added (error of every map)
 - The faces of the result are sampled at 7 points each (`DENSE_SAMPLES`: centroid,

@@ -519,6 +519,15 @@ def shading_normal_error(source: pv.PolyData, result: pv.PolyData, source_normal
     return out
 
 
+def default_bake_size(maps: Optional["MaterialMaps"], cap: int = 2048) -> int:
+    """Pixels per side for a baked map: that of the model's own normal map, from 512
+    to `cap` (a 4096-pixel source map baked at 1024 loses its detail), or 1024
+    without one."""
+    if maps is None or maps.normal is None:
+        return 1024
+    return int(min(cap, max(512, maps.normal.shape[0])))
+
+
 def best_normal_map(high: pv.PolyData, low: pv.PolyData, maps: "MaterialMaps", size: int = 1024):
     """Bakes a normal map for `low` from `high` (and `high`'s own normal map) and
     keeps it only if the shading normals of `low` then differ less from those of

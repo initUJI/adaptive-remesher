@@ -6,8 +6,8 @@ the reduction on), the texture coordinates are transferred back (faces cut at th
 when the automatic policy says so) and `materials.shading_normal_error` measures the
 angle between the shading normal of the source (vertex normals and its normal map) and
 that of the result at 20,000 area-weighted points, for the result carrying: the source's
-normal map on the transferred UV, a normal map baked for it (1024 pixels, the
-application's default), and no normal map. `best_normal_map` is the application's choice
+normal map on the transferred UV, a normal map baked for it (the application's Auto
+size: that of the source map, up to 2048 pixels), and no normal map. `best_normal_map` is the application's choice
 between the first two.
 
 Run: python -u -m evaluation.experiment_normal_shading
@@ -19,11 +19,10 @@ import json
 import os
 
 import remesh_core as rc
-from materials import best_normal_map, load_material_maps, shading_normal_error, bake_normal_map
+from materials import best_normal_map, bake_normal_map, default_bake_size, load_material_maps, shading_normal_error
 from evaluation.dataset_catalog import CATALOG, MODELS_ROOT
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
-SIZE = 1024
 
 
 def main():
@@ -39,7 +38,7 @@ def main():
             rc.ProtectionSettings(protect_uv_seams=False),
         )
         low = rc.transfer_texture_coords(source, res.mesh, cut_seams=rc.should_cut_uv_seams(source))
-        size = min(SIZE, maps.normal.shape[0])
+        size = default_bake_size(maps)  # the application's Auto: the source map's size, up to 2048
         baked = bake_normal_map(source, low, size=size, high_normal_map=maps.normal, high_normal_scale=maps.factors.get("normalScale") or 1.0)
         err = shading_normal_error(source, low, maps.normal, {"carried": maps.normal, "baked": baked, "none": None})
         chosen, info = best_normal_map(source, low, maps, size)

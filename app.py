@@ -75,6 +75,7 @@ from materials import (
     bake_material_maps,
     bake_normal_map,
     best_normal_map,
+    default_bake_size,
     load_material_maps,
     map_to_texture,
     orm_image,
@@ -1373,6 +1374,12 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.update_stats(self.original_mesh)
         self._refresh_protection_overlay()
 
+    def _bake_size(self, maps) -> int:
+        """Pixels per side of a baked map: the combo's value, or for "Auto" the size of
+        the model's own normal map (see `default_bake_size`)."""
+        text = self.bake_size_combo.currentText()
+        return default_bake_size(maps) if text == "Auto" else int(text)
+
     def _auto_normal_map(self) -> str:
         """After a decimation, bakes the normal map of the result and keeps it if
         it shades closer to the original than the original's map carried over
@@ -1388,7 +1395,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         try:
             with busy_cursor():
                 baked, info = best_normal_map(
-                    self.original_mesh, self.decimated_mesh, self.maps, int(self.bake_size_combo.currentText())
+                    self.original_mesh, self.decimated_mesh, self.maps, self._bake_size(self.maps)
                 )
         except Exception as exc:
             return f"\nNormal map not baked: {exc}"
@@ -1407,7 +1414,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         valid and only the normal map is replaced."""
         if self.original_mesh is None or self.decimated_mesh is None:
             return
-        size = int(self.bake_size_combo.currentText())
+        size = self._bake_size(self.maps)
         high_map = self.maps.normal if self.maps is not None else None
         scale = (self.maps.factors.get("normalScale") if self.maps is not None else None) or 1.0
         try:
@@ -1436,7 +1443,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         package."""
         if self.original_mesh is None or self.decimated_mesh is None:
             return
-        size = int(self.bake_size_combo.currentText())
+        size = self._bake_size(self.maps)
         source_maps = dataclasses.replace(self.maps) if self.maps is not None else MaterialMaps()
         if source_maps.base is None and self.texture is not None:
             source_maps.base = np.ascontiguousarray(self.texture.to_array())
@@ -1647,7 +1654,7 @@ class AdaptiveRemesherWindow(QMainWindow):
                 file_maps = load_material_maps(src_path)
                 if self.auto_bake_cb.isChecked() and file_maps is not None and file_maps.normal is not None:
                     baked, _ = best_normal_map(
-                        processed["source"], processed["mesh"], file_maps, int(self.bake_size_combo.currentText())
+                        processed["source"], processed["mesh"], file_maps, self._bake_size(file_maps)
                     )
                     if baked is not None:
                         file_maps.normal = baked
