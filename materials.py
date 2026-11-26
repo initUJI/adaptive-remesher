@@ -372,6 +372,55 @@ def _sample(image: np.ndarray, uv: np.ndarray) -> np.ndarray:
     return top * (1 - fy) + bottom * fy
 
 
+def texture_error(source: pv.PolyData, result: pv.PolyData, image: np.ndarray, n: int = 20000, seed: int = 0) -> dict:
+    """Appearance error of a textured result: `n` points are drawn on the source
+    surface (area-weighted), each is coloured by `image` at its source UV and at
+    the UV of the closest point of `result` (the same image on the result's
+    transferred UV), and the colour difference is reported as a percentage of
+    the full RGB range (L2 norm over sqrt(3)). It captures both the displacement
+    of the geometry and the UV transfer (stretched faces near seams). Returns
+    mean, p95 and max in percent, plus the share of points above 10%."""
+    from remesh_core import _closest_point_barycentric
+
+    s_tri = np.asarray(source.regular_faces)
+    s_pts = np.asarray(source.points, dtype=float)
+    s_uv = np.asarray(source.active_texture_coordinates, dtype=float)
+    a, b, c = (s_pts[s_tri[:, i]] for i in range(3))
+    area = 0.5 * np.linalg.norm(np.cross(b - a, c - a), axis=1)
+    rng = np.random.default_rng(seed)
+    face = rng.choice(len(s_tri), size=n, p=area / area.sum())
+    r1, r2 = np.sqrt(rng.random(n)), rng.random(n)
+    w = np.column_stack([1 - r1, r1 * (1 - r2), r1 * r2])
+    pts = w[:, 0:1] * a[face] + w[:, 1:2] * b[face] + w[:, 2:3] * c[face]
+    uv_src = sum(w[:, i : i + 1] * s_uv[s_tri[face, i]] for i in range(3))
+
+    r_tri = np.asarray(result.regular_faces)
+    r_pts = np.asarray(result.points, dtype=float)
+    r_uv = np.asarray(result.active_texture_coordinates, dtype=float)
+    cell, near = result.find_closest_cell(pts, return_closest_point=True)
+    cell = np.asarray(cell)
+    ra, rb, rc = (r_pts[r_tri[cell, i]] for i in range(3))
+    rw, _ = _closest_point_barycentric(pts, ra, rb, rc)
+    uv_res = sum(rw[:, i : i + 1] * r_uv[r_tri[cell, i]] for i in range(3))
+
+    colour_src = _sample(image, uv_src)
+    scale = 100.0 / (255.0 * np.sqrt(3.0))
+    err = scale * np.linalg.norm(colour_src - _sample(image, uv_res), axis=1)
+
+    # Floor from the geometry alone: the colour the source has where the result's
+    # closest point projects back onto it, which no UV transfer can improve on.
+    back = np.asarray(source.find_closest_cell(np.asarray(near)))
+    fa, fb, fc = (s_pts[s_tri[back, i]] for i in range(3))
+    fw, _ = _closest_point_barycentric(np.asarray(near), fa, fb, fc)
+    uv_back = sum(fw[:, i : i + 1] * s_uv[s_tri[back, i]] for i in range(3))
+    floor = scale * np.linalg.norm(colour_src - _sample(image, uv_back), axis=1)
+    return {
+        "mean": float(err.mean()), "p95": float(np.percentile(err, 95)),
+        "max": float(err.max()), "share_above_10": float((err > 10.0).mean()),
+        "floor_mean": float(floor.mean()), "floor_p95": float(np.percentile(floor, 95)),
+    }
+
+
 def _ray_hits(locator, origins: np.ndarray, directions: np.ndarray, length: float):
     """For each ray (origin, unit direction) the first triangle hit within
     `length`, as (cell ids, hit points, hit mask). Casting from the outside of

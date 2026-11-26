@@ -104,6 +104,18 @@ as duplicated vertices.
   three). MeshLab/fast-simplification on welded input at the same reduction
   are comparable (0.73-1.26% / 0.75-1.54%). Run:
   `python -u -m evaluation.experiment_error_bounded`.
+- **`experiment_texture_fidelity.py`** — appearance error of textured results
+  (13 dataset meshes with UV and a base-colour image; 20,000 area-weighted
+  points; colour difference as % of the RGB range, with the source image on the
+  result's transferred UV). Median mean error: 1.03% with seams free (90%
+  reduction), 0.35% with seams protected (76% reduction), 0.51% under the
+  automatic policy (81%), 1.06% for MeshLab on the welded input with the same
+  transfer (90%). The geometry-only floor is 0.05%, so almost all of it comes
+  from the UV transfer. A re-baked 2048 atlas (`reparametrize` + bake) gave
+  10.1% (42% of the points above 10%): worse than the carried-over UV, since the
+  new atlas has fewer texels per chart than the source's. Splitting the faces
+  that straddle seams (tried, not kept) recovered little (e.g. elephant 1.73 ->
+  1.23% at 8x the triangles). Run: `python -u -m evaluation.experiment_texture_fidelity`.
 - **`experiment_engine_comparison.py`** — vtkDecimatePro vs. QEM, same
   settings, all 19 models, no protection (isolates the engine choice).
   **Finding, now fixed** (`remesh_core.py`'s `_weld_if_fully_disconnected`,

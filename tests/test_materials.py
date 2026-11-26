@@ -254,3 +254,19 @@ def test_map_to_texture_matches_pyvista_file_reader(tmp_path):
     from_file = pv.read_texture(str(tmp_path / "probe.png")).to_array()
 
     np.testing.assert_array_equal(from_array, from_file)
+
+
+def test_texture_error_is_zero_for_the_source_and_positive_for_wrong_uv():
+    from materials import texture_error
+
+    plane = pv.Plane(i_resolution=8, j_resolution=8).triangulate()
+    uv = np.asarray(plane.points)[:, :2] + 0.5
+    plane.active_texture_coordinates = uv
+    image = (np.random.default_rng(0).random((64, 64, 3)) * 255).astype(np.uint8)
+
+    assert texture_error(plane, plane, image, n=500)["mean"] < 1e-6
+
+    shifted = plane.copy()
+    shifted.active_texture_coordinates = uv + 0.25
+    wrong = texture_error(plane, shifted, image, n=500)
+    assert wrong["mean"] > 5.0 and wrong["floor_mean"] < 1e-6

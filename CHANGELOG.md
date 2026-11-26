@@ -4,6 +4,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (texture fidelity)
+- `materials.texture_error`: colours points drawn on the source with its image at
+  the source UV and at the UV of the closest point of the result, and reports the
+  difference (% of the RGB range) plus a floor from the geometry alone.
+  `experiment_texture_fidelity.py` runs it on the 13 textured dataset meshes.
+
 ### Added (error-bounded reduction)
 - `ProtectionSettings.lower_reduction_if_needed` (default on, checkbox "Lower the
   reduction if the limit cannot be met") and `lower_reduction_to_meet_error`:
