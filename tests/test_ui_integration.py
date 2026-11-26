@@ -285,9 +285,10 @@ def test_bake_normal_map_flow(loaded_window):
     assert "Apply a decimation first" in window.bake_btn.toolTip()
 
     window.protect_uv_seams_cb.setChecked(False)
+    window.auto_bake_cb.setChecked(False)
     window.reduction_slider.setValue(80)
     window.apply_decimation()
-    assert window.bake_btn.isEnabled()
+    assert window.bake_btn.isEnabled() and window.baked_normal is None
 
     window.bake_size_combo.setCurrentText("512")
     window.bake_normal_map_now()
@@ -442,3 +443,14 @@ def test_seam_policy_cuts_instead_of_freezing_when_seams_are_few(loaded_window):
 
     window.cut_seams_cb.click()  # the user's choice is kept
     assert window.cut_seams_cb.isChecked() and not window._seam_auto
+
+
+def test_decimating_bakes_the_normal_map_and_says_which_one_it_kept(loaded_window):
+    window = _window_with_textured_model(loaded_window)
+    window.protect_uv_seams_cb.setChecked(False)
+    window.bake_size_combo.setCurrentText("512")
+    assert window.auto_bake_cb.isChecked()
+
+    window.apply_decimation()
+
+    assert "Normal map:" in window.stats_label.text()

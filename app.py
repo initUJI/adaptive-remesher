@@ -74,6 +74,7 @@ from materials import (
     MaterialMaps,
     bake_material_maps,
     bake_normal_map,
+    best_normal_map,
     load_material_maps,
     map_to_texture,
     orm_image,
@@ -146,6 +147,7 @@ class AdaptiveRemesherWindow(QMainWindow):
     protected_count_label: QLabel
     protect_uv_seams_cb: QCheckBox
     cut_seams_cb: QCheckBox
+    auto_bake_cb: QCheckBox
     engine_combo: QComboBox
     reduction_slider: QSlider
     reduction_value_label: QLabel
@@ -1264,6 +1266,7 @@ class AdaptiveRemesherWindow(QMainWindow):
         )
         self.baked_normal = None  # a new result needs its own bake
         self.result_maps = None
+        normal_note = self._auto_normal_map()
         self.show_mesh(self.decimated_mesh, is_original=False)
         # If any protection tool was already active before decimating,
         # disable it: from now on it would work against the decimated
@@ -1324,7 +1327,7 @@ class AdaptiveRemesherWindow(QMainWindow):
             f"Result: {result.result_tris} tris\n"
             f"Actual reduction: {result.reduction_real_pct:.1f}% overall, "
             f"{result.unprotected_zone_reduction_pct:.1f}% in the unprotected zone"
-            f"{note}{error_note}{seam_hint}"
+            f"{note}{error_note}{seam_hint}{normal_note}"
         )
 
         self._last_run_info = {
@@ -1369,6 +1372,32 @@ class AdaptiveRemesherWindow(QMainWindow):
         self.show_mesh(self.original_mesh, is_original=True)
         self.update_stats(self.original_mesh)
         self._refresh_protection_overlay()
+
+    def _auto_normal_map(self) -> str:
+        """After a decimation, bakes the normal map of the result and keeps it if
+        it shades closer to the original than the original's map carried over
+        (see `best_normal_map`). Returns a line for the stats ('' if nothing to do)."""
+        if (
+            not self.auto_bake_cb.isChecked()
+            or self.maps is None
+            or self.maps.normal is None
+            or self.original_mesh is None
+            or self.decimated_mesh is None
+        ):
+            return ""
+        try:
+            with busy_cursor():
+                baked, info = best_normal_map(
+                    self.original_mesh, self.decimated_mesh, self.maps, int(self.bake_size_combo.currentText())
+                )
+        except Exception as exc:
+            return f"\nNormal map not baked: {exc}"
+        self.baked_normal = baked
+        kept = "baked normal map kept" if baked is not None else "original normal map kept"
+        return (
+            f"\nNormal map: {kept} (shading error {info['baked_mean_deg']:.1f}\u00b0 baked, "
+            f"{info['carried_mean_deg']:.1f}\u00b0 carried over)"
+        )
 
     def bake_normal_map_now(self):
         """Bakes a tangent-space normal map for the decimated result from the
@@ -1541,7 +1570,7 @@ class AdaptiveRemesherWindow(QMainWindow):
                 "error_refine_added_points": result.error_refine_added_points,
                 "reduction_lowered_to_pct": result.reduction_lowered_to_pct,
             })
-        return {"mesh": transfer_texture_coords(mesh, result.mesh, cut_seams=cut_seams), "info": info}
+        return {"mesh": transfer_texture_coords(mesh, result.mesh, cut_seams=cut_seams), "info": info, "source": mesh}
 
     def run_batch(self):
         """Applies the panel's current settings to every compatible mesh
@@ -1616,6 +1645,12 @@ class AdaptiveRemesherWindow(QMainWindow):
                 out_name = os.path.splitext(filename)[0] + f".{ext}"
                 out_path = os.path.join(output_dir, out_name)
                 file_maps = load_material_maps(src_path)
+                if self.auto_bake_cb.isChecked() and file_maps is not None and file_maps.normal is not None:
+                    baked, _ = best_normal_map(
+                        processed["source"], processed["mesh"], file_maps, int(self.bake_size_combo.currentText())
+                    )
+                    if baked is not None:
+                        file_maps.normal = baked
                 if ext == "glb":
                     write_glb(out_path, processed["mesh"], file_maps)
                 else:

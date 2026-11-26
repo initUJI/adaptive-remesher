@@ -1,0 +1,93 @@
+[
+  {
+    "model": "1993.165 Statuette of a Woman: \"The Stargazer\"",
+    "category": "Characters",
+    "output_tris": 1882,
+    "bake_size": 1024,
+    "carried_mean_deg": 18.68,
+    "carried_p95_deg": 127.814,
+    "baked_mean_deg": 6.431,
+    "baked_p95_deg": 15.937,
+    "none_mean_deg": 22.417,
+    "none_p95_deg": 130.69,
+    "application_keeps": "baked"
+  },
+  {
+    "model": "Statuette of a Woman in Hunting Clothes",
+    "category": "Characters",
+    "output_tris": 17000,
+    "bake_size": 1024,
+    "carried_mean_deg": 20.575,
+    "carried_p95_deg": 150.994,
+    "baked_mean_deg": 7.883,
+    "baked_p95_deg": 53.27,
+    "none_mean_deg": 21.089,
+    "none_p95_deg": 151.637,
+    "application_keeps": "baked"
+  },
+  {
+    "model": "Barrel 03",
+    "category": "Objects",
+    "output_tris": 532,
+    "bake_size": 1024,
+    "carried_mean_deg": 8.756,
+    "carried_p95_deg": 45.983,
+    "baked_mean_deg": 6.244,
+    "baked_p95_deg": 30.128,
+    "none_mean_deg": 8.86,
+    "none_p95_deg": 42.625,
+    "application_keeps": "baked"
+  },
+  {
+    "model": "Carrot Cake",
+    "category": "Objects",
+    "output_tris": 2924,
+    "bake_size": 1024,
+    "carried_mean_deg": 7.326,
+    "carried_p95_deg": 33.482,
+    "baked_mean_deg": 9.53,
+    "baked_p95_deg": 24.387,
+    "none_mean_deg": 21.597,
+    "none_p95_deg": 52.391,
+    "application_keeps": "carried"
+  },
+  {
+    "model": "Carved Wooden Elephant",
+    "category": "Objects",
+    "output_tris": 602,
+    "bake_size": 1024,
+    "carried_mean_deg": 11.963,
+    "carried_p95_deg": 34.084,
+    "baked_mean_deg": 6.33,
+    "baked_p95_deg": 32.454,
+    "none_mean_deg": 14.754,
+    "none_p95_deg": 36.98,
+    "application_keeps": "baked"
+  },
+  {
+    "model": "Bolt Cutters 01",
+    "category": "Mechanical",
+    "output_tris": 443,
+    "bake_size": 1024,
+    "carried_mean_deg": 20.746,
+    "carried_p95_deg": 62.664,
+    "baked_mean_deg": 18.728,
+    "baked_p95_deg": 72.527,
+    "none_mean_deg": 24.851,
+    "none_p95_deg": 60.747,
+    "application_keeps": "baked"
+  },
+  {
+    "model": "Drill 01",
+    "category": "Mechanical",
+    "output_tris": 693,
+    "bake_size": 1024,
+    "carried_mean_deg": 13.475,
+    "carried_p95_deg": 48.56,
+    "baked_mean_deg": 15.14,
+    "baked_p95_deg": 76.074,
+    "none_mean_deg": 19.006,
+    "none_p95_deg": 61.323,
+    "application_keeps": "carried"
+  }
+]

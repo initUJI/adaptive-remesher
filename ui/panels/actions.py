@@ -61,6 +61,16 @@ def build_action_buttons(window: "AdaptiveRemesherWindow", panel_layout: QVBoxLa
     bake_row.addWidget(window.bake_size_combo)
     panel_layout.addLayout(bake_row)
 
+    window.auto_bake_cb = QCheckBox("Bake the normal map after decimating (keeps the better one)")
+    window.auto_bake_cb.setChecked(True)
+    window.auto_bake_cb.setToolTip(tip(
+        "If the model has a normal map, bakes a new one for the result "
+        "right after decimating and keeps it only when the shading "
+        "normals of the result are then closer to the original's than "
+        "with the original's map carried over. Costs a few seconds."
+    ))
+    panel_layout.addWidget(window.auto_bake_cb)
+
     window.rebake_btn = QPushButton("Re-bake all textures (new atlas)")
     window.rebake_btn.setToolTip(tip(
         "Gives the decimated result a new texture layout (no stretched "

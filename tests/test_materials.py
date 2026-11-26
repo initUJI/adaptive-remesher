@@ -291,3 +291,23 @@ def test_map_errors_covers_every_map_and_is_zero_for_the_source():
     wrong = map_errors(plane, shifted, maps, n=400)
     assert wrong["normal"]["mean"] > 10.0  # degrees
     assert wrong["roughness"]["mean"] > 5.0 and wrong["base"]["floor_mean"] < 1e-6
+
+
+def test_shading_normal_error_is_zero_for_the_source_and_best_normal_map_keeps_a_good_map():
+    from materials import MaterialMaps, best_normal_map, shading_normal_error
+
+    plane = pv.Plane(i_resolution=8, j_resolution=8).triangulate()
+    plane.active_texture_coordinates = np.asarray(plane.points)[:, :2] + 0.5
+    flat = np.zeros((32, 32, 3), np.uint8)
+    flat[...] = (128, 128, 255)  # tangent-space normal (0, 0, 1)
+
+    same = shading_normal_error(plane, plane, flat, {"carried": flat, "none": None}, n=300)
+    assert same["carried"]["mean"] < 1e-3 and same["none"]["mean"] < 0.5  # (128, 128, 255) tilts by 0.3 deg
+
+    maps = MaterialMaps(base=flat, normal=flat)
+    low = pv.Plane(i_resolution=2, j_resolution=2).triangulate()
+    low.active_texture_coordinates = np.asarray(low.points)[:, :2] + 0.5
+    chosen, info = best_normal_map(plane, low, maps, size=64)
+    assert set(info) == {"carried_mean_deg", "baked_mean_deg"}
+    assert info["carried_mean_deg"] < 1.0  # a flat plane: the carried map is already right
+    assert chosen is None or chosen.shape == (64, 64, 3)

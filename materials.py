@@ -462,6 +462,80 @@ def map_errors(source: pv.PolyData, result: pv.PolyData, maps: "MaterialMaps", n
     return out
 
 
+def _shading_normals(mesh: pv.PolyData, vertex_normals: np.ndarray, face: np.ndarray, bary: np.ndarray,
+                     uv: np.ndarray, image: Optional[np.ndarray]) -> np.ndarray:
+    """World-space shading normals at points given by (face, barycentric weights)
+    of `mesh`: the interpolated vertex normal, tilted by the tangent-space normal
+    that `image` stores at `uv` (none: the vertex normal alone), in the frame of
+    the face's tangent and bitangent."""
+    tri = np.asarray(mesh.regular_faces)
+    pts = np.asarray(mesh.points, dtype=float)
+    n = _normalized(np.einsum("sk,skd->sd", bary, vertex_normals[tri[face]]))
+    if image is None:
+        return n
+    tangent, bitangent = _triangle_frames(pts, np.asarray(mesh.active_texture_coordinates, dtype=float), tri)
+    t, b = _frame(n, tangent[face], bitangent[face])
+    v = _sample(image, uv) / 255.0 * 2.0 - 1.0
+    v = v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
+    return _normalized(t * v[:, 0:1] + b * v[:, 1:2] + n * v[:, 2:3])
+
+
+def shading_normal_error(source: pv.PolyData, result: pv.PolyData, source_normal_map: np.ndarray,
+                         result_normal_maps: Dict[str, Optional[np.ndarray]], n: int = 20000, seed: int = 0) -> dict:
+    """Angle in degrees between the shading normal of the source (its vertex
+    normals and its normal map) and that of the result, at `n` area-weighted
+    points of the source and the closest point of the result, for each entry of
+    `result_normal_maps` (the normal map the result would carry: the source's
+    on the transferred UV, a baked one, or None for the vertex normals alone).
+    Unlike `map_errors`, this includes the tangent frame of each surface.
+    Returns {name: {mean, p95}}."""
+    from remesh_core import _closest_point_barycentric
+
+    s_tri = np.asarray(source.regular_faces)
+    s_pts = np.asarray(source.points, dtype=float)
+    s_uv = np.asarray(source.active_texture_coordinates, dtype=float)
+    a, b, c = (s_pts[s_tri[:, i]] for i in range(3))
+    area = 0.5 * np.linalg.norm(np.cross(b - a, c - a), axis=1)
+    rng = np.random.default_rng(seed)
+    face = rng.choice(len(s_tri), size=n, p=area / area.sum())
+    r1, r2 = np.sqrt(rng.random(n)), rng.random(n)
+    w = np.column_stack([1 - r1, r1 * (1 - r2), r1 * r2])
+    pts = w[:, 0:1] * a[face] + w[:, 1:2] * b[face] + w[:, 2:3] * c[face]
+    uv_src = np.einsum("sk,skd->sd", w, s_uv[s_tri[face]])
+    ns = _shading_normals(source, welded_vertex_normals(source), face, w, uv_src, source_normal_map)
+
+    r_tri = np.asarray(result.regular_faces)
+    r_pts = np.asarray(result.points, dtype=float)
+    r_uv = np.asarray(result.active_texture_coordinates, dtype=float)
+    cell = np.asarray(result.find_closest_cell(pts))
+    rw, _ = _closest_point_barycentric(pts, r_pts[r_tri[cell, 0]], r_pts[r_tri[cell, 1]], r_pts[r_tri[cell, 2]])
+    uv_res = np.einsum("sk,skd->sd", rw, r_uv[r_tri[cell]])
+    r_vn = welded_vertex_normals(result)
+    out = {}
+    for name, image in result_normal_maps.items():
+        nr = _shading_normals(result, r_vn, cell, rw, uv_res, image)
+        angle = np.degrees(np.arccos(np.clip(np.einsum("ij,ij->i", ns, nr), -1.0, 1.0)))
+        out[name] = {"mean": float(angle.mean()), "p95": float(np.percentile(angle, 95))}
+    return out
+
+
+def best_normal_map(high: pv.PolyData, low: pv.PolyData, maps: "MaterialMaps", size: int = 1024):
+    """Bakes a normal map for `low` from `high` (and `high`'s own normal map) and
+    keeps it only if the shading normals of `low` then differ less from those of
+    `high` (mean angle at sampled points, `shading_normal_error`) than with
+    `high`'s map carried over on the transferred UV; baking can lose on thin or
+    small parts, and the carried map costs nothing. `low` must share `high`'s
+    atlas. Returns (baked image or None to keep the carried map, info with both
+    mean angles in degrees)."""
+    if maps is None or maps.normal is None:
+        return None, {}
+    scale = maps.factors.get("normalScale") or 1.0
+    baked = bake_normal_map(high, low, size=size, high_normal_map=maps.normal, high_normal_scale=scale)
+    err = shading_normal_error(high, low, maps.normal, {"carried": maps.normal, "baked": baked})
+    info = {"carried_mean_deg": err["carried"]["mean"], "baked_mean_deg": err["baked"]["mean"]}
+    return (baked if err["baked"]["mean"] < err["carried"]["mean"] else None), info
+
+
 def texture_error(source: pv.PolyData, result: pv.PolyData, image: np.ndarray, n: int = 20000, seed: int = 0) -> dict:
     """Appearance error of a textured result: `n` points are drawn on the source
     surface (area-weighted), each is coloured by `image` at its source UV and at

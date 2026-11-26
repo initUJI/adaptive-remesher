@@ -787,6 +787,14 @@ are small. On the 19 evaluation meshes the maximum error rises by 18-37% on 7
 distance evaluation per sample point of the result, a fraction of the pass over the
 source faces.
 
+**Automatic normal map.** The normal map carried over on transferred UV recovers
+only part of the shading (shading-normal angle vs the source: 21.1 deg with none,
+13.5 carried, 7.9 baked, median over the 7 meshes with a normal map). After each
+decimation the application bakes a map (`bake_normal_map`, size from the combo)
+and `best_normal_map` keeps it only if `shading_normal_error` on sampled points is
+lower than for the carried map (baking loses on the carrot cake, whose source map is
+4096 px, and on the drill). Checkbox `auto_bake_cb`; the batch export does the same.
+
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
 `_apply_rect_selection()` ([app.py:560](app.py:560)) kept its cheap

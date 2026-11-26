@@ -119,6 +119,12 @@ exceeds it, and on 1 (vegetable garden) the reverse.
   new atlas has fewer texels per chart than the source's. Splitting the faces
   at their centroid (tried, not kept) recovered little (e.g. elephant 1.73 ->
   1.23% at 8x the triangles). Run: `python -u -m evaluation.experiment_texture_fidelity`.
+- **`experiment_normal_shading.py`** — angle between the world-space shading
+  normal of the source and of the result (7 meshes with a normal map, default
+  pipeline, 20,000 points). Median mean: 21.1 deg with no normal map, 13.5 with
+  the source map carried over, 7.9 with a map baked at 1024 px, 7.3 with the
+  application's choice (`best_normal_map`: baked kept on 5 meshes, carried on
+  the carrot cake and the drill). Run: `python -u -m evaluation.experiment_normal_shading`.
 - **`experiment_engine_comparison.py`** — vtkDecimatePro vs. QEM, same
   settings, all 19 models, no protection (isolates the engine choice).
   **Finding, now fixed** (`remesh_core.py`'s `_weld_if_fully_disconnected`,

@@ -4,6 +4,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (automatic normal map)
+- `materials.shading_normal_error` (angle between the world-space shading normal of
+  the source and of the result, including the tangent frames) and
+  `best_normal_map`: after decimating, a normal map is baked for the result and
+  kept only if it shades closer to the source than the source's map carried over.
+  Checkbox "Bake the normal map after decimating (keeps the better one)" (on),
+  also used by batch export. On the 7 dataset meshes with a normal map the median
+  mean angle is 21.1 deg with no map, 13.5 carried, 7.9 baked, 7.3 with the choice
+  (baked kept on 5, carried on 2). `experiment_normal_shading.py`.
+
 ### Changed (dense error sampling) / Added (error of every map)
 - The faces of the result are sampled at 7 points each (`DENSE_SAMPLES`: centroid,
   edge midpoints, points near the corners; the face takes the worst) in
