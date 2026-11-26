@@ -118,9 +118,15 @@ exceeds it, and on 1 (vegetable garden) the reverse.
   reduction), 0.35% with seams protected (76% reduction), 0.59% under the
   automatic policy (cut at seams when <15% seam vertices, 87%), 1.06% for MeshLab on the welded input with the same
   transfer (90%). The geometry-only floor is 0.05%, so almost all of it comes
-  from the UV transfer. With the faces cut at the seams (`cut_seams=True`): 0.59% at 86.6% (0.35% at 88.7% on the 7 meshes with <15% seam vertices, vs 0.33% at 83.0% protected; on the 6 fragmented atlases no gain, 66.8% reduction vs 78.5%). Other maps (policy config, medians over the meshes that have them): normal 5.0 deg mean (95th pct 24 deg, floor 0.9) on 7 meshes, roughness 2.0%, metallic 0.8%, occlusion 0.8% (1 mesh), emissive 0.3% (2 meshes). A re-baked 2048 atlas (`reparametrize` + bake) gave
-  10.1% (42% of the points above 10%): worse than the carried-over UV, since the
-  new atlas has fewer texels per chart than the source's. Splitting the faces
+  from the UV transfer. With the faces cut at the seams (`cut_seams=True`): 0.59% at 86.6% (0.35% at 88.7% on the 7 meshes with <15% seam vertices, vs 0.33% at 83.0% protected; on the 6 fragmented atlases no gain, 66.8% reduction vs 78.5%). Other maps (policy config, medians over the meshes that have them): normal 5.0 deg mean (95th pct 24 deg, floor 0.9) on 7 meshes, roughness 2.0%, metallic 0.8%, occlusion 0.8% (1 mesh), emissive 0.3% (2 meshes). A new atlas (`reparametrize` + bake, 2048 px) gives
+  0.40% (95th pct 1.39%, 0.2% of the points above 10%) at 89.9%: the lowest error at that
+  reduction, better than the carried UV on 10 of 13 meshes and worse on the drill
+  (3.9% vs 3.3%). On an AI-generated Meshy model (460,224 tris, 2048 px texture, 622
+  charts) the carried UV give 0.34% (0.22% cut at the seams, 85.1%) and the new atlas
+  0.34% at 90.0%; freezing its seams reduces only 57.7% with 1.73% geometry error.
+  (An earlier 10.1% for the new atlas came from baking colour with rays along a 3%
+  cage, which hit other parts of the body; colour maps now use the nearest point,
+  and `map_errors` takes the source maps separately.) Splitting the faces
   at their centroid (tried, not kept) recovered little (e.g. elephant 1.73 ->
   1.23% at 8x the triangles). Run: `python -u -m evaluation.experiment_texture_fidelity`.
 - **`experiment_normal_shading.py`** — angle between the world-space shading

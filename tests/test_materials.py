@@ -311,3 +311,21 @@ def test_shading_normal_error_is_zero_for_the_source_and_best_normal_map_keeps_a
     assert set(info) == {"carried_mean_deg", "baked_mean_deg"}
     assert info["carried_mean_deg"] < 1.0  # a flat plane: the carried map is already right
     assert chosen is None or chosen.shape == (64, 64, 3)
+
+
+def test_map_errors_compares_the_source_image_with_the_result_image():
+    from materials import MaterialMaps, map_errors
+
+    plane = pv.Plane(i_resolution=8, j_resolution=8).triangulate()
+    plane.active_texture_coordinates = np.asarray(plane.points)[:, :2] + 0.5
+    rng = np.random.default_rng(2)
+    source_image = (rng.random((64, 64, 3)) * 255).astype(np.uint8)
+    other_image = (rng.random((64, 64, 3)) * 255).astype(np.uint8)
+    source_maps = MaterialMaps(base=source_image)
+
+    # The same UV and the same image: no error, whether or not the source maps are given.
+    assert map_errors(plane, plane, source_maps, n=300, source_maps=source_maps)["base"]["mean"] < 1e-6
+    # A different image on the same UV (a baked map that is wrong) must show up.
+    assert map_errors(plane, plane, MaterialMaps(base=other_image), n=300, source_maps=source_maps)["base"]["mean"] > 5.0
+    # The floor is geometric only and does not depend on the result's image.
+    assert map_errors(plane, plane, MaterialMaps(base=other_image), n=300, source_maps=source_maps)["base"]["floor_mean"] < 1e-6

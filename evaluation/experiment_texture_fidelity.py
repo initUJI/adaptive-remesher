@@ -29,8 +29,8 @@ from evaluation.experiment_baselines import meshlab_qem
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
 
 
-def _row(display, cat, config, source, result, maps):
-    errors = map_errors(source, result, maps)
+def _row(display, cat, config, source, result, maps, source_maps=None):
+    errors = map_errors(source, result, maps, source_maps=source_maps)
     err = errors["base"]
     f, _, r, _ = rc.measure_bidirectional_error(source, result)
     st = rc.bidirectional_error_summary(f, r)
@@ -76,7 +76,7 @@ def main():
                 low = reparametrize(res.mesh, size=2048)
                 baked = bake_material_maps(source, low, maps, size=2048)
                 low.active_texture_coordinates = low.active_texture_coordinates
-                rows.append(_row(display, cat, "Seams free, re-baked (new atlas)", source, low, baked))
+                rows.append(_row(display, cat, "Seams free, re-baked (new atlas)", source, low, baked, source_maps=maps))
                 rows[-1]["seam_share_pct"] = rows[-2]["seam_share_pct"]
                 rows[-1]["automatic_policy_cuts"] = auto
         welded, _ = rc._weld_coincident(source, np.zeros(source.n_points, bool), keep_uv=False)

@@ -796,6 +796,13 @@ is the size of the model's normal map up to 2048 px, `default_bake_size`) and
 lower than for the carried map (baking loses on the drill; at 1024 px it also lost
 on the carrot cake, whose source map is 4096 px). Checkbox `auto_bake_cb`; the batch export does the same.
 
+**Re-bake of colour maps (`bake_maps`).** Colour, emissive and metallic-roughness texels are
+matched to the source by the nearest point of the source, not by a ray along the cage: with a
+3% cage the ray hit other parts of a T-pose figure and 14% of the surface got the wrong colour
+(10% mean error). Rays are kept for the normal map only. With that, a new xatlas atlas baked
+at 2048 px gives 0.40% median colour error at 89.9% reduction (carried UV: 1.03%; best of the
+configurations measured) but replaces the source's layout and needs xatlas.
+
 ### 5.2. Rectangle selection now does real depth testing — fixed
 
 `_apply_rect_selection()` ([app.py:560](app.py:560)) kept its cheap

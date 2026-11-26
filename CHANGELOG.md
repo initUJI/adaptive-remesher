@@ -4,6 +4,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (re-bake of colour maps)
+- `bake_maps` matched colour texels to the source with rays along a 3% cage, which hit other
+  parts close to the surface (limbs near a torso): 10% mean colour error on the new atlas
+  (40% on a T-pose Meshy model). Colour maps now use the nearest point of the source; rays
+  stay for the normal map. New atlas at 2048 px: 0.40% median on the 13 textured dataset
+  meshes at 89.9% (carried UV 1.03%), 0.34% on the Meshy model.
+- `map_errors(..., source_maps=...)`: compares the source's maps with the result's own
+  (baked) maps; before, a baked map was compared with itself, which also inflated the error.
+
 ### Evaluated (other engine and request)
 - `experiment_error_bounded.py [qem|pro] [reduction]`: with the reduction lowered when needed
   all 19 meshes end within 1% for QEM at 95% (8 lowered, netsuke 28.1%) and DecimatePro at

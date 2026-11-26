@@ -415,50 +415,56 @@ def _summary(err: np.ndarray, floor: np.ndarray) -> dict:
     }
 
 
-def _colour_error(image: np.ndarray, uv_a: np.ndarray, uv_b: np.ndarray) -> np.ndarray:
-    """Colour difference between `image` at two sets of UV, in percent of the
-    full RGB range (L2 norm over sqrt(3))."""
-    diff = _sample(image, uv_a) - _sample(image, uv_b)
+def _colour_error(image: np.ndarray, uv_a: np.ndarray, uv_b: np.ndarray, image_b: Optional[np.ndarray] = None) -> np.ndarray:
+    """Colour difference between `image` at `uv_a` and `image_b` (default: `image`) at
+    `uv_b`, in percent of the full RGB range (L2 norm over sqrt(3))."""
+    diff = _sample(image, uv_a) - _sample(image if image_b is None else image_b, uv_b)
     return 100.0 * np.linalg.norm(diff, axis=1) / (255.0 * np.sqrt(3.0))
 
 
-def _normal_angle(image: np.ndarray, uv_a: np.ndarray, uv_b: np.ndarray) -> np.ndarray:
-    """Angle in degrees between the tangent-space normals that `image` stores
-    at two sets of UV."""
-    def decode(uv):
-        v = _sample(image, uv) / 255.0 * 2.0 - 1.0
+def _normal_angle(image: np.ndarray, uv_a: np.ndarray, uv_b: np.ndarray, image_b: Optional[np.ndarray] = None) -> np.ndarray:
+    """Angle in degrees between the tangent-space normals that `image` stores at
+    `uv_a` and `image_b` (default: `image`) stores at `uv_b`."""
+    def decode(img, uv):
+        v = _sample(img, uv) / 255.0 * 2.0 - 1.0
         return v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
 
-    cos = np.clip(np.einsum("ij,ij->i", decode(uv_a), decode(uv_b)), -1.0, 1.0)
+    cos = np.clip(np.einsum("ij,ij->i", decode(image, uv_a), decode(image if image_b is None else image_b, uv_b)), -1.0, 1.0)
     return np.degrees(np.arccos(cos))
 
 
-def _channel_error(image: np.ndarray, channel: int, uv_a: np.ndarray, uv_b: np.ndarray) -> np.ndarray:
-    """Absolute difference of one channel at two sets of UV, in percent."""
-    return 100.0 * np.abs(_sample(image, uv_a)[:, channel] - _sample(image, uv_b)[:, channel]) / 255.0
+def _channel_error(image: np.ndarray, channel: int, uv_a: np.ndarray, uv_b: np.ndarray, image_b: Optional[np.ndarray] = None) -> np.ndarray:
+    """Absolute difference of one channel of `image` at `uv_a` and of `image_b`
+    (default: `image`) at `uv_b`, in percent."""
+    other = image if image_b is None else image_b
+    return 100.0 * np.abs(_sample(image, uv_a)[:, channel] - _sample(other, uv_b)[:, channel]) / 255.0
 
 
-def map_errors(source: pv.PolyData, result: pv.PolyData, maps: "MaterialMaps", n: int = 20000, seed: int = 0) -> dict:
+def map_errors(source: pv.PolyData, result: pv.PolyData, maps: "MaterialMaps", n: int = 20000, seed: int = 0,
+               source_maps: Optional["MaterialMaps"] = None) -> dict:
     """Appearance error of every map the material has, measured like
-    `texture_error` (same points, the same images on the result's transferred
-    UV): the base colour and the emissive map as a colour difference in percent
-    of the RGB range, the normal map as the angle in degrees between the stored
-    normals, roughness (G of the metallic-roughness map), metallic (B) and
-    occlusion (R) as an absolute difference in percent. Each entry has mean,
-    p95 and the floor from the geometry alone, in the same unit."""
+    `texture_error` (same points): `source_maps` (default: `maps`) at the source UV
+    against `maps` at the UV of the closest point of `result`. Pass the source's own
+    maps as `source_maps` when `maps` are different images (baked for a new atlas).
+    The base colour and the emissive map are a colour difference in percent of the
+    RGB range, the normal map the angle in degrees between the stored normals,
+    roughness (G of the metallic-roughness map), metallic (B) and occlusion (R) an
+    absolute difference in percent. Each entry has mean, p95 and the floor from the
+    geometry alone, in the same unit."""
+    ref = source_maps if source_maps is not None else maps
     uv_src, uv_res, uv_back = _uv_pairs(source, result, n, seed)
     out = {}
-    if maps.base is not None:
-        out["base"] = _summary(_colour_error(maps.base, uv_src, uv_res), _colour_error(maps.base, uv_src, uv_back))
-    if maps.emissive is not None:
-        out["emissive"] = _summary(_colour_error(maps.emissive, uv_src, uv_res), _colour_error(maps.emissive, uv_src, uv_back))
-    if maps.normal is not None:
-        out["normal"] = _summary(_normal_angle(maps.normal, uv_src, uv_res), _normal_angle(maps.normal, uv_src, uv_back))
-    if maps.metal_rough is not None:
-        out["roughness"] = _summary(_channel_error(maps.metal_rough, 1, uv_src, uv_res), _channel_error(maps.metal_rough, 1, uv_src, uv_back))
-        out["metallic"] = _summary(_channel_error(maps.metal_rough, 2, uv_src, uv_res), _channel_error(maps.metal_rough, 2, uv_src, uv_back))
-    if maps.occlusion is not None:
-        out["occlusion"] = _summary(_channel_error(maps.occlusion, 0, uv_src, uv_res), _channel_error(maps.occlusion, 0, uv_src, uv_back))
+    if maps.base is not None and ref.base is not None:
+        out["base"] = _summary(_colour_error(ref.base, uv_src, uv_res, maps.base), _colour_error(ref.base, uv_src, uv_back))
+    if maps.emissive is not None and ref.emissive is not None:
+        out["emissive"] = _summary(_colour_error(ref.emissive, uv_src, uv_res, maps.emissive), _colour_error(ref.emissive, uv_src, uv_back))
+    if maps.normal is not None and ref.normal is not None:
+        out["normal"] = _summary(_normal_angle(ref.normal, uv_src, uv_res, maps.normal), _normal_angle(ref.normal, uv_src, uv_back))
+    if maps.metal_rough is not None and ref.metal_rough is not None:
+        out["roughness"] = _summary(_channel_error(ref.metal_rough, 1, uv_src, uv_res, maps.metal_rough), _channel_error(ref.metal_rough, 1, uv_src, uv_back))
+        out["metallic"] = _summary(_channel_error(ref.metal_rough, 2, uv_src, uv_res, maps.metal_rough), _channel_error(ref.metal_rough, 2, uv_src, uv_back))
+    if maps.occlusion is not None and ref.occlusion is not None:
+        out["occlusion"] = _summary(_channel_error(ref.occlusion, 0, uv_src, uv_res, maps.occlusion), _channel_error(ref.occlusion, 0, uv_src, uv_back))
     return out
 
 
@@ -609,7 +615,8 @@ def bake_maps(
     diagonal above the surface and takes the first triangle of `high` it meets;
     a texel whose ray misses keeps `low`'s own normal (identity) in the normal
     map and the nearest point of `high` for the colour maps.
-    `method="nearest"` matches the nearest point instead (no cage to tune). Empty
+    `method="nearest"` matches the nearest point instead (no cage to tune). The
+    colour maps always use the nearest point. Empty
     texels are filled from the nearest covered one so bilinear filtering does
     not bleed across charts."""
     import vtk
@@ -686,11 +693,11 @@ def bake_maps(
             hit = np.ones(len(p), dtype=bool)
 
         if sources:
-            c_best, c_hb = best, hb
-            if not hit.all():  # colour has no "keep the low-poly value": use the nearest point there
-                c_best, c_hb = best.copy(), hb.copy()
-                miss = ~hit
-                c_best[miss], c_hb[miss] = nearest(p[miss])
+            # A colour map resamples the surface where it is: the nearest point of `high`.
+            # (Rays are for the normal map, which projects detail: along a cage they also
+            # hit other parts close to the surface, such as limbs near a torso, and the
+            # colour would come from there.)
+            c_best, c_hb = (best, hb) if method != "rays" else nearest(p)
             k0, k1, k2 = h_tri[c_best, 0], h_tri[c_best, 1], h_tri[c_best, 2]
             q_uv = c_hb[:, 0:1] * h_uv[k0] + c_hb[:, 1:2] * h_uv[k1] + c_hb[:, 2:3] * h_uv[k2]
             for name, image in sources.items():
